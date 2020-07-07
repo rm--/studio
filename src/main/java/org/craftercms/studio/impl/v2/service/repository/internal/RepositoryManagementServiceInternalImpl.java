@@ -374,6 +374,10 @@ public class RepositoryManagementServiceInternalImpl implements RepositoryManage
                     break;
             }
             pullResult = pullCommand.call();
+            String pullResultMessage = pullResult.toString();
+            if (StringUtils.isNotEmpty(pullResultMessage)) {
+                logger.info(pullResultMessage);
+            }
             Files.delete(tempKey);
             if (!pullResult.isSuccessful() && conflictNotificationEnabled()) {
                 List<String> conflictFiles = new ArrayList<String>();
@@ -423,15 +427,36 @@ public class RepositoryManagementServiceInternalImpl implements RepositoryManage
             Files.delete(tempKey);
 
             boolean toRet = true;
-            List<RemoteRefUpdate.Status> failure = Arrays.asList(REJECTED_NODELETE, REJECTED_NONFASTFORWARD,
-                    REJECTED_REMOTE_CHANGED, REJECTED_OTHER_REASON);
             for (PushResult pushResult : pushResultIterable) {
+                String pushResultMessage = pushResult.getMessages();
+                if (StringUtils.isNotEmpty(pushResultMessage)) {
+                    logger.info(pushResultMessage);
+                }
                 Collection<RemoteRefUpdate> updates = pushResult.getRemoteUpdates();
                 for (RemoteRefUpdate remoteRefUpdate : updates) {
-                    toRet = toRet && !failure.contains(remoteRefUpdate.getStatus());
-                    if (!toRet) break;
+                    switch (remoteRefUpdate.getStatus()) {
+                        case REJECTED_NODELETE:
+                            toRet = false;
+                            logger.error("Remote ref " + remoteRefUpdate.getSrcRef() + " update was rejected, " +
+                                    "because remote side doesn't support/allow deleting refs.\n" +
+                                    remoteRefUpdate.getMessage());
+                        case REJECTED_NONFASTFORWARD:
+                            toRet = false;
+                            logger.error("Remote ref " + remoteRefUpdate.getSrcRef() + " update was rejected, as it " +
+                                    "would cause non fast-forward update.\n" + remoteRefUpdate.getMessage());
+                        case REJECTED_REMOTE_CHANGED:
+                            toRet = false;
+                            logger.error("Remote ref " + remoteRefUpdate.getSrcRef() + " update was rejected, because" +
+                                    " old object id on remote repository " + remoteRefUpdate.getRemoteName() +
+                                    " wasn't the same as defined expected old object. \n" + remoteRefUpdate.getMessage());
+                        case REJECTED_OTHER_REASON:
+                            toRet = false;
+                            logger.error("Remote ref " + remoteRefUpdate.getSrcRef() + " update was rejected for "
+                                    + "other reason.\n" + remoteRefUpdate.getMessage());
+                        default:
+                            break;
+                    }
                 }
-                if (!toRet) break;
             }
             return toRet;
         } catch (InvalidRemoteException e) {
