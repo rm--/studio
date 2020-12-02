@@ -39,6 +39,7 @@ import org.craftercms.studio.api.v1.service.site.SiteService;
 import org.craftercms.studio.api.v1.to.CalculateDependenciesEntityTO;
 import org.craftercms.studio.api.v1.to.ContentItemTO;
 import org.craftercms.studio.api.v1.to.DeleteDependencyConfigTO;
+import org.craftercms.studio.api.v2.annotation.RetryingOperation;
 import org.craftercms.studio.api.v2.utils.StudioConfiguration;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
@@ -112,7 +113,7 @@ public class DependencyServiceImpl implements DependencyService {
                 logger.debug("Committing transaction.");
                 transactionManager.commit(txStatus);
             } catch (Exception e) {
-                logger.debug("Rolling back transaction.");
+                logger.debug("Rolling back transaction.", e);
                 transactionManager.rollback(txStatus);
                 throw new ServiceLayerException("Failed to upsert dependencies for site: " + site + " path: " + path, e);
             }
@@ -155,7 +156,7 @@ public class DependencyServiceImpl implements DependencyService {
             logger.debug("Committing transaction.");
             transactionManager.commit(txStatus);
         } catch (Exception e) {
-            logger.debug("Rolling back transaction.");
+            logger.debug("Rolling back transaction.", e);
             transactionManager.rollback(txStatus);
             throw new ServiceLayerException("Failed to upsert dependencies for site: " + site + " paths: " +
                     sbPaths.toString(), e);
@@ -164,7 +165,8 @@ public class DependencyServiceImpl implements DependencyService {
         return toRet;
     }
 
-    private void deleteAllSourceDependencies(String site, String path) {
+    @RetryingOperation
+    public void deleteAllSourceDependencies(String site, String path) {
         logger.debug("Delete all source dependencies for site: " + site + " path: " + path);
         Map<String, String> params = new HashMap<String, String>();
         params.put(SITE_PARAM, site);
@@ -172,7 +174,8 @@ public class DependencyServiceImpl implements DependencyService {
         dependencyMapper.deleteAllSourceDependencies(params);
     }
 
-    private List<DependencyEntity> createDependencyEntities(String site, String path, Set<String> dependencyPaths,
+    @RetryingOperation
+    public List<DependencyEntity> createDependencyEntities(String site, String path, Set<String> dependencyPaths,
                                                             String dependencyType, Set<String> extractedPaths) {
         logger.debug("Create dependency entity TO for site: " + site + " path: " + path);
         List<DependencyEntity> dependencyEntities = new ArrayList<>();
@@ -194,7 +197,8 @@ public class DependencyServiceImpl implements DependencyService {
         return path.replaceAll("//", "/");
     }
 
-    private void insertDependenciesIntoDatabase(List<DependencyEntity> dependencyEntities) {
+    @RetryingOperation
+    public void insertDependenciesIntoDatabase(List<DependencyEntity> dependencyEntities) {
         logger.debug("Insert list of dependency entities into database");
         if (CollectionUtils.isNotEmpty(dependencyEntities)) {
             Map<String, Object> params = new HashMap<>();
@@ -360,6 +364,7 @@ public class DependencyServiceImpl implements DependencyService {
         return dependencyMapper.getItemsDependingOn(params);
     }
 
+    @RetryingOperation
     @Override
     public Set<String> moveDependencies(String site, String oldPath, String newPath)
             throws SiteNotFoundException, ContentNotFoundException, ServiceLayerException {
@@ -382,6 +387,7 @@ public class DependencyServiceImpl implements DependencyService {
         return getItemDependencies(site, newPath, 1);
     }
 
+    @RetryingOperation
     @Override
     public void deleteItemDependencies(String site, String path)
             throws SiteNotFoundException, ContentNotFoundException, ServiceLayerException {
@@ -396,6 +402,7 @@ public class DependencyServiceImpl implements DependencyService {
         dependencyMapper.deleteDependenciesForSiteAndPath(params);
     }
 
+    @RetryingOperation
     @Override
     public void deleteSiteDependencies(String site) throws ServiceLayerException {
         logger.debug("Delete all dependencies for site: " + site);

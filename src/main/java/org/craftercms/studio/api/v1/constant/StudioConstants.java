@@ -91,6 +91,7 @@ package org.craftercms.studio.api.v1.constant;
 	String BOOTSTRAP_REPO_GLOBAL_PATH = "global";		// Path to the global repository inside the bootstrap repo
     String CONFIG_SITENAME_VARIABLE = "\\{siteName\\}";
     String CONFIG_SITEENV_VARIABLE = "\\{siteEnv\\}";
+    String IN_PROGRESS_BRANCH_NAME_SUFFIX = "_in_progress";
 
     /**
      * Site Constants
@@ -202,4 +203,12 @@ package org.craftercms.studio.api.v1.constant;
     String MODULE_ENGINE = "engine";
 
     String DEFAULT_CONFIG_URL = "http://localhost:8080";
+
+    String DEFAULT_PUBLISHING_LOCK_OWNER_ID = "STANDALONE STUDIO";
+
+    // General Lock Service
+    String GLOBAL_REPOSITORY_GIT_LOCK = "GLOBAL_REPOSITORY_GIT_LOCK";
+    String SITE_SANDBOX_REPOSITORY_GIT_LOCK = "{site}_SANDBOX_REPOSITORY_GIT_LOCK";
+    String SITE_PUBLISHED_REPOSITORY_GIT_LOCK = "{site}_PUBLISHED_REPOSITORY_GIT_LOCK";
+    String STUDIO_CLOCK_EXECUTOR_SITE_LOCK = "{site}_STUDIO_CLOCK_EXECUTOR_SITE_LOCK";
 }

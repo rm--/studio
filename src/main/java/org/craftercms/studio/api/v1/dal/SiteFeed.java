@@ -16,7 +16,13 @@
 
 package org.craftercms.studio.api.v1.dal;
 
+import java.time.ZonedDateTime;
+
 public class SiteFeed {
+
+    public static final String STATE_CREATING = "CREATING";
+    public static final String STATE_CREATED = "CREATED";
+    public static final String STATE_DELETED = "DELETED";
 
     protected long id;
     protected String siteUuid;
@@ -32,6 +38,10 @@ public class SiteFeed {
     protected String lastVerifiedGitlogCommitId;
     protected String sandboxBranch;
     protected String searchEngine;
+    protected int publishedRepoCreated;
+    protected String publishingLockOwner;
+    protected ZonedDateTime publishingLockHeartbeat;
+    protected String state;
 
     public long getId() {
         return id;
@@ -148,5 +158,41 @@ public class SiteFeed {
 
     public boolean isSiteDeleted() {
         return deleted != 0;
+    }
+
+    public int getPublishedRepoCreated() {
+        return publishedRepoCreated;
+    }
+
+    public void setPublishedRepoCreated(int publishedRepoCreated) {
+        this.publishedRepoCreated = publishedRepoCreated;
+    }
+
+    public boolean isSitePublishedRepoCreated() {
+        return publishedRepoCreated > 0;
+    }
+
+    public String getPublishingLockOwner() {
+        return publishingLockOwner;
+    }
+
+    public void setPublishingLockOwner(String publishingLockOwner) {
+        this.publishingLockOwner = publishingLockOwner;
+    }
+
+    public ZonedDateTime getPublishingLockHeartbeat() {
+        return publishingLockHeartbeat;
+    }
+
+    public void setPublishingLockHeartbeat(ZonedDateTime publishingLockHeartbeat) {
+        this.publishingLockHeartbeat = publishingLockHeartbeat;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String state) {
+        this.state = state;
     }
 }

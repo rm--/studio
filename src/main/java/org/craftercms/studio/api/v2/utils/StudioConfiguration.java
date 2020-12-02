@@ -82,6 +82,8 @@ public interface StudioConfiguration {
     String DB_DATA_PATH = "studio.db.dataPath";
     String DB_PORT = "studio.db.port";
     String DB_SOCKET = "studio.db.socket";
+    String DB_RETRYING_OPERATION_MAX_ATTEMPTS = "studio.db.retryingOperation.maxAttempts";
+    String DB_RETRYING_OPERATION_MAX_SLEEP = "studio.db.retryingOperation.maxSleep";
 
 
     /** Configuration */
@@ -270,22 +272,14 @@ public interface StudioConfiguration {
     String AUTHENTICATION_CHAIN_PROVIDER_LOGOUT_URL = "logoutUrl";
 
     /** Publishing Thread Pool **/
-    String PUBLISHING_THREAD_POOL_NAME_PREFIX = "studio.publishing.threadPool.namePrefix";
-    String PUBLISHING_THREAD_POOL_CORE_POOL_SIZE = "studio.publishing.threadPool.corePoolSize";
-    String PUBLISHING_THREAD_POOL_MAX_POOL_SIZE = "studio.publishing.threadPool.maxPoolSize";
+    String PUBLISHING_SITE_LOCK_TTL = "studio.publishing.siteLock.ttl";
 
     /** Clustering **/
     String CLUSTERING_SYNC_URL_FORMAT = "studio.clustering.sync.urlFormat";
 
     /** Clustering Thread Pool **/
-    String CLUSTERING_SANDBOX_SYNC_JOB_INTERVAL = "studio.clustering.sandboxSyncJob.interval";
-    String CLUSTERING_PUBLISHED_SYNC_JOB_INTERVAL = "studio.clustering.publishedSyncJob.interval";
-    String CLUSTERING_GLOBAL_REPO_SYNC_JOB_INTERVAL = "studio.clustering.globalRepoSyncJob.interval";
     String CLUSTERING_HEARTBEAT_JOB_INTERVAL = "studio.clustering.heartbeatJob.interval";
     String CLUSTERING_INACTIVITY_CHECK_JOB_INTERVAL = "studio.clustering.inactivityCheckJob.interval";
-    String CLUSTERING_THREAD_POOL_NAME_PREFIX = "studio.clustering.threadPool.namePrefix";
-    String CLUSTERING_THREAD_POOL_CORE_POOL_SIZE = "studio.clustering.threadPool.corePoolSize";
-    String CLUSTERING_THREAD_POOL_MAX_POOL_SIZE = "studio.clustering.threadPool.maxPoolSize";
     String CLUSTERING_HEARTBEAT_STALE_TIME_LIMIT = "studio.clustering.heartbeatStale.timeLimit";
     String CLUSTERING_INACTIVITY_TIME_LIMIT = "studio.clustering.inactivity.timeLimit";
 
@@ -314,16 +308,36 @@ public interface StudioConfiguration {
 
     /** Serverless Delivery Configuration **/
     String SERVERLESS_DELIVERY_ENABLED = "studio.serverless.delivery.enabled";
-    String SERVERLESS_DELIVERY_LOCAL_DEPLOYER = "studio.serverless.delivery.deployer.local";
     String SERVERLESS_DELIVERY_DEPLOYER_TARGET_CREATE_URL = "studio.serverless.delivery.deployer.target.createUrl";
     String SERVERLESS_DELIVERY_DEPLOYER_TARGET_DELETE_URL = "studio.serverless.delivery.deployer.target.deleteUrl";
     String SERVERLESS_DELIVERY_DEPLOYER_TARGET_TEMPLATE = "studio.serverless.delivery.deployer.target.template";
     String SERVERLESS_DELIVERY_DEPLOYER_TARGET_REPLACE = "studio.serverless.delivery.deployer.target.replace";
-    String SERVERLESS_DELIVERY_DEPLOYER_TARGET_REPO_URL = "studio.serverless.delivery.deployer.target.repoUrl";
+    String SERVERLESS_DELIVERY_DEPLOYER_TARGET_REMOTE_REPO_URL = "studio.serverless.delivery.deployer.target.remoteRepoUrl";
+    String SERVERLESS_DELIVERY_DEPLOYER_TARGET_LOCAL_REPO_PATH = "studio.serverless.delivery.deployer.target.localRepoPath";
     String SERVERLESS_DELIVERY_DEPLOYER_TARGET_TEMPLATE_PARAMS = "studio.serverless.delivery.deployer.target.template.params";
 
     /** Cache Configuration  **/
     String CACHE_TEMPLATES = "studio.cache.templates";
+
+    /** Studio Clock Tasks **/
+    String CLOCK_JOB_FREQUENCY = "studio.clockJob.frequency";
+    String CLOCK_JOB_TASK_EXECUTOR_CORE_POOL_SIZE = "studio.clockJob.taskExecutor.corePoolSize";
+    String CLOCK_JOB_TASK_EXECUTOR_MAX_POOL_SIZE = "studio.clockJob.taskExecutor.maxPoolSize";
+    String CLOCK_JOB_TASK_EXECUTOR_QUEUE_CAPACITY = "studio.clockJob.taskExecutor.queueCapacity";
+    String CLOCK_JOB_TASK_CLUSTER_RANDOM_OFFSET =
+            "studio.clockJob.task.cluster.randomOffset";
+    String CLOCK_JOB_TASK_CLUSTER_GLOBAL_REPO_SYNC_EXECUTE_EVERY_N_CYCLES =
+            "studio.clockJob.task.cluster.globalRepoSync.executeEveryNCycles";
+    String CLOCK_JOB_TASK_CLUSTER_SITE_SANDBOX_REPO_SYNC_EXECUTE_EVERY_N_CYCLES =
+            "studio.clockJob.task.cluster.siteSandboxRepoSync.executeEveryNCycles";
+    String CLOCK_JOB_TASK_CLUSTER_SITE_PUBLISHED_REPO_SYNC_EXECUTE_EVERY_N_CYCLES =
+            "studio.clockJob.task.cluster.sitePublishedRepoSync.executeEveryNCycles";
+    String CLOCK_JOB_TASK_SYNC_REPOSITORY_EXECUTE_EVERY_N_CYCLES =
+            "studio.clockJob.task.syncRepository.executeEveryNCycles";
+    String CLOCK_JOB_TASK_PUBLISHER_EXECUTE_EVERY_N_CYCLES =
+            "studio.clockJob.task.publisher.executeEveryNCycles";
+    String CLOCK_JOB_TASK_PUBLISHER_MAX_RETRY_COUNT =
+            "studio.clockJob.task.publisher.maxRetryCount";
 
     void loadConfig();
 
@@ -332,6 +346,8 @@ public interface StudioConfiguration {
     <T> T getProperty(String key, Class<T> clazz);
 
     <T> T getProperty(String key, Class<T> clazz, T defaultVal);
+
+    <T> T[] getArray(String key, Class<T> clazz);
 
     HierarchicalConfiguration<ImmutableNode> getSubConfig(String key);
 

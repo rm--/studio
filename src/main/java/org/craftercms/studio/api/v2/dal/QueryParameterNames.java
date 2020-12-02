@@ -28,6 +28,8 @@ public abstract class QueryParameterNames {
     public static final String SORT = "sort";
 
     public static final String ORDER = "order";
+    // commit id
+    public static final String COMMIT_ID = "commitId";
 
     /* Organizations */
 
@@ -38,6 +40,12 @@ public abstract class QueryParameterNames {
     public static final String SITE_ID = "siteId";
 
     public static final String SITE = "site";
+
+    public static final String LOCK_OWNER_ID = "lockOwnerId";
+
+    public static final String TTL = "ttl";
+
+    public static final String STATE = "state";
 
     /* Groups */
 
@@ -78,6 +86,8 @@ public abstract class QueryParameterNames {
     public static final String EMAIL = "email";
     // Active
     public static final String ENABLED = "enabled";
+    // First name and Last name
+    public static final String GIT_NAME = "gitName";
 
     /* Cluster */
     // Local address
@@ -92,6 +102,14 @@ public abstract class QueryParameterNames {
     public static final String CLUSTER_INACTIVE_STATE = "inactiveState";
     // Stale heartbeat limit
     public static final String CLUSTER_HEARTBEAT_STALE_LIMIT = "heartbeatStaleLimit";
+    // cluster id
+    public static final String CLUSTER_ID = "clusterId";
+    // remote repository id
+    public static final String REMOTE_REPOSITORY_ID = "remoteRepositoryId";
+    // node last commit id
+    public static final String NODE_LAST_COMMIT_ID = "nodeLastCommitId";
+    // cluster id
+    public static final String NODE_LAST_VERIFIED_GITLOG_COMMIT_ID = "nodeLastVerifiedGitlogCommitId";
 
     /* Publish request */
     // Environment

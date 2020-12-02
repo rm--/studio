@@ -16,8 +16,17 @@
 
 package org.craftercms.studio.api.v1.dal;
 
+import org.apache.ibatis.annotations.Param;
+import org.springframework.security.access.method.P;
+
 import java.util.List;
 import java.util.Map;
+
+import static org.craftercms.studio.api.v2.dal.QueryParameterNames.CLUSTER_LOCAL_ADDRESS;
+import static org.craftercms.studio.api.v2.dal.QueryParameterNames.LOCK_OWNER_ID;
+import static org.craftercms.studio.api.v2.dal.QueryParameterNames.SITE_ID;
+import static org.craftercms.studio.api.v2.dal.QueryParameterNames.STATE;
+import static org.craftercms.studio.api.v2.dal.QueryParameterNames.TTL;
 
 public interface SiteFeedMapper {
 
@@ -32,8 +41,6 @@ public interface SiteFeedMapper {
     boolean deleteSite(String siteId);
 
     void updateLastCommitId(Map params);
-
-    String getLastCommitId(Map params);
 
     Integer exists(String siteId);
 
@@ -54,4 +61,60 @@ public interface SiteFeedMapper {
     void updateLastVerifiedGitlogCommitId(Map params);
 
     List<SiteFeed> getDeletedSites();
+
+    /**
+     * Set published repo created flag
+     * @param siteId site identifier
+     */
+    void setPublishedRepoCreated(@Param(SITE_ID) String siteId);
+
+    /**
+     * Lock publisher task for site
+     * @param siteId site identifier
+     * @param lockOwnerId lock owner identifier
+     * @param ttl TTL for lock
+     * @return 1 if publishing was locked, otherwise 0
+     */
+    int tryLockPublishingForSite(@Param(SITE_ID) String siteId, @Param(LOCK_OWNER_ID) String lockOwnerId,
+                                 @Param(TTL) int ttl);
+
+    /**
+     * unlock publisher task for site
+     * @param siteId site identifier
+     * @param lockOwnerId lock owner identifier
+     */
+    void unlockPublishingForSite(@Param(SITE_ID) String siteId, @Param(LOCK_OWNER_ID) String lockOwnerId);
+
+    /**
+     * update publishing lock heartbeat for site
+     * @param siteId site identifier
+     */
+    void updatePublishingLockHeartbeatForSite(@Param(SITE_ID) String siteId);
+
+    /**
+     * Get last commit id for local studio node
+     * @param siteId site identifier
+     * @param localAddress local address
+     * @return commit id
+     */
+    String getLastCommitId(@Param(SITE_ID) String siteId, @Param(CLUSTER_LOCAL_ADDRESS) String localAddress);
+
+    /**
+     * Get last verified  git log commit id for local studio node
+     * @param siteId site identifier
+     * @param localAddress local address
+     * @return commit id
+     */
+    String getLastVerifiedGitlogCommitId(@Param(SITE_ID) String siteId,
+                                         @Param(CLUSTER_LOCAL_ADDRESS) String localAddress);
+
+    void setSiteState(@Param(SITE_ID) String siteId, @Param(STATE) String state);
+
+    List<String> getAllCreatedSites(@Param(STATE) String state);
+
+    String getSiteState(@Param(SITE_ID) String siteId,
+                        @Param(CLUSTER_LOCAL_ADDRESS) String localAddress);
+
+    int getPublishedRepoCreated(@Param(SITE_ID) String siteId,
+                                @Param(CLUSTER_LOCAL_ADDRESS) String localAddress);
 }

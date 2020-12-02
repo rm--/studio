@@ -86,6 +86,9 @@ studio.blob.config.path: blob-stores-config.xml
 studio.blob.file.extension: blob
 # Target to use for all operations
 studio.blob.publishingTarget: preview
+# The patterns of urls that should be handled by blob stores
+studio.blob.intercepted.paths:
+  - /static-assets/.*
 
 ############################################################
 ##                   Site Configuration                   ##
@@ -224,7 +227,7 @@ studio.security.ignoreRenewTokenUrls: /api/1/services/api/1/security/validate-se
 studio.security.publicUrls: >
   /api/1/services/api/1/server/get-available-languages.json,/api/1/services/api/1/server/get-ui-resource-override.json,
   /api/2/monitoring/.+,/api/2/users/forgot_password,/api/2/users/set_password,/api/1/services/api/1/security/validate-session.json,
-  /static-assets/.+,/api/2/users/validate_token
+  /static-assets/.+,/api/2/users/validate_token,/api/1/services/api/1/security/login.json,/api/2/users/forgot_password.*
 # Defines security provider for accessing repository. Possible values:
 # db (users are stored in database)
 # ldap (users are imported from LDAP into the database)
@@ -326,6 +329,8 @@ studio.security.encryption.salt: default_encryption_salt
 studio.security.encryption.delay: 1
 # Amount of characters to limit the encryption input
 studio.security.encryption.maxLength: 4096
+# If the secure headers should be written for every request
+studio.security.headers.enabled: true
 
 ###############################################################
 ##               Page Navigation Order Service               ##
@@ -452,7 +457,7 @@ studio.db.schema: crafter
 # Format:
 # jdbc:DATABASE_PLATFORM;databaseName=DATABASE_NAME;create=true;user=DATABASE_USERNAME;password=DATABASE_USER_PASSWORD
 # Note that a relative path is not suitable for a production deployment
-studio.db.url: jdbc:mariadb://127.0.0.1:33306/crafter?user=crafter&password=crafter
+studio.db.url: jdbc:mariadb://127.0.0.1:33306/crafter?user=crafter&password=crafter&socketTimeout=60000
 # Defines initial number of database connections in database connection pool
 studio.db.pool.initialConnections: 10
 # Defines maximum number of active database connections in database connection pool
@@ -497,6 +502,10 @@ studio.db.dataPath: ${env:CRAFTER_DATA_DIR}/db
 studio.db.port: 33306
 # Socket path for the embedded database
 studio.db.socket: /tmp/MariaDB4j.33306.sock
+# Max number of retries for retrying operation
+studio.db.retryingOperation.maxAttempts: 50
+# Max sleep time in milliseconds between retries
+studio.db.retryingOperation.maxSleep: 1000
 
 ##########################################################
 ##                   Asset Processing                   ##
@@ -545,12 +554,8 @@ studio.upgrade.template.formDefinition: config/studio/content-types{name}/form-d
 ################################################################
 ##                   Publishing Thread Pool                   ##
 ################################################################
-# Thread name prefix
-studio.publishing.threadPool.namePrefix: Studio_Publisher_Thread_Pool
-# Thread pool size
-studio.publishing.threadPool.corePoolSize: 10
-# Thread pool max size
-studio.publishing.threadPool.maxPoolSize: 20
+# Publishing lock TTL in minutes
+studio.publishing.siteLock.ttl: 180
 
 ##################################################
 ##                 Clustering                   ##
@@ -563,22 +568,10 @@ studio.clustering.sync.urlFormat: ssh://{username}@{localAddress}{absolutePath}
 ################################################################
 ##                   Clustering Thread Pool                   ##
 ################################################################
-# Sandbox Sync Job interval in milliseconds which is how often to sync the work-area
-studio.clustering.sandboxSyncJob.interval: 5000
-# Published Sync Job interval in milliseconds which is how often to sync the published repos
-studio.clustering.publishedSyncJob.interval: 60000
-# Global Repo Sync Job interval in milliseconds which is how often to sync the global repo
-studio.clustering.globalRepoSyncJob.interval: 45000
 # Heartbeat Job interval in milliseconds which is how often to update cluster member's heartbeat in DB
 studio.clustering.heartbeatJob.interval: 10000
 # Inactivity Check Job interval in milliseconds which is how often to to check for inactive cluster members
 studio.clustering.inactivityCheckJob.interval: 30000
-# Thread name prefix
-studio.clustering.threadPool.namePrefix: Studio_Clustering_Thread_Pool
-# Thread pool size
-studio.clustering.threadPool.corePoolSize: 10
-# Thread pool max size
-studio.clustering.threadPool.maxPoolSize: 20
 # Cluster member after heartbeat stale for amount of minutes will be declared inactive
 studio.clustering.heartbeatStale.timeLimit: 5
 # Cluster member after being inactive for amount of minutes will be removed from cluster
@@ -780,8 +773,6 @@ studio.webdav.url.pattern: /remote-assets/webdav/%s/%s/%s
 ##########################################################
 # Indicates if serverless delivery is enabled
 studio.serverless.delivery.enabled: false
-# Indicates if the local (preview) Deployer is going to be used for serverless deployments
-studio.serverless.delivery.deployer.local: true
 # The URL for the serverless delivery deployer create URL
 studio.serverless.delivery.deployer.target.createUrl: ${studio.preview.createTargetUrl}
 # The URL for the serverless delivery deployer delete URL
@@ -790,10 +781,12 @@ studio.serverless.delivery.deployer.target.deleteUrl: ${studio.preview.deleteTar
 studio.serverless.delivery.deployer.target.template: aws-cloudformed-s3
 # Replace existing target configuration if one exists?
 studio.serverless.delivery.deployer.target.replace: false
-# The URL of the site repo that will be deployed. If using the local deployer, this should be the local path to the
-# published repo. If using a a Deployer in a separate node (because of clustering), this should be a load balanced
-# SSH/HTTP URL to the published repo
-studio.serverless.delivery.deployer.target.repoUrl: ${env:CRAFTER_DATA_DIR}/repos/sites/{siteName}/published
+# The URL the deployer will use to clone/pull the site's published repo. When the deployer is in a separate node
+# (because of clustering), this URL should be an SSH/HTTP URL to the load balancer in front of the Studios
+studio.serverless.delivery.deployer.target.remoteRepoUrl: ${env:CRAFTER_DATA_DIR}/repos/sites/{siteName}/published
+# The deployer's local path where it will store the clone of the published site. This property is not needed if
+# the deployer is not the preview deployer, so you can leave an empty string ('') instead
+studio.serverless.delivery.deployer.target.localRepoPath: ${env:CRAFTER_DATA_DIR}/repos/aws/{siteName}
 # Parameters for the target template. Please check the deployer template documentation for the possible parameters.
 # The following parameters will be sent automatically, and you don't need to specify them: env, site_name, replace,
 # disable_deploy_cron, local_repo_path, repo_url, use_crafter_search
@@ -815,3 +808,36 @@ studio.marketplace.search.pending: false
 ##################################################
 # If Studio should cache its FreeMarker templates
 studio.cache.templates: true
+
+##################################################
+##             Forwarded Headers                ##
+##################################################
+# Indicates if Forwarded or X-Forwarded headers should be used when resolving the client-originated protocol and
+# address. Enable when Studio is behind a reverse proxy or load balancer that sends these
+studio.forwarded.headers.enabled: false
+
+##################################################
+##             Studio Clock Tasks               ##
+##################################################
+# Studio Clock job ticking frequency
+studio.clockJob.frequency: 1000
+# Random offset to time shift cluster members in milliseconds
+studio.clockJob.task.cluster.randomOffset: 500
+# Studio Clock Job thread pool core size
+studio.clockJob.taskExecutor.corePoolSize: 50
+# Studio Clock Job thread pool maximum size
+studio.clockJob.taskExecutor.maxPoolSize: 500
+# Studio Clock Job thread pool queue capacity
+studio.clockJob.taskExecutor.queueCapacity: 2000
+# Cluster Global Repo sync execute every N cycles
+studio.clockJob.task.cluster.globalRepoSync.executeEveryNCycles: 60
+# Cluster Site Sandbox sync execute every N cycles
+studio.clockJob.task.cluster.siteSandboxRepoSync.executeEveryNCycles: 10
+# Cluster Site Published sync execute every N cycles
+studio.clockJob.task.cluster.sitePublishedRepoSync.executeEveryNCycles: 20
+# Sync repository execute every N cycles
+studio.clockJob.task.syncRepository.executeEveryNCycles: 5
+# Publisher execute every N cycles
+studio.clockJob.task.publisher.executeEveryNCycles: 10
+# Publisher max retry count in case if content not found
+studio.clockJob.task.publisher.maxRetryCount: 5
