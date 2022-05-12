@@ -34,7 +34,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -129,17 +128,7 @@ public class BlobAwareContentRepositoryTest {
         when(store.isFolder(SITE, ORIGINAL_PATH)).thenReturn(false);
         when(store.isFolder(SITE,LOCAL_FOLDER_PATH)).thenReturn(true);
 
-        when(store.copyContent(SITE, FOLDER_PATH, NEW_FOLDER_PATH)).thenReturn("something");
-
         proxy.setFileExtension(BLOB_EXT);
-        proxy.setInterceptedPaths(new String[]{ "/static-assets/.*" });
-    }
-
-    @Test
-    public void configShouldNotBeIntercepted() throws ConfigurationException, IOException, ServiceLayerException {
-        proxy.contentExists(SITE, "/config/studio/site-config.xml");
-
-        verify(resolver, never()).getByPaths(any(), any());
     }
 
     @Test

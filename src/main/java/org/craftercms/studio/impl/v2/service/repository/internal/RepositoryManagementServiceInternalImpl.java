@@ -543,45 +543,6 @@ public class RepositoryManagementServiceInternalImpl implements RepositoryManage
         return toRet;
     }
 
-    private List<String> extractCommitIdsFromPullResult(String siteId, Repository repo, PullResult pullResult) {
-        List<String> commitIds = new ArrayList<String>();
-        ObjectId[] mergedCommits = pullResult.getMergeResult().getMergedCommits();
-        for (int i = 0; i < mergedCommits.length; i++) {
-            try {
-                RevCommit revCommit = repo.parseCommit(mergedCommits[i]);
-                commitIds.addAll(processCommitId(siteId, revCommit));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        return commitIds;
-    }
-
-    private Set<String> processCommitId(String siteId, RevCommit revCommit) {
-        Set<String> toRet = new HashSet<String>();
-        Queue<RevCommit> commitIdsQueue = new LinkedList<RevCommit>();
-        commitIdsQueue.offer(revCommit);
-        while (!commitIdsQueue.isEmpty()) {
-            RevCommit rc = commitIdsQueue.poll();
-            if (Objects.nonNull(rc)) {
-                String cId = rc.getName();
-                if (!toRet.contains(cId)) {
-                    GitLog gitLog = contentRepositoryV2.getGitLog(siteId, cId);
-                    if (Objects.isNull(gitLog)) {
-                        RevCommit[] parents = rc.getParents();
-                        if (Objects.nonNull(parents) && parents.length > 0) {
-                            for (int i = 0; i < parents.length; i++) {
-                                commitIdsQueue.offer(parents[i]);
-                            }
-                        }
-                        toRet.add(cId);
-                    }
-                }
-            }
-        }
-        return toRet;
-    }
-
     @Override
     public boolean pushToRemote(String siteId, String remoteName, String remoteBranch, boolean force)
             throws ServiceLayerException, InvalidRemoteUrlException, InvalidRemoteRepositoryCredentialsException,
@@ -660,7 +621,6 @@ public class RepositoryManagementServiceInternalImpl implements RepositoryManage
         }
     }
 
-    @RetryingOperation
     @Override
     public boolean removeRemote(String siteId, String remoteName) throws RemoteNotRemovableException {
         if (!isRemovableRemote(siteId, remoteName)) {
@@ -752,8 +712,6 @@ public class RepositoryManagementServiceInternalImpl implements RepositoryManage
         ResetCommand resetCommand;
         CheckoutCommand checkoutCommand;
         try (Git git = new Git(repo)) {
-            ResetCommand resetCommand;
-            CheckoutCommand checkoutCommand;
             switch (resolution.toLowerCase()) {
                 case "ours" :
                     logger.debug("Resolve conflict using OURS strategy for site " + siteId + " and path " + path);

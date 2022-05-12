@@ -18,9 +18,6 @@ package org.craftercms.studio.impl.v1.service.content;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -228,14 +225,6 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
         return this._contentRepository.contentExists(site, path);
     }
 
-	@Override
-	@ValidateParams
-	public boolean contentExistsShallow(@ValidateStringParam(name = "site") String site,
-                                        @ValidateSecurePathParam(name = "path") String path) {
-		// TODO: SJ: Refactor in 2.7.x as this might already exists in Crafter Core (which is part of the new Studio)
-		return this._contentRepository.contentExistsShallow(site, path);
-	}
-
     @Override
     @ValidateParams
     public boolean shallowContentExists(@ValidateStringParam(name = "site") String site,
@@ -247,7 +236,7 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
     @ValidateParams
     public InputStream getContent(@ValidateStringParam(name = "site") String site,
                                   @ValidateSecurePathParam(name = "path") String path)
-            throws ContentNotFoundException, CryptoException {
+            throws ContentNotFoundException {
         // TODO: SJ: Refactor in 4.x as this already exists in Crafter Core (which is part of the new Studio)
         if (StringUtils.equals(site, studioConfiguration.getProperty(CONFIGURATION_GLOBAL_SYSTEM_SITE))) {
             return this._contentRepository.getContent(StringUtils.EMPTY, path);
@@ -304,7 +293,7 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
         InputStream is = null;
         try {
             is = this.getContent(site, path);
-        } catch (ContentNotFoundException | CryptoException e) {
+        } catch (ContentNotFoundException e) {
             logger.debug("Content not found for path {0}", e, path);
         }
 
@@ -898,9 +887,6 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
                     } catch (DocumentException eParseException) {
                         logger.error("General Error while copying content for site {0} from {1} to {2}," +
                                 " new name is {3}", eParseException, site, fromPath, toPath, copyPath);
-                    } catch (CryptoException e) {
-                        logger.error("Unexpected Error while copying content for site {0} from {1} to {2}," +
-                                " new name is {3}", e, site, fromPath, toPath, copyPath);
                     } finally {
                         IOUtils.closeQuietly(copyContent);
                     }
@@ -1628,6 +1614,7 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
         if (nodes != null) {
             List<DmOrderTO> orders = new ArrayList<>(nodes.size());
             for (Node node : nodes) {
+
                 String orderName = DmConstants.JSON_KEY_ORDER_DEFAULT;
                 String orderStr = node.getText();
                 addOrderValue(orders, orderName, orderStr);
@@ -1639,10 +1626,7 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
     }
 
     protected ContentItemTO populateItemChildren(ContentItemTO item, int depth) {
-        logger.debug("Populate item children for site {0} path {1}", item.site, item.uri);
-        long startTime = System.currentTimeMillis();
-
-        // TODO: Refactor in 4
+        // TODO: SJ: Refactor  in 3.1+
         String contentPath = item.uri;
 
         item.children = new ArrayList<>();
@@ -1731,10 +1715,6 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
 
         if(item.internalName == null) item.internalName = item.name;
 
-        long executionTime = System.currentTimeMillis() - startTime;
-        logger.debug("Populate item children for site {0} path {1} retrieved in {2} milli-seconds",
-                     item.site, item.uri, executionTime);
-
         return item;
     }
 
@@ -1751,11 +1731,13 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
                                         @ValidateSecurePathParam(name = "path") String path,
                                         @ValidateIntegerParam(name = "depth") int depth) {
         ContentItemTO item = null;
-        logger.debug("Getting content item for site {0} path {1} depth {2}", site, path, depth);
+        logger.debug("Getting content item for site '{}' path '{}' depth '{}'", site, path, depth);
+
+        DebugUtils.addDebugStack(logger);
         long startTime = System.currentTimeMillis();
 
         try {
-            if (contentExistsShallow(site, path)) {
+            if (contentExists(site, path)) {
                 // get item from cache
                 item = loadContentItem(site, path);
 
@@ -1781,19 +1763,17 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
         }
 
         long executionTime = System.currentTimeMillis() - startTime;
-        logger.debug("Content item from site {0} path {1} retrieved in {2} milli-seconds",
-                     site, path, executionTime);
+        logger.debug("Content item from site '{}' path '{}' retrieved in '{}' milli-seconds",
+                site, path, executionTime);
         return item;
     }
 
     protected ContentItemTO loadContentItem(String site, String path) {
-        logger.debug("Load content item for site {0} path {1}", site, path);
-        long startTime = System.currentTimeMillis();
-
         // TODO: SJ: Refactor such that the populate of non-XML is also a method in 3.1+
         ContentItemTO item = createNewContentItemTO(site, path);
 
         if (item.uri.endsWith(".xml") && !item.uri.startsWith("/config/")) {
+
             try {
                 item = populateContentDrivenProperties(site, item);
             } catch (Exception err) {
@@ -1824,11 +1804,6 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
         if (StringUtils.isNotEmpty(mimeType)) {
             item.setMimeType(mimeType);
         }
-
-        long executionTime = System.currentTimeMillis() - startTime;
-        logger.debug("Load content item from site {0} path {1} retrieved in {2} milli-seconds",
-                     site, path, executionTime);
-
         return item;
     }
 
@@ -1838,7 +1813,7 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
             item.setContentType(CONTENT_TYPE_FOLDER);
         } else {
             if (contentType != null && !contentType.equals(CONTENT_TYPE_FOLDER) && !contentType.equals("asset") &&
-                !contentType.equals(CONTENT_TYPE_UNKNOWN)) {
+                    !contentType.equals(CONTENT_TYPE_UNKNOWN)) {
                 ContentTypeConfigTO config = servicesConfig.getContentTypeConfig(site, contentType);
                 if (config != null) {
                     item.setForm(config.getForm());
@@ -1895,10 +1870,6 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
                 item.isInProgress = item.isInProgress();
             }
         }
-
-        long executionTime = System.currentTimeMillis() - startTime;
-        logger.debug("Populate item workflow for site {0} path {1} retrieved in {2} milli-seconds",
-                     site, item.uri, executionTime);
     }
 
     protected void populateMetadata(String site, ContentItemTO item)
@@ -1924,13 +1895,6 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
             if (workflowItem != null && workflowItem.getSchedule() != null) {
                 item.scheduledDate = workflowItem.getSchedule();
                 item.setScheduledDate(workflowItem.getSchedule());
-            }
-
-            if (metadata.getPublishedDate() != null) {
-                item.published = true;
-                item.setPublished(true);
-                item.publishedDate = metadata.getPublishedDate();
-                item.setPublishedDate(metadata.getPublishedDate());
             }
 
             // Set the modifier (user) if known
@@ -1975,10 +1939,6 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
         } else {
             item.setLockOwner("");
         }
-
-        long executionTime = System.currentTimeMillis() - startTime;
-        logger.debug("Populate item metadata for site {0} path {1} retrieved in {2} milli-seconds",
-                     site, item.uri, executionTime);
     }
 
     @Override
@@ -1986,13 +1946,14 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
     public ContentItemTO getContentItemTree(@ValidateStringParam(name = "site") String site,
                                             @ValidateSecurePathParam(name = "path") String path,
                                             @ValidateIntegerParam(name = "depth") int depth) {
-        logger.debug("Getting content item tree for {0}:{1} depth {2}", site, path, depth);
+        logger.debug("Getting content item  tree for '{}':'{}' depth '{}'", site, path, depth);
+        DebugUtils.addDebugStack(logger);
 
         long startTime = System.currentTimeMillis();
         boolean isPages = (path.contains(FILE_SEPARATOR + "site" + FILE_SEPARATOR + "website"));
         ContentItemTO root = null;
 
-        if (isPages && contentExistsShallow(site, path + FILE_SEPARATOR + DmConstants.INDEX_FILE)) {
+        if (isPages && contentExists(site, path + FILE_SEPARATOR + DmConstants.INDEX_FILE)) {
             if (depth > 1) {
                 root = getContentItem(site, path + FILE_SEPARATOR + DmConstants.INDEX_FILE, depth);
             } else {
@@ -2008,8 +1969,8 @@ public class ContentServiceImpl implements ContentService, ApplicationContextAwa
         }
 
         long executionTime = System.currentTimeMillis() - startTime;
-        logger.debug("Content item tree [{0}:{1} depth {2}] retrieved in {3} milli-seconds", site, path,
-                     depth, executionTime);
+        logger.debug("Content item tree ['{}':'{}' depth '{}'] retrieved in '{}' milli-seconds", site, path, depth,
+                executionTime);
 
         return root;
     }

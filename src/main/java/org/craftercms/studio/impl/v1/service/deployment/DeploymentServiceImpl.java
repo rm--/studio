@@ -447,7 +447,6 @@ public class DeploymentServiceImpl implements DeploymentService, ApplicationCont
         }
     }
 
-    @RetryingOperation
     @Override
     @ValidateParams
     public void deleteDeploymentDataForSite(@ValidateStringParam(name = "site") final String site) {
@@ -739,7 +738,7 @@ public class DeploymentServiceImpl implements DeploymentService, ApplicationCont
         for (String commitId : commitIds) {
             logger.debug("Get repository operations for commit " + commitId);
             List<RepoOperation> operations =
-                    contentRepositoryV2.getOperationsFromDelta(site, commitId + PREVIOUS_COMMIT_SUFFIX, commitId);
+                    contentRepositoryV2.getOperations(site, commitId + PREVIOUS_COMMIT_SUFFIX, commitId);
 
             for (RepoOperation op : operations) {
                 if (ArrayUtils.contains(IGNORE_FILES, FilenameUtils.getName(op.getMoveToPath())) ||

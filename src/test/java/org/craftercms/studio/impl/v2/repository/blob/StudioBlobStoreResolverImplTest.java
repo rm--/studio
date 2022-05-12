@@ -19,7 +19,6 @@ import com.google.common.cache.CacheBuilder;
 import org.craftercms.commons.config.ConfigurationResolver;
 import org.craftercms.commons.config.ConfigurationResolverImpl;
 import org.craftercms.commons.config.EncryptionAwareConfigurationReader;
-import org.craftercms.commons.crypto.CryptoException;
 import org.craftercms.commons.crypto.impl.NoOpTextEncryptor;
 import org.craftercms.commons.file.blob.BlobStore;
 import org.craftercms.studio.api.v1.exception.ContentNotFoundException;
@@ -100,7 +99,7 @@ public class StudioBlobStoreResolverImplTest {
     private StudioBlobStoreResolverImpl resolver;
 
     @BeforeMethod
-    public void setUp() throws ContentNotFoundException, IOException, CryptoException {
+    public void setUp() throws ContentNotFoundException, IOException {
         initMocks(this);
 
         when(contentRepository.contentExists(SITE_ID, CONFIG_PATH)).thenReturn(true);

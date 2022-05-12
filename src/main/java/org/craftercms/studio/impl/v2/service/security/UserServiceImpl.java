@@ -433,8 +433,7 @@ public class UserServiceImpl implements UserService {
                     String email = user.getEmail();
 
                     logger.debug("Creating security token for forgot password");
-                    ZonedDateTime now = ZonedDateTime.now();
-                    ZonedDateTime ttl = now.plusMinutes(
+                    long timestamp = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(
                             Long.parseLong(studioConfiguration .getProperty(SECURITY_FORGOT_PASSWORD_TOKEN_TIMEOUT)));
                     String salt = studioConfiguration.getProperty(SECURITY_CIPHER_SALT);
                     String studioId = instanceService.getInstanceId();

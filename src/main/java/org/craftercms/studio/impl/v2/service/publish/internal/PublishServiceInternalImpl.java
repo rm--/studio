@@ -87,7 +87,6 @@ public class PublishServiceInternalImpl implements PublishServiceInternal {
         return publishingPackageDetails;
     }
 
-    @RetryingOperation
     @Override
     public void cancelPublishingPackages(String siteId, List<String> packageIds) {
         retryingDatabaseOperationFacade.cancelPackages(siteId, packageIds, CANCELLED);

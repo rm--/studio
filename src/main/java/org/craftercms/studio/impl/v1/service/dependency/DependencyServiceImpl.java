@@ -367,7 +367,6 @@ public class DependencyServiceImpl implements DependencyService {
         return dependencyMapper.getItemsDependingOn(params);
     }
 
-    @RetryingOperation
     @Override
     public Set<String> moveDependencies(String site, String oldPath, String newPath)
             throws SiteNotFoundException, ContentNotFoundException, ServiceLayerException {
@@ -390,7 +389,6 @@ public class DependencyServiceImpl implements DependencyService {
         return getItemDependencies(site, newPath, 1);
     }
 
-    @RetryingOperation
     @Override
     public void deleteItemDependencies(String site, String path)
             throws SiteNotFoundException, ContentNotFoundException, ServiceLayerException {

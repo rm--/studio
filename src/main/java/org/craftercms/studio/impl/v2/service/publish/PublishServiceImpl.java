@@ -47,8 +47,6 @@ import org.craftercms.studio.impl.v2.utils.StudioUtils;
 import org.craftercms.studio.model.publish.PublishingTarget;
 import org.craftercms.studio.model.rest.dashboard.PublishingDashboardItem;
 
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -302,21 +300,5 @@ public class PublishServiceImpl implements PublishService {
 
     public void setUserServiceInternal(UserServiceInternal userServiceInternal) {
         this.userServiceInternal = userServiceInternal;
-    }
-
-    public StudioUtils getStudioUtils() {
-        return studioUtils;
-    }
-
-    public void setStudioUtils(StudioUtils studioUtils) {
-        this.studioUtils = studioUtils;
-    }
-
-    public ServicesConfig getServicesConfig() {
-        return servicesConfig;
-    }
-
-    public void setServicesConfig(ServicesConfig servicesConfig) {
-        this.servicesConfig = servicesConfig;
     }
 }

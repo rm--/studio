@@ -46,9 +46,6 @@ import org.eclipse.jgit.lib.Repository;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.PATTERN_SITE;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_SANDBOX_REPOSITORY_GIT_LOCK;
 
-import static org.craftercms.studio.api.v1.constant.StudioConstants.PATTERN_SITE;
-import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_SANDBOX_REPOSITORY_GIT_LOCK;
-
 /**
  * Implementation of {@link org.craftercms.commons.upgrade.UpgradePipeline} that handles a git repository
  * to work on a temporary branch for upgrades.
@@ -189,38 +186,6 @@ public class SiteRepositoryUpgradePipelineImpl extends DefaultUpgradePipelineImp
 
     public void setGitRepositoryHelper(GitRepositoryHelper gitRepositoryHelper) {
         this.gitRepositoryHelper = gitRepositoryHelper;
-    }
-
-    public RetryingRepositoryOperationFacade getRetryingRepositoryOperationFacade() {
-        return retryingRepositoryOperationFacade;
-    }
-
-    public void setRetryingRepositoryOperationFacade(RetryingRepositoryOperationFacade retryingRepositoryOperationFacade) {
-        this.retryingRepositoryOperationFacade = retryingRepositoryOperationFacade;
-    }
-
-    public TextEncryptor getEncryptor() {
-        return encryptor;
-    }
-
-    public void setEncryptor(TextEncryptor encryptor) {
-        this.encryptor = encryptor;
-    }
-
-    public GeneralLockService getGeneralLockService() {
-        return generalLockService;
-    }
-
-    public void setGeneralLockService(GeneralLockService generalLockService) {
-        this.generalLockService = generalLockService;
-    }
-
-    public StudioClusterSandboxRepoSyncTask getClusterSandboxRepoSyncTask() {
-        return clusterSandboxRepoSyncTask;
-    }
-
-    public void setClusterSandboxRepoSyncTask(StudioClusterSandboxRepoSyncTask clusterSandboxRepoSyncTask) {
-        this.clusterSandboxRepoSyncTask = clusterSandboxRepoSyncTask;
     }
 
     public RetryingRepositoryOperationFacade getRetryingRepositoryOperationFacade() {

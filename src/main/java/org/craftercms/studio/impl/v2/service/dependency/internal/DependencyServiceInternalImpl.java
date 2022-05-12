@@ -205,21 +205,6 @@ public class DependencyServiceInternalImpl implements DependencyServiceInternal 
         return toRet;
     }
 
-    private Set<String> getExistingRenamedChildrenOfMandatoryParents(String site, List<String> paths) {
-        Set<String> toRet = new HashSet<String>();
-        //Set<String> possibleParents = calculatePossibleParents(paths);
-        //if (!possibleParents.isEmpty()) {
-            Map<String, Object> params = new HashMap<String, Object>();
-            params.put(ItemStateMapper.SITE_PARAM, site);
-            params.put(ItemStateMapper.PARENTS_PARAM, paths);
-            Collection<State> onlyEditStates = CollectionUtils.removeAll(State.CHANGE_SET_STATES, State.NEW_STATES);
-            params.put(ItemStateMapper.EDITED_STATES_PARAM, onlyEditStates);
-            List<String> result = itemStateMapper.getExistingRenamedChildrenOfMandatoryParentsForPublishing(params);
-            toRet.addAll(result);
-        //}
-        return toRet;
-    }
-
     private Set<String> calculatePossibleParents(List<String> paths) {
         Set<String> possibleParents = new HashSet<String>();
         for (String path : paths) {
@@ -324,22 +309,6 @@ public class DependencyServiceInternalImpl implements DependencyServiceInternal 
 
     public void setItemServiceInternal(ItemServiceInternal itemServiceInternal) {
         this.itemServiceInternal = itemServiceInternal;
-    }
-
-    public DependencyResolver getDependencyResolver() {
-        return dependencyResolver;
-    }
-
-    public void setDependencyResolver(DependencyResolver dependencyResolver) {
-        this.dependencyResolver = dependencyResolver;
-    }
-
-    public ServicesConfig getServicesConfig() {
-        return servicesConfig;
-    }
-
-    public void setServicesConfig(ServicesConfig servicesConfig) {
-        this.servicesConfig = servicesConfig;
     }
 
     public DependencyResolver getDependencyResolver() {

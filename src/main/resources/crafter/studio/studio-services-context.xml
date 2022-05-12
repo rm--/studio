@@ -919,8 +919,6 @@
         <property name="localRepositoryV1" ref="gitContentRepository"/>
         <property name="localRepositoryV2" ref="gitContentRepositoryV2"/>
         <property name="blobStoreResolver" ref="blobStoreResolver"/>
-        <property name="interceptedPaths"
-                  value="#{studioConfiguration.getArray('studio.blob.intercepted.paths', T(java.lang.String))}"/>
     </bean>
 
     <bean id="gitContentRepository" class="org.craftercms.studio.impl.v1.repository.git.GitContentRepository">
@@ -1673,14 +1671,6 @@
 
     <bean id="accessTokenService" class="org.craftercms.studio.impl.v2.service.security.AccessTokenServiceImpl">
         <constructor-arg name="accessTokenServiceInternal" ref="accessTokenServiceInternal"/>
-    </bean>
-
-    <bean id="cloudfrontForwardedHeaderFilter" class="org.craftercms.commons.web.CloudfrontForwardedHeaderFilter">
-        <constructor-arg value="#{studioConfiguration.getProperty('studio.forwarded.headers.enabled')}"/>
-    </bean>
-
-    <bean id="forwardedHeaderFilter" class="org.craftercms.commons.web.ForwardedHeaderFilter">
-        <constructor-arg value="#{studioConfiguration.getProperty('studio.forwarded.headers.enabled')}"/>
     </bean>
 
     <import resource="classpath:crafter/studio/studio-security-context.xml"/>

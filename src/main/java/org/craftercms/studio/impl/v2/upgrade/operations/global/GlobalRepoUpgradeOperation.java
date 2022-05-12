@@ -123,12 +123,4 @@ public class GlobalRepoUpgradeOperation extends AbstractUpgradeOperation {
             }
         }
     }
-
-    public StudioClusterGlobalRepoSyncTask getClusterGlobalRepoSyncTask() {
-        return clusterGlobalRepoSyncTask;
-    }
-
-    public void setClusterGlobalRepoSyncTask(StudioClusterGlobalRepoSyncTask clusterGlobalRepoSyncTask) {
-        this.clusterGlobalRepoSyncTask = clusterGlobalRepoSyncTask;
-    }
 }

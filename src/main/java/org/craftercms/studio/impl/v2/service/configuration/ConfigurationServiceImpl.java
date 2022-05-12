@@ -305,19 +305,6 @@ public class ConfigurationServiceImpl implements ConfigurationService, Applicati
     }
 
     @Override
-    public HierarchicalConfiguration<?> getXmlConfiguration(String siteId, String path) throws ConfigurationException {
-        if (contentService.contentExists(siteId, path)) {
-            try {
-                return configurationReader.readXmlConfiguration(contentService.getContent(siteId, path));
-            } catch (Exception e) {
-                throw new ConfigurationException("Error loading configuration", e);
-            }
-        } else {
-            return new XMLConfiguration();
-        }
-    }
-
-    @Override
     @HasPermission(type = DefaultPermission.class, action = "write_global_configuration")
     public String getGlobalConfigurationAsString(@ProtectedResourceId(PATH_RESOURCE_ID) String path) {
         return contentService.getContentAsString(EMPTY, path);
@@ -816,14 +803,6 @@ public class ConfigurationServiceImpl implements ConfigurationService, Applicati
 
     public void setDependencyService(DependencyService dependencyService) {
         this.dependencyService = dependencyService;
-    }
-
-    public void setConfigurationCache(Cache configurationCache) {
-        this.configurationCache = configurationCache;
-    }
-
-    public void setConfigurationReader(EncryptionAwareConfigurationReader configurationReader) {
-        this.configurationReader = configurationReader;
     }
 
 }

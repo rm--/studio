@@ -157,6 +157,7 @@ import static org.craftercms.studio.api.v2.utils.SqlStatementGeneratorUtils.move
 import static org.craftercms.studio.api.v2.utils.SqlStatementGeneratorUtils.updateItemRow;
 import static org.craftercms.studio.api.v2.utils.SqlStatementGeneratorUtils.updateParentId;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.BLUE_PRINTS_PATH;
+import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATION_DEFAULT_ADMIN_GROUP;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATION_DEFAULT_GROUPS;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATION_ENVIRONMENT_ACTIVE;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATION_GLOBAL_SYSTEM_SITE;
@@ -322,13 +323,6 @@ public class SiteServiceImpl implements SiteService, ApplicationContextAware {
                 siteFeed.setPublishingStatus(READY);
                 siteFeed.setSandboxBranch(sandboxBranch);
                 retryingDatabaseOperationFacade.createSite(siteFeed);
-
-                String localeAddress = studioClusterUtils.getClusterNodeLocalAddress();
-                ClusterMember cm = clusterDao.getMemberByLocalAddress(localeAddress);
-                if (Objects.nonNull(cm)) {
-                    SiteFeed s = getSite(siteId);
-                    clusterDao.insertClusterSiteSyncRepo(cm.getId(), s.getId(), null, null, null);
-                }
 
                 logger.info("Upgrading site.");
                 upgradeManager.upgrade(siteId);
@@ -1441,7 +1435,6 @@ public class SiteServiceImpl implements SiteService, ApplicationContextAware {
         }
     }
 
-    @RetryingOperation
     @Override
     @ValidateParams
     public boolean enablePublishing(@ValidateStringParam(name = "siteId") String siteId, boolean enabled)
@@ -1457,7 +1450,6 @@ public class SiteServiceImpl implements SiteService, ApplicationContextAware {
         }
     }
 
-    @RetryingOperation
     @Override
     @ValidateParams
     public boolean updatePublishingStatus(@ValidateStringParam(name = "siteId") String siteId,

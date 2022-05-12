@@ -55,9 +55,6 @@ public class DependencyController {
         List<String> filteredSoftDeps =
                 softDeps.stream().filter(sd -> !hardDeps.contains(sd)).collect(Collectors.toList());
 
-        List<String> filteredSoftDeps =
-                softDeps.stream().filter(sd -> !hardDeps.contains(sd)).collect(Collectors.toList());
-
         ResponseBody responseBody = new ResponseBody();
         ResultOne<Map<String, List<String>>> result = new ResultOne<Map<String, List<String>>>();
         result.setResponse(ApiResponse.OK);

@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
-import java.net.UnknownHostException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -386,6 +385,7 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
         } finally {
             generalLockService.unlock(gitLockKey);
         }
+
         return commitId;
     }
 
@@ -393,8 +393,6 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
             throws GitAPIException, IOException {
         String parent = parentFolder.toString();
         String toRet = parent;
-        GitRepositoryHelper helper = GitRepositoryHelper.getHelper(studioConfiguration, securityService,
-                userServiceInternal, encryptor, generalLockService, retryingRepositoryOperationFacade);
         String folderToDelete = helper.getGitPath(parent);
         Path toDelete = Paths.get(git.getRepository().getDirectory().getParent(), parent);
         if (toDelete.toFile().exists()) {
@@ -565,6 +563,7 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
             Repository repo = helper.getRepository(site, StringUtils.isEmpty(site) ? GLOBAL : SANDBOX);
             RevTree tree = helper.getTreeForLastCommit(repo);
             try (TreeWalk tw = TreeWalk.forPath(repo, helper.getGitPath(path), tree)) {
+
                 if (tw != null) {
                     // Loop for all children and gather path of item excluding the item, file/folder name, and
                     // whether or not it's a folder
@@ -630,42 +629,13 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
             } catch (IOException e) {
                 logger.error("Error while getting children for site: " + site + " path: " + path, e);
             }
-        } catch (IOException | CryptoException e) {
+        } catch (IOException e) {
             logger.error("Failed to create RevTree for site: " + site + " path: " + path, e);
         }
 
         RepositoryItem[] items = new RepositoryItem[retItems.size()];
         items = retItems.toArray(items);
         return items;
-    }
-
-    @Override
-    public RepositoryItem[] getContentChildrenShallow(String site, String path) {
-        try {
-            GitRepositoryHelper helper = GitRepositoryHelper.getHelper(
-                    studioConfiguration, securityService, userServiceInternal, encryptor, generalLockService,
-                    retryingRepositoryOperationFacade);
-            Path sitePath = helper.buildRepoPath(SANDBOX, site);
-            Path treeRootPath = sitePath.resolve(helper.getGitPath(path));
-
-            return Files.list(treeRootPath)
-                        .filter(child -> !ArrayUtils.contains(IGNORE_FILES, child.getFileName().toString()))
-                        .map(child -> {
-                            RepositoryItem childItem = new RepositoryItem();
-                            String parent = sitePath.relativize(child.getParent()).toString();
-
-                            childItem.path = StringUtils.prependIfMissing(parent, "/");
-                            childItem.name = child.getFileName().toString();
-                            childItem.isFolder = Files.isDirectory(child);
-
-                            return childItem;
-                        })
-                        .sorted(Comparator.comparing(i -> i.name))
-                        .toArray(RepositoryItem[]::new);
-        } catch (Exception e) {
-            logger.error("Error while getting children for site: " + site + " path: " + path, e);
-            return new RepositoryItem[0];
-        }
     }
 
     @Override
@@ -695,9 +665,9 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
                 } catch (IOException e) {
                     logger.error("error while getting history for content item " + path);
                 }
+            } catch (IOException | GitAPIException e) {
+                logger.error("Failed to create Git repo for site: " + site + " path: " + path, e);
             }
-        } catch (IOException | GitAPIException | CryptoException e) {
-            logger.error("Failed to create Git repo for site: " + site + " path: " + path, e);
         }
 
         VersionTO[] toRet = new VersionTO[versionHistory.size()];
@@ -747,11 +717,6 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
             generalLockService.unlock(gitLockKey);
         }
 
-        } catch (CryptoException e) {
-            logger.error("Unexpected error creating new version for site:  " + site + " path: " + path, e);
-        } finally {
-            generalLockService.unlock(gitLockKey);
-        }
         return toReturn;
     }
 
@@ -791,7 +756,7 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
                             " version: " + version, e);
                 }
             }
-        } catch (IOException | CryptoException e) {
+        } catch (IOException e) {
             logger.error("Failed to create RevTree for site: " + site + " path: " + path + " version: " +
                     version, e);
         }
@@ -801,27 +766,17 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
 
     @Override
     public void lockItemForPublishing(String site, String path) {
-        try {
-            GitRepositoryHelper helper = GitRepositoryHelper.getHelper(studioConfiguration, securityService,
-                    userServiceInternal, encryptor, generalLockService, retryingRepositoryOperationFacade);
-            Repository repo = helper.getRepository(site, PUBLISHED);
+        Repository repo = helper.getRepository(site, PUBLISHED);
 
-            synchronized (repo) {
-                try (TreeWalk tw = new TreeWalk(repo)) {
-                    RevTree tree = helper.getTreeForLastCommit(repo);
-                    tw.addTree(tree); // tree ‘0’
-                    tw.setRecursive(false);
-                    tw.setFilter(PathFilter.create(path));
+        synchronized (repo) {
+            try (TreeWalk tw = new TreeWalk(repo)) {
+                RevTree tree = helper.getTreeForLastCommit(repo);
+                tw.addTree(tree); // tree ‘0’
+                tw.setRecursive(false);
+                tw.setFilter(PathFilter.create(path));
 
-                    if (!tw.next()) {
-                        return;
-                    }
-
-                    File repoRoot = repo.getWorkTree();
-                    Paths.get(repoRoot.getPath(), tw.getPathString());
-                    File file = new File(tw.getPathString());
-                    LockFile lock = new LockFile(file);
-                    lock.lock();
+                if (!tw.next()) {
+                    return;
                 }
 
                 File repoRoot = repo.getWorkTree();
@@ -833,56 +788,22 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
             } catch (IOException e) {
                 logger.error("Error while locking file for site: " + site + " path: " + path, e);
             }
-        } catch (IOException | CryptoException e) {
-            logger.error("Error while locking file for site: " + site + " path: " + path, e);
         }
     }
 
     @Override
     public void unLockItem(String site, String path) {
-        try {
-            GitRepositoryHelper helper =  GitRepositoryHelper.getHelper(studioConfiguration, securityService,
-                    userServiceInternal, encryptor, generalLockService, retryingRepositoryOperationFacade);
-            Repository repo = helper.getRepository(site, StringUtils.isEmpty(site) ? GLOBAL : SANDBOX);
+        Repository repo = helper.getRepository(site, StringUtils.isEmpty(site) ? GLOBAL : SANDBOX);
 
-            synchronized (helper.getRepository(site, StringUtils.isEmpty(site) ? GLOBAL : SANDBOX)) {
-                try (TreeWalk tw = new TreeWalk(repo)) {
-                    RevTree tree = helper.getTreeForLastCommit(repo);
-                    tw.addTree(tree); // tree ‘0’
-                    tw.setRecursive(false);
-                    tw.setFilter(PathFilter.create(path));
+        synchronized (helper.getRepository(site, StringUtils.isEmpty(site) ? GLOBAL : SANDBOX)) {
+            try (TreeWalk tw = new TreeWalk(repo)) {
+                RevTree tree = helper.getTreeForLastCommit(repo);
+                tw.addTree(tree); // tree ‘0’
+                tw.setRecursive(false);
+                tw.setFilter(PathFilter.create(path));
 
-            } catch (IOException e) {
-                logger.error("Error while unlocking file for site: " + site + " path: " + path, e);
-            }
-        }  catch (IOException | CryptoException e) {
-            logger.error("Error while unlocking file for site: " + site + " path: " + path, e);
-        }
-    }
-
-    @Override
-    public void unLockItemForPublishing(String site, String path) {
-        try {
-            GitRepositoryHelper helper = GitRepositoryHelper.getHelper(studioConfiguration, securityService,
-                    userServiceInternal, encryptor, generalLockService, retryingRepositoryOperationFacade);
-            Repository repo = helper.getRepository(site, PUBLISHED);
-
-            synchronized (repo) {
-                try (TreeWalk tw = new TreeWalk(repo)) {
-                    RevTree tree = helper.getTreeForLastCommit(repo);
-                    tw.addTree(tree); // tree ‘0’
-                    tw.setRecursive(false);
-                    tw.setFilter(PathFilter.create(path));
-
-                    if (!tw.next()) {
-                        return;
-                    }
-
-                    File repoRoot = repo.getWorkTree();
-                    Paths.get(repoRoot.getPath(), tw.getPathString());
-                    File file = new File(tw.getPathString());
-                    LockFile lock = new LockFile(file);
-                    lock.unlock();
+                if (!tw.next()) {
+                    return;
                 }
 
                 File repoRoot = repo.getWorkTree();
@@ -894,8 +815,33 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
             } catch (IOException e) {
                 logger.error("Error while unlocking file for site: " + site + " path: " + path, e);
             }
-        } catch (IOException | CryptoException e) {
-            logger.error("Error while unlocking file for site: " + site + " path: " + path, e);
+        }
+    }
+
+    @Override
+    public void unLockItemForPublishing(String site, String path) {
+        Repository repo = helper.getRepository(site, PUBLISHED);
+
+        synchronized (repo) {
+            try (TreeWalk tw = new TreeWalk(repo)) {
+                RevTree tree = helper.getTreeForLastCommit(repo);
+                tw.addTree(tree); // tree ‘0’
+                tw.setRecursive(false);
+                tw.setFilter(PathFilter.create(path));
+
+                if (!tw.next()) {
+                    return;
+                }
+
+                File repoRoot = repo.getWorkTree();
+                Paths.get(repoRoot.getPath(), tw.getPathString());
+                File file = new File(tw.getPathString());
+                LockFile lock = new LockFile(file);
+                lock.unlock();
+
+            } catch (IOException e) {
+                logger.error("Error while unlocking file for site: " + site + " path: " + path, e);
+            }
         }
     }
 
@@ -1121,10 +1067,10 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
                     if (commitId != null) {
                         toReturn = commitId.getName();
                     }
+                } catch (IOException e) {
+                    logger.error("Error getting last commit ID for site " + site, e);
                 }
             }
-        } catch (IOException | CryptoException e) {
-            logger.error("Error getting last commit ID for site " + site, e);
         }
         return toReturn;
     }
@@ -1198,10 +1144,10 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
                     logger.error("Error getting commit ids for site " + site + " and path " + path +
                             " from commit ID: " + commitIdFrom + " to commit ID: " + commitIdTo, e);
                 }
+            } catch (IOException e) {
+                logger.error("Error getting operations for site " + site + " and path " + path +
+                        " from commit ID: " + commitIdFrom + " to commit ID: " + commitIdTo, e);
             }
-        } catch (IOException | CryptoException e) {
-            logger.error("Error getting operations for site " + site + " and path " + path +
-                    " from commit ID: " + commitIdFrom + " to commit ID: " + commitIdTo, e);
         }
         return commitIds;
     }
@@ -1221,9 +1167,9 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
                     gitLog.setSiteId(siteId);
                     gitLogs.add(gitLog);
                 }
-            }
-        } catch (GitAPIException | CryptoException e) {
+            } catch (GitAPIException e) {
                 logger.error("Error getting full git log for site " + siteId, e);
+            }
         }
 
         Map<String, Object> params = new HashMap<String, Object>();
@@ -1234,7 +1180,6 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
     }
 
 
-    @RetryingOperation
     @Override
     public void deleteGitLogForSite(String siteId) {
         Map<String, Object> params = new HashMap<String, Object>();
@@ -1250,8 +1195,6 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
         boolean isValid = false;
         try {
             logger.debug("Add remote " + remoteName + " to the sandbox repo for the site " + siteId);
-            GitRepositoryHelper helper = GitRepositoryHelper.getHelper(studioConfiguration, securityService,
-                    userServiceInternal, encryptor, generalLockService, retryingRepositoryOperationFacade);
             Repository repo = helper.getRepository(siteId, SANDBOX);
             try (Git git = new Git(repo)) {
 
@@ -1390,7 +1333,6 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
         }
     }
 
-    @RetryingOperation
     @Override
     public void removeRemoteRepositoriesForSite(String siteId) {
         Map<String, Object> params = new HashMap<String, Object>();
@@ -1402,8 +1344,6 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
     public List<RemoteRepositoryInfoTO> listRemote(String siteId, String sandboxBranch)
             throws ServiceLayerException {
         List<RemoteRepositoryInfoTO> res = new ArrayList<RemoteRepositoryInfoTO>();
-        GitRepositoryHelper helper = GitRepositoryHelper.getHelper(studioConfiguration, securityService,
-                userServiceInternal, encryptor, generalLockService, retryingRepositoryOperationFacade);
         try (Repository repo = helper.getRepository(siteId, SANDBOX)) {
 
             try (Git git = new Git(repo)) {
@@ -1508,7 +1448,7 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
 
     @Override
     public boolean pushToRemote(String siteId, String remoteName, String remoteBranch) throws ServiceLayerException,
-            InvalidRemoteUrlException, CryptoException {
+            InvalidRemoteUrlException {
         logger.debug("Get remote data from database for remote " + remoteName + " and site " + siteId);
         Map<String, String> params = new HashMap<String, String>();
         params.put("siteId", siteId);
@@ -1516,8 +1456,6 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
         RemoteRepository remoteRepository = remoteRepositoryDAO.getRemoteRepository(params);
 
         logger.debug("Prepare push command.");
-        GitRepositoryHelper helper = GitRepositoryHelper.getHelper(studioConfiguration, securityService,
-                userServiceInternal, encryptor, generalLockService, retryingRepositoryOperationFacade);
         Repository repo = helper.getRepository(siteId, SANDBOX);
         try (Git git = new Git(repo)) {
             Iterable<PushResult> pushResultIterable = null;
@@ -1563,7 +1501,7 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
 
     @Override
     public boolean pullFromRemote(String siteId, String remoteName, String remoteBranch) throws ServiceLayerException,
-            InvalidRemoteUrlException, CryptoException {
+            InvalidRemoteUrlException {
         logger.debug("Get remote data from database for remote " + remoteName + " and site " + siteId);
         Map<String, String> params = new HashMap<String, String>();
         params.put("siteId", siteId);
@@ -1571,8 +1509,6 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
         RemoteRepository remoteRepository = remoteRepositoryDAO.getRemoteRepository(params);
 
         logger.debug("Prepare pull command");
-        GitRepositoryHelper helper = GitRepositoryHelper.getHelper(studioConfiguration, securityService,
-                userServiceInternal, encryptor, generalLockService, retryingRepositoryOperationFacade);
         Repository repo = helper.getRepository(siteId, SANDBOX);
         String gitLockKey = SITE_SANDBOX_REPOSITORY_GIT_LOCK.replaceAll(PATTERN_SITE, siteId);
         generalLockService.lock(gitLockKey);
@@ -1617,9 +1553,7 @@ public class GitContentRepository implements ContentRepository, ServletContextAw
     }
 
     @Override
-    public void resetStagingRepository(String siteId) throws ServiceLayerException, CryptoException {
-        GitRepositoryHelper helper = GitRepositoryHelper.getHelper(studioConfiguration, securityService,
-                userServiceInternal, encryptor, generalLockService, retryingRepositoryOperationFacade);
+    public void resetStagingRepository(String siteId) throws ServiceLayerException {
         Repository repo = helper.getRepository(siteId, PUBLISHED);
         String stagingName = servicesConfig.getStagingEnvironment(siteId);
         String liveName = servicesConfig.getLiveEnvironment(siteId);

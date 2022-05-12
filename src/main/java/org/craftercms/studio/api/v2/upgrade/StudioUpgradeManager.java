@@ -23,8 +23,6 @@ import org.craftercms.studio.impl.v2.upgrade.StudioUpgradeContext;
 
 import java.util.List;
 
-import java.util.List;
-
 /**
  * Extension of {@link UpgradeManager} that adds Studio specific operations.
  * @author joseross
@@ -56,13 +54,6 @@ public interface StudioUpgradeManager extends UpgradeManager<String> {
      * @throws UpgradeException if any of the upgrades fails
      */
     void upgradeBlueprints() throws UpgradeException, ConfigurationException;
-
-    /**
-     * Returns all existing environments for the given site
-     * @param site the id of the site
-     * @return the list of environments
-     */
-    List<String> getExistingEnvironments(String site);
 
     /**
      * Returns all existing environments for the given site

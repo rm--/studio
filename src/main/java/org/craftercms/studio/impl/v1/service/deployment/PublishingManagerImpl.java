@@ -248,14 +248,6 @@ public class PublishingManagerImpl implements PublishingManager {
                 markItemsCompleted(site, item.getEnvironment(), List.of(item));
                 deploymentItem = null;
             }
-            String blacklistConfig = studioConfiguration.getProperty(CONFIGURATION_PUBLISHING_BLACKLIST_REGEX);
-            if (StringUtils.isNotEmpty(blacklistConfig) &&
-                    ContentUtils.matchesPatterns(item.getPath(), Arrays.asList(StringUtils.split(blacklistConfig, ",")))) {
-                LOGGER.debug("File " + item.getPath() + " of the site " + site + " will not be published because it " +
-                        "matches the configured publishing blacklist regex patterns.");
-                markItemsCompleted(site, item.getEnvironment(), Arrays.asList(item));
-                deploymentItem = null;
-            }
         }
         return deploymentItem;
     }
@@ -290,7 +282,6 @@ public class PublishingManagerImpl implements PublishingManager {
         }
     }
 
-    @RetryingOperation
     @Override
     @ValidateParams
     public void markItemsProcessing(@ValidateStringParam(name = "site") String site,
@@ -302,7 +293,6 @@ public class PublishingManagerImpl implements PublishingManager {
         }
     }
 
-    @RetryingOperation
     @Override
     @ValidateParams
     public void markItemsReady(@ValidateStringParam(name = "site") String site,
@@ -314,7 +304,6 @@ public class PublishingManagerImpl implements PublishingManager {
         }
     }
 
-    @RetryingOperation
     @Override
     @ValidateParams
     public void markItemsBlocked(@ValidateStringParam(name = "site") String site,
@@ -484,7 +473,6 @@ public class PublishingManagerImpl implements PublishingManager {
         return result < 1;
     }
 
-    @RetryingOperation
     @Override
     @ValidateParams
     public void resetProcessingQueue(@ValidateStringParam(name = "site") String site,
@@ -541,13 +529,5 @@ public class PublishingManagerImpl implements PublishingManager {
 
     public void setRetryingDatabaseOperationFacade(RetryingDatabaseOperationFacade retryingDatabaseOperationFacade) {
         this.retryingDatabaseOperationFacade = retryingDatabaseOperationFacade;
-    }
-
-    public RetryingOperationFacade getRetryingOperationFacade() {
-        return retryingOperationFacade;
-    }
-
-    public void setRetryingOperationFacade(RetryingOperationFacade retryingOperationFacade) {
-        this.retryingOperationFacade = retryingOperationFacade;
     }
 }

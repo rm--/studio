@@ -171,7 +171,7 @@ import static org.eclipse.jgit.lib.Constants.R_HEADS;
 import static org.eclipse.jgit.merge.MergeStrategy.THEIRS;
 import static org.eclipse.jgit.revwalk.RevSort.REVERSE;
 
-public class GitContentRepository implements ContentRepository, DeploymentHistoryProvider {
+public class GitContentRepository implements ContentRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(GitContentRepository.class);
 
@@ -508,12 +508,6 @@ public class GitContentRepository implements ContentRepository, DeploymentHistor
                                                         ((System.currentTimeMillis() - startDiffMark2) / 1000) + " seconds");
                                                 logger.debug("Number of diff entries " + diffEntries.size());
                                             }
-                                            // Now that we have a diff, let's itemize the file changes, pack them into a TO
-                                            // and add them to the list of RepoOperations to return to the caller
-                                            // also include date/time of commit by taking number of seconds and multiply by 1000 and
-                                            // convert to java date before sending over
-                                            operations.addAll(
-                                                    processDiffEntry(git, diffEntries, objCommitIdTo));
                                         }
                                     }
 
@@ -591,11 +585,6 @@ public class GitContentRepository implements ContentRepository, DeploymentHistor
             // Update the paths to have a preceding separator
             String pathNew = FILE_SEPARATOR + diffEntry.getNewPath();
             String pathOld = FILE_SEPARATOR + diffEntry.getOldPath();
-
-            if (ArrayUtils.contains(IGNORE_FILES, FilenameUtils.getName(pathNew)) ||
-                    ArrayUtils.contains(IGNORE_FILES, FilenameUtils.getName(pathOld))) {
-                continue;
-            }
 
             RepoOperation repoOperation = null;
             Iterable<RevCommit> iterable = null;
@@ -686,7 +675,6 @@ public class GitContentRepository implements ContentRepository, DeploymentHistor
         }
     }
 
-    @RetryingOperation
     @Override
     public void insertGitLog(String siteId, String commitId, int processed) {
         String lockKey = "GitLogLock:" + siteId;

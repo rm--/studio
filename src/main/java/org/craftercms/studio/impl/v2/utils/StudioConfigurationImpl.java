@@ -108,7 +108,6 @@ public class StudioConfigurationImpl implements StudioConfiguration {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private HierarchicalConfiguration<ImmutableNode> loadGlobalRepoConfig() {
         String cacheKey = prependIfMissing(systemConfig.getString(STUDIO_CONFIG_GLOBAL_REPO_OVERRIDE_CONFIG), "/");
         try {

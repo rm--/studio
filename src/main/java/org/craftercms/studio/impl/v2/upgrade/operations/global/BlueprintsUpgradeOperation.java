@@ -28,7 +28,6 @@ import java.util.jar.Manifest;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.craftercms.commons.crypto.TextEncryptor;
 import org.craftercms.commons.monitoring.VersionInfo;
 import org.craftercms.commons.upgrade.exception.UpgradeException;
 import org.craftercms.studio.api.v1.constant.GitRepositories;
@@ -91,30 +90,6 @@ public class BlueprintsUpgradeOperation extends AbstractUpgradeOperation {
 
     public void setGeneralLockService(GeneralLockService generalLockService) {
         this.generalLockService = generalLockService;
-    }
-
-    public TextEncryptor getEncryptor() {
-        return encryptor;
-    }
-
-    public void setEncryptor(TextEncryptor encryptor) {
-        this.encryptor = encryptor;
-    }
-
-    public GeneralLockService getGeneralLockService() {
-        return generalLockService;
-    }
-
-    public void setGeneralLockService(GeneralLockService generalLockService) {
-        this.generalLockService = generalLockService;
-    }
-
-    public RetryingRepositoryOperationFacade getRetryingRepositoryOperationFacade() {
-        return retryingRepositoryOperationFacade;
-    }
-
-    public void setRetryingRepositoryOperationFacade(RetryingRepositoryOperationFacade retryingRepositoryOperationFacade) {
-        this.retryingRepositoryOperationFacade = retryingRepositoryOperationFacade;
     }
 
     @Override

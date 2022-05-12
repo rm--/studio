@@ -86,11 +86,6 @@ public class BlobAwareContentRepository implements ContentRepository,
      */
     protected String fileExtension;
 
-    /**
-     * The patterns of urls that should be handled by blob stores
-     */
-    protected String[] interceptedPaths;
-
     protected GitContentRepository localRepositoryV1;
 
     protected org.craftercms.studio.impl.v2.repository.GitContentRepository localRepositoryV2;
@@ -139,13 +134,6 @@ public class BlobAwareContentRepository implements ContentRepository,
 
         if (ArrayUtils.isEmpty(paths)) {
             throw new IllegalArgumentException("At least one path needs to be provided");
-        }
-
-        for (String path : paths) {
-            if (!RegexUtils.matchesAny(path, interceptedPaths)) {
-                logger.debug("Path {0} should not be intercepted, will be skipped", path);
-                return null;
-            }
         }
 
         return (StudioBlobStore) blobStoreResolver.getByPaths(site, paths);
@@ -351,16 +339,9 @@ public class BlobAwareContentRepository implements ContentRepository,
     public RepositoryItem[] getContentChildren(String site, String path) {
         RepositoryItem[] children = localRepositoryV1.getContentChildren(site, path);
         return Stream.of(children)
-                     .peek(item -> item.name = getOriginalPath(item.name))
-                     .toArray(RepositoryItem[]::new);
-    }
-
-    @Override
-    public RepositoryItem[] getContentChildrenShallow(String site, String path) {
-        RepositoryItem[] children = localRepositoryV1.getContentChildrenShallow(site, path);
-        return Stream.of(children)
-                     .peek(item -> item.name = getOriginalPath(item.name))
-                     .toArray(RepositoryItem[]::new);
+                .peek(item -> item.name = getOriginalPath(item.name))
+                .collect(toList())
+                .toArray(new RepositoryItem[children.length]);
     }
 
     @Override
@@ -434,7 +415,7 @@ public class BlobAwareContentRepository implements ContentRepository,
 
     @Override
     public void initialPublish(String site, String sandboxBranch, String environment, String author, String comment)
-            throws DeploymentException, CryptoException {
+            throws DeploymentException {
         localRepositoryV1.initialPublish(site, sandboxBranch, environment, author, comment);
     }
 
@@ -507,7 +488,7 @@ public class BlobAwareContentRepository implements ContentRepository,
     }
 
     @Override
-    public void resetStagingRepository(String siteId) throws ServiceLayerException, CryptoException {
+    public void resetStagingRepository(String siteId) throws ServiceLayerException {
         localRepositoryV1.resetStagingRepository(siteId);
     }
 

@@ -65,7 +65,7 @@ public interface ContentService {
      * @param path path of the content
      * @return document
      */
-    InputStream getContent(String site, String path) throws ContentNotFoundException, CryptoException;
+    InputStream getContent(String site, String path) throws ContentNotFoundException;
 
     /**
      * get file size
@@ -294,26 +294,6 @@ public interface ContentService {
     void writeContent(String site, String path, String fileName, String contentType, InputStream input,
                       String createFolders, String edit, String unlock, boolean skipAuditLogInsert)
             throws ServiceLayerException, UserNotFoundException;
-
-    /**
-     * write content
-     *
-     * @param site
-     * @param path
-     * @param fileName
-     * @param contentType
-     * @param input
-     * @param createFolders
-     * 			create missing folders in path?
-     * @param edit
-     * @param unlock
-     * 			unlock the content upon edit?
-     * @param skipAuditLogInsert if true do not insert audit log
-     * @throws ServiceLayerException
-     */
-    void writeContent(String site, String path, String fileName, String contentType, InputStream input,
-                      String createFolders, String edit, String unlock, boolean skipAuditLogInsert)
-            throws ServiceLayerException;
 
     void writeContentAndRename(final String site, final String path, final String targetPath, final String fileName,
                                final String contentType, final InputStream input, final String createFolders,

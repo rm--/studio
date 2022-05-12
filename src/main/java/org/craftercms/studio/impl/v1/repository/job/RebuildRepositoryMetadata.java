@@ -201,12 +201,12 @@ public class RebuildRepositoryMetadata {
         this.contentRepository = contentRepository;
     }
 
-    public RetryingOperationFacade getRetryingOperationFacade() {
-        return retryingOperationFacade;
+    public PublishRequestMapper getPublishRequestMapper() {
+        return publishRequestMapper;
     }
 
-    public void setRetryingOperationFacade(RetryingOperationFacade retryingOperationFacade) {
-        this.retryingOperationFacade = retryingOperationFacade;
+    public void setPublishRequestMapper(PublishRequestMapper publishRequestMapper) {
+        this.publishRequestMapper = publishRequestMapper;
     }
 
     public ItemServiceInternal getItemServiceInternal() {

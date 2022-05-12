@@ -25,45 +25,4 @@
     <import resource="classpath:crafter/studio/security/web.xml"/>
     <import resource="classpath:crafter/studio/security/websocket.xml"/>
 
-    <bean id="crafter.corsFilter" class="org.springframework.web.filter.CorsFilter">
-        <constructor-arg ref="crafter.corsConfigSource"/>
-    </bean>
-
-    <!-- Secure Headers -->
-
-    <bean id="crafter.secureHeaderWriterFilter"
-          class="org.craftercms.engine.util.spring.security.ConditionalHeaderWriterFilter">
-        <constructor-arg value="#{studioConfiguration.getProperty('studio.security.headers.enabled')}"/>
-        <constructor-arg>
-            <list>
-                <bean class="org.springframework.security.web.header.writers.CacheControlHeadersWriter"/>
-                <bean class="org.springframework.security.web.header.writers.HstsHeaderWriter"/>
-                <bean class="org.springframework.security.web.header.writers.XXssProtectionHeaderWriter"/>
-                <bean class="org.springframework.security.web.header.writers.frameoptions.XFrameOptionsHeaderWriter">
-                    <constructor-arg value="SAMEORIGIN"/>
-                </bean>
-                <bean class="org.springframework.security.web.header.writers.XContentTypeOptionsHeaderWriter"/>
-            </list>
-        </constructor-arg>
-    </bean>
-
-    <!-- Logout -->
-    <bean id="logoutFilter" class="org.craftercms.studio.impl.v1.web.security.access.StudioLogoutFilter">
-        <constructor-arg ref="cstudioSecurityService"/>
-        <constructor-arg ref="logoutSuccessHandler"/>
-        <constructor-arg>
-            <list>
-                <ref bean="csrfLogoutHandler"/>
-                <ref bean="securityContextLogoutHandler"/>
-            </list>
-        </constructor-arg>
-        <property name="filterProcessesUrl" value="/api/1/services/api/1/security/logout.json"/>
-    </bean>
-
-    <bean id="logoutSuccessHandler"
-          class="org.craftercms.studio.impl.v1.web.security.access.StudioLogoutSuccessHandler"/>
-
-    <bean id="securityContextLogoutHandler"
-          class="org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler"/>
-
 </beans>

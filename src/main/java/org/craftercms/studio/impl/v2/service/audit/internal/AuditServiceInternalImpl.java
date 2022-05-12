@@ -70,12 +70,6 @@ public class AuditServiceInternalImpl implements AuditServiceInternal {
     private StudioConfiguration studioConfiguration;
     private RetryingDatabaseOperationFacade retryingDatabaseOperationFacade;
 
-    public AuditServiceInternalImpl(AuditDAO auditDao,
-                                    StudioConfiguration studioConfiguration) {
-        this.auditDao = auditDao;
-        this.studioConfiguration = studioConfiguration;
-    }
-
     @Override
     public List<AuditLog> getAuditLogForSite(String site, int offset, int limit, String user, List<String> actions)
             throws SiteNotFoundException {

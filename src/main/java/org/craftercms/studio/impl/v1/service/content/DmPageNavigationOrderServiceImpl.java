@@ -58,7 +58,6 @@ public class DmPageNavigationOrderServiceImpl extends AbstractRegistrableService
         this._servicesManager.registerService(DmPageNavigationOrderService.class, this);
     }
 
-    @RetryingOperation
     @Override
     @ValidateParams
     public double getNewNavOrder(@ValidateStringParam(name = "site") String site,
@@ -66,13 +65,13 @@ public class DmPageNavigationOrderServiceImpl extends AbstractRegistrableService
         return getNewNavOrder(site, path, -1);
     }
 
-    @RetryingOperation
     @Override
     @ValidateParams
     public double getNewNavOrder(@ValidateStringParam(name = "site") String site,
                                  @ValidateSecurePathParam(name = "path") String path,
                                  @ValidateDoubleParam(name = "currentMaxNavOrder") double currentMaxNavOrder) {
 
+        String lockId = site + ":" + path;
         double lastNavOrder = 1000D;
         try {
             Map<String, String> params = new HashMap<String, String>();
@@ -156,7 +155,6 @@ public class DmPageNavigationOrderServiceImpl extends AbstractRegistrableService
         return docUpdated;
     }
 
-    @RetryingOperation
     @Override
     @ValidateParams
     public void deleteSequencesForSite(@ValidateStringParam(name = "site") String site) {

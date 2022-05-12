@@ -182,7 +182,6 @@
                 <permission>get_publishing_queue</permission>
                 <permission>publish_status</permission>
                 <permission>cancel_publish</permission>
-                <permission>publish_status</permission>
             </allowed-permissions>
         </rule>
         <rule regex=".*">

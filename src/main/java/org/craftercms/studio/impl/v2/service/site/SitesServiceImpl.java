@@ -36,10 +36,6 @@ import static org.craftercms.studio.permissions.PermissionResolverImpl.SITE_ID_R
 import static org.craftercms.studio.permissions.StudioPermissionsConstants.PERMISSION_PUBLISH_CLEAR_LOCK;
 import static org.craftercms.studio.permissions.StudioPermissionsConstants.PERMISSION_PUBLISH_STATUS;
 
-import static org.craftercms.studio.permissions.PermissionResolverImpl.SITE_ID_RESOURCE_ID;
-import static org.craftercms.studio.permissions.StudioPermissions.ACTION_PUBLISH_CLEAR_LOCK;
-import static org.craftercms.studio.permissions.StudioPermissions.ACTION_PUBLISH_STATUS;
-
 public class SitesServiceImpl implements SitesService {
 
     private SitesServiceInternal sitesServiceInternal;

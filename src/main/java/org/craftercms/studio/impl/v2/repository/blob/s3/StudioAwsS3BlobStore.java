@@ -17,7 +17,6 @@ package org.craftercms.studio.impl.v2.repository.blob.s3;
 
 import com.amazonaws.services.s3.model.*;
 import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.craftercms.commons.file.blob.Blob;
 import org.craftercms.commons.file.blob.exception.BlobStoreException;
 import org.craftercms.commons.file.blob.impl.s3.AwsS3BlobStore;
@@ -99,11 +98,6 @@ public class StudioAwsS3BlobStore extends AwsS3BlobStore implements StudioBlobSt
     public boolean shallowContentExists(String site, String path) {
         return false;
     }
-
-	@Override
-	public boolean contentExistsShallow(String site, String path) {
-		return false;
-	}
 
     @Override
     public InputStream getContent(String site, String path) {
@@ -299,11 +293,6 @@ public class StudioAwsS3BlobStore extends AwsS3BlobStore implements StudioBlobSt
             }
         }
         return OK;
-    }
-
-    @Override
-    public RepositoryItem[] getContentChildrenShallow(String site, String path) {
-        return new RepositoryItem[0];
     }
 
     @Override

@@ -432,19 +432,6 @@ public class ServicesConfigImpl implements ServicesConfig {
          config.setSearchFields(fields);
      }
 
-    protected void loadSiteUrlsConfiguration(SiteConfigTO siteConfig, Node configNode) {
-        if (Objects.nonNull(configNode)) {
-            String authoringUrlValue = configNode.valueOf(SITE_CONFIG_ELEMENT_AUTHORING_URL);
-            siteConfig.setAuthoringUrl(authoringUrlValue);
-
-            String stagingUrlValue = configNode.valueOf(SITE_CONFIG_ELEMENT_STAGING_URL);
-            siteConfig.setStagingUrl(stagingUrlValue);
-
-            String liveUrlValue = configNode.valueOf(SITE_CONFIG_ELEMENT_LIVE_URL);
-            siteConfig.setLiveUrl(liveUrlValue);
-        }
-    }
-
     /**
      * Loads the search facets configurations
      * @param root configuration to read

@@ -558,10 +558,6 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
             );
         }
 
-        if (StringUtils.isNotEmpty(params.getPath())) {
-            query.filter(QueryBuilders.regexpQuery(pathFieldName, params.getPath()));
-        }
-
         if(MapUtils.isNotEmpty(params.getFilters())) {
             updateFilters(queryBuilder, params, siteFacets);
         }
