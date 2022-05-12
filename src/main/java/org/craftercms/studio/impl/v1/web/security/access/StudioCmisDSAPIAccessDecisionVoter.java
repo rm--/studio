@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -42,7 +42,7 @@ public class StudioCmisDSAPIAccessDecisionVoter extends StudioAbstractAccessDeci
     }
 
     @Override
-    public int vote(Authentication authentication, Object o, Collection collection) {
+    public int voteInternal(Authentication authentication, Object o, Collection collection) {
         int toRet = ACCESS_ABSTAIN;
         String requestUri = "";
         if (o instanceof FilterInvocation) {
@@ -50,17 +50,7 @@ public class StudioCmisDSAPIAccessDecisionVoter extends StudioAbstractAccessDeci
             HttpServletRequest  request = filterInvocation.getRequest();
             requestUri = request.getRequestURI().replace(request.getContextPath(), "");
             String siteParam = request.getParameter("site_id");
-            User currentUser = null;
-            try {
-                String username = authentication.getPrincipal().toString();
-                currentUser = userServiceInternal.getUserByIdOrUsername(-1, username);
-            } catch (ClassCastException | UserNotFoundException | ServiceLayerException e) {
-                // anonymous user
-                if (!authentication.getPrincipal().toString().equals("anonymousUser")) {
-                    logger.info("Error getting current user", e);
-                    return ACCESS_ABSTAIN;
-                }
-            }
+            User currentUser = (User) authentication.getPrincipal();
 
             switch (requestUri) {
                 case UPLOAD:

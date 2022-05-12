@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -23,15 +23,15 @@ import org.apache.commons.lang3.StringUtils;
 import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
-import org.craftercms.studio.api.v1.service.objectstate.State;
 import org.craftercms.studio.api.v2.dal.AuditDAO;
 import org.craftercms.studio.api.v2.dal.AuditLog;
+import org.craftercms.studio.api.v2.dal.ItemState;
 import org.craftercms.studio.api.v2.dal.QueryParameterNames;
+import org.craftercms.studio.api.v2.dal.RetryingDatabaseOperationFacade;
 import org.craftercms.studio.api.v2.service.audit.internal.AuditServiceInternal;
 import org.craftercms.studio.api.v2.utils.StudioConfiguration;
 
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -68,6 +68,7 @@ public class AuditServiceInternalImpl implements AuditServiceInternal {
 
     private AuditDAO auditDao;
     private StudioConfiguration studioConfiguration;
+    private RetryingDatabaseOperationFacade retryingDatabaseOperationFacade;
 
     public AuditServiceInternalImpl(AuditDAO auditDao,
                                     StudioConfiguration studioConfiguration) {
@@ -160,8 +161,8 @@ public class AuditServiceInternalImpl implements AuditServiceInternal {
 
     @Override
     public int getAuditLogTotal(String siteId, String siteName, String user, List<String> operations,
-                                boolean includeParameters, ZonedDateTime dateFrom, ZonedDateTime dateTo,
-                                String target, String origin, String clusterNodeId) {
+                                boolean includeParameters, ZonedDateTime dateFrom, ZonedDateTime dateTo, String target,
+                                String origin, String clusterNodeId) {
         Map<String, Object> params = new HashMap<String, Object>();
         if (StringUtils.isNotEmpty(siteId)) {
             params.put(SITE_ID, siteId);
@@ -291,13 +292,14 @@ public class AuditServiceInternalImpl implements AuditServiceInternal {
     }
 
     @Override
+    // TODO: after login insert LOGIN audit
     public boolean insertAuditLog(AuditLog auditLog) {
-        int result = auditDao.insertAuditLog(auditLog);
+        int result = retryingDatabaseOperationFacade.insertAuditLog(auditLog);
         if (CollectionUtils.isNotEmpty(auditLog.getParameters())) {
             Map<String, Object> params = new HashMap<String, Object>();
             params.put("auditId", auditLog.getId());
             params.put("parameters", auditLog.getParameters());
-            auditDao.insertAuditLogParams(params);
+            retryingDatabaseOperationFacade.insertAuditLogParams(params);
         }
         return result > 0;
     }
@@ -317,8 +319,8 @@ public class AuditServiceInternalImpl implements AuditServiceInternal {
         return auditLog;
     }
 
-    public List<AuditLog> selectUserFeedEntries(String user, String siteId, int offset,
-                                                int limit, String contentType, boolean hideLiveItems) {
+    public List<AuditLog> selectUserFeedEntries(String user, String siteId, int offset, int limit, String contentType,
+                                                boolean hideLiveItems) {
         HashMap<String, Object> params = new HashMap<String, Object>();
         params.put("userId", user);
         params.put("siteId", siteId);
@@ -326,15 +328,11 @@ public class AuditServiceInternalImpl implements AuditServiceInternal {
         params.put("limit", limit);
         params.put("operations", Arrays.asList(OPERATION_CREATE, OPERATION_DELETE, OPERATION_UPDATE, OPERATION_MOVE));
         params.put("targetType", TARGET_TYPE_CONTENT_ITEM);
-        if (StringUtils.isNotEmpty(contentType) && !contentType.toLowerCase().equals("all")) {
+        if (StringUtils.isNotEmpty(contentType) && !contentType.equalsIgnoreCase("all")) {
             params.put("contentType", contentType.toLowerCase());
         }
         if (hideLiveItems) {
-            List<String> statesValues = new ArrayList<String>();
-            for (State state : State.LIVE_STATES) {
-                statesValues.add(state.name());
-            }
-            params.put("states", statesValues);
+            params.put("liveStateBitMap", ItemState.LIVE.value);
             return auditDao.selectUserFeedEntriesHideLive(params);
         } else {
             return auditDao.selectUserFeedEntries(params);
@@ -343,6 +341,30 @@ public class AuditServiceInternalImpl implements AuditServiceInternal {
 
     @Override
     public void deleteAuditLogForSite(long siteId) {
-        auditDao.deleteAuditLogForSite(siteId);
+        retryingDatabaseOperationFacade.deleteAuditLogForSite(siteId);
+    }
+
+    public AuditDAO getAuditDao() {
+        return auditDao;
+    }
+
+    public void setAuditDao(AuditDAO auditDao) {
+        this.auditDao = auditDao;
+    }
+
+    public StudioConfiguration getStudioConfiguration() {
+        return studioConfiguration;
+    }
+
+    public void setStudioConfiguration(StudioConfiguration studioConfiguration) {
+        this.studioConfiguration = studioConfiguration;
+    }
+
+    public RetryingDatabaseOperationFacade getRetryingDatabaseOperationFacade() {
+        return retryingDatabaseOperationFacade;
+    }
+
+    public void setRetryingDatabaseOperationFacade(RetryingDatabaseOperationFacade retryingDatabaseOperationFacade) {
+        this.retryingDatabaseOperationFacade = retryingDatabaseOperationFacade;
     }
 }

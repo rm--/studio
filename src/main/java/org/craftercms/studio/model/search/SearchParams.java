@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -16,12 +16,18 @@
 
 package org.craftercms.studio.model.search;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+import java.util.List;
 import java.util.Map;
+
+import static java.util.Collections.emptyList;
 
 /**
  * Holds the data needed to perform a search operation
  * @author joseross
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class SearchParams {
 
     /**
@@ -63,6 +69,16 @@ public class SearchParams {
      * The filters to search the files
      */
     protected Map<String, Object> filters;
+
+    /**
+     * Indicates if OR should be used instead of AND
+     */
+    protected boolean orOperator;
+
+    /**
+     * List of additional fields to include for each item
+     */
+    protected List<String> additionalFields = emptyList();
 
     public String getKeywords() {
         return keywords;
@@ -126,6 +142,22 @@ public class SearchParams {
 
     public void setFilters(final Map<String, Object> filters) {
         this.filters = filters;
+    }
+
+    public boolean isOrOperator() {
+        return orOperator;
+    }
+
+    public void setOrOperator(boolean orOperator) {
+        this.orOperator = orOperator;
+    }
+
+    public List<String> getAdditionalFields() {
+        return additionalFields;
+    }
+
+    public void setAdditionalFields(List<String> additionalFields) {
+        this.additionalFields = additionalFields;
     }
 
 }

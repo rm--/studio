@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -15,11 +15,13 @@
  */
 package org.craftercms.studio.impl.v1.service.configuration;
 
+import com.google.common.cache.Cache;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.craftercms.commons.validation.annotations.param.ValidateParams;
 import org.craftercms.commons.validation.annotations.param.ValidateStringParam;
 import org.craftercms.core.util.XmlUtils;
+import org.craftercms.studio.api.v1.exception.ServiceLayerException;
 import org.craftercms.studio.api.v1.repository.ContentRepository;
 import org.craftercms.studio.api.v1.service.GeneralLockService;
 import org.craftercms.studio.api.v1.service.configuration.ContentTypesConfig;
@@ -36,21 +38,20 @@ import org.craftercms.studio.api.v1.to.SiteConfigTO;
 import org.craftercms.studio.api.v2.service.config.ConfigurationService;
 import org.craftercms.studio.api.v2.utils.StudioConfiguration;
 import org.craftercms.studio.impl.v1.util.ContentFormatUtils;
+import org.craftercms.studio.impl.v2.utils.DateUtils;
 import org.dom4j.Document;
-import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.Node;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TimeZone;
+import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -62,11 +63,19 @@ import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_
 import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_ELEMENT_PLUGIN_FOLDER_PATTERN;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_ELEMENT_SITE_URLS;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_ELEMENT_STAGING_URL;
+import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_XML_ELEMENT_DATE_TIME_FORMAT_OPTIONS;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_XML_ELEMENT_ENABLE_STAGING_ENVIRONMENT;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_XML_ELEMENT_LIVE_ENVIRONMENT;
+import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_XML_ELEMENT_LOCALE;
+import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_XML_ELEMENT_PROTECTED_FOLDER_PATTERNS;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_XML_ELEMENT_PUBLISHED_REPOSITORY;
+import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_XML_ELEMENT_PUBLISHER;
+import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_XML_ELEMENT_REQUIRE_PEER_REVIEW;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_XML_ELEMENT_STAGING_ENVIRONMENT;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_ELEMENT_SANDBOX_BRANCH;
+import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_XML_ELEMENT_TIME_ZONE;
+import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_CONFIG_XML_ELEMENT_WORKFLOW;
+import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATION_DEFAULT_TIME_ZONE;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATION_ENVIRONMENT_ACTIVE;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATION_SITE_GENERAL_CONFIG_FILE_NAME;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.REPO_PUBLISHED_LIVE;
@@ -117,6 +126,7 @@ public class ServicesConfigImpl implements ServicesConfig {
     protected GeneralLockService generalLockService;
     protected StudioConfiguration studioConfiguration;
     protected ConfigurationService configurationService;
+    protected Cache<String, SiteConfigTO> configurationCache;
 
     protected SiteConfigTO getSiteConfig(final String site) {
         return loadConfiguration(site);
@@ -172,7 +182,7 @@ public class ServicesConfigImpl implements ServicesConfig {
     @Override
     @ValidateParams
 	public List<DeleteDependencyConfigTO> getDeleteDependencyPatterns(@ValidateStringParam(name = "site") String site,
-                                              @ValidateStringParam(name = "contentType") String contentType) {
+                                                                      @ValidateStringParam(name = "contentType") String contentType) {
         if (contentType == null ) {
              return Collections.emptyList();
         }
@@ -186,7 +196,7 @@ public class ServicesConfigImpl implements ServicesConfig {
     @Override
     @ValidateParams
 	public List<CopyDependencyConfigTO> getCopyDependencyPatterns(@ValidateStringParam(name = "site") String site,
-                                                  @ValidateStringParam(name = "contentType") String contentType) {
+                                                                  @ValidateStringParam(name = "contentType") String contentType) {
         if (contentType == null ) {
              return Collections.emptyList();
         }
@@ -281,11 +291,18 @@ public class ServicesConfigImpl implements ServicesConfig {
     @ValidateParams
 	public String getDefaultTimezone(@ValidateStringParam(name = "site") String site) {
 		SiteConfigTO config = getSiteConfig(site);
+        String timeZone = null;
 		if (config != null) {
-			return config.getTimezone();
-		} else {
-			return null;
+			timeZone = config.getTimezone();
 		}
+        if (StringUtils.isEmpty(timeZone)) {
+            timeZone = studioConfiguration.getProperty(CONFIGURATION_DEFAULT_TIME_ZONE);
+            if (StringUtils.isEmpty(timeZone)) {
+                timeZone = TimeZone.getDefault().getID();
+
+            }
+        }
+        return timeZone;
 	}
 
     @Override
@@ -303,65 +320,116 @@ public class ServicesConfigImpl implements ServicesConfig {
 	 *
 	 */
      protected SiteConfigTO loadConfiguration(String site) {
-         Document document = null;
-         SiteConfigTO siteConfig = null;
-         try {
-             document = configurationService.getConfigurationAsDocument(site, MODULE_STUDIO, getConfigFileName(),
-                     studioConfiguration.getProperty(CONFIGURATION_ENVIRONMENT_ACTIVE));
-         } catch (DocumentException | IOException e) {
-             LOGGER.error("Error while loading configuration for " + site + " at " + getConfigFileName(), e);
-         }
-         if (document != null) {
-             Element root = document.getRootElement();
-             Node configNode = root.selectSingleNode("/site-config");
-             String name = configNode.valueOf("display-name");
-             siteConfig = new SiteConfigTO();
-             siteConfig.setName(name);
-             siteConfig.setWemProject(configNode.valueOf("wem-project"));
-             siteConfig.setTimezone(configNode.valueOf("default-timezone"));
-             String sandboxBranch = configNode.valueOf(SITE_CONFIG_ELEMENT_SANDBOX_BRANCH);
-             if (StringUtils.isEmpty(sandboxBranch)) {
-                 sandboxBranch = studioConfiguration.getProperty(REPO_SANDBOX_BRANCH);
+         String environment = studioConfiguration.getProperty(CONFIGURATION_ENVIRONMENT_ACTIVE);
+         String configFilename = getConfigFileName();
+         String cacheKey =
+                 configurationService.getCacheKey(site, MODULE_STUDIO, getConfigFileName(), environment, "object");
+
+         SiteConfigTO siteConfig = configurationCache.getIfPresent(cacheKey);
+         if (siteConfig == null) {
+             try {
+                 Document document = configurationService
+                         .getConfigurationAsDocument(site, MODULE_STUDIO, configFilename, environment);
+                 if (document != null) {
+                     Element root = document.getRootElement();
+                     Node configNode = root.selectSingleNode("/site-config");
+                     String name = configNode.valueOf("display-name");
+                     siteConfig = new SiteConfigTO();
+                     siteConfig.setName(name);
+                     siteConfig.setWemProject(configNode.valueOf("wem-project"));
+                     siteConfig.setTimezone(configNode.valueOf(SITE_CONFIG_XML_ELEMENT_LOCALE + "/" +
+                             SITE_CONFIG_XML_ELEMENT_DATE_TIME_FORMAT_OPTIONS + "/" +
+                             SITE_CONFIG_XML_ELEMENT_TIME_ZONE));
+                     String sandboxBranch = configNode.valueOf(SITE_CONFIG_ELEMENT_SANDBOX_BRANCH);
+                     if (StringUtils.isEmpty(sandboxBranch)) {
+                         sandboxBranch = studioConfiguration.getProperty(REPO_SANDBOX_BRANCH);
+                     }
+                     siteConfig.setSandboxBranch(sandboxBranch);
+                     String stagingEnvironmentEnabledValue =
+                             configNode.valueOf(SITE_CONFIG_XML_ELEMENT_PUBLISHED_REPOSITORY +
+                                     "/" + SITE_CONFIG_XML_ELEMENT_ENABLE_STAGING_ENVIRONMENT);
+                     if (StringUtils.isEmpty(stagingEnvironmentEnabledValue)) {
+                         siteConfig.setStagingEnvironmentEnabled(false);
+                     } else {
+                         siteConfig.setStagingEnvironmentEnabled(Boolean.parseBoolean(stagingEnvironmentEnabledValue));
+                     }
+
+                     String stagingEnvironment =
+                             configNode.valueOf(SITE_CONFIG_XML_ELEMENT_PUBLISHED_REPOSITORY + "/" +
+                             SITE_CONFIG_XML_ELEMENT_STAGING_ENVIRONMENT);
+                     if (StringUtils.isEmpty(stagingEnvironment)) {
+                         stagingEnvironment = studioConfiguration.getProperty(REPO_PUBLISHED_STAGING);
+                     }
+                     siteConfig.setStagingEnvironment(stagingEnvironment);
+                     String liveEnvironment =
+                             configNode.valueOf(SITE_CONFIG_XML_ELEMENT_PUBLISHED_REPOSITORY + "/" +
+                             SITE_CONFIG_XML_ELEMENT_LIVE_ENVIRONMENT);
+                     if (StringUtils.isEmpty(liveEnvironment)) {
+                         liveEnvironment = studioConfiguration.getProperty(REPO_PUBLISHED_LIVE);
+                     }
+                     siteConfig.setLiveEnvironment(liveEnvironment);
+
+                     loadSiteUrlsConfiguration(siteConfig, configNode.selectSingleNode(SITE_CONFIG_ELEMENT_SITE_URLS));
+
+                     String adminEmailAddressValue = configNode.valueOf(SITE_CONFIG_ELEMENT_ADMIN_EMAIL_ADDRESS);
+                     siteConfig.setAdminEmailAddress(adminEmailAddressValue);
+
+                     loadSiteRepositoryConfiguration(siteConfig, configNode.selectSingleNode("repository"));
+                     // set the last updated date
+                     siteConfig.setLastUpdated(DateUtils.getCurrentTime());
+
+                     loadSearchFields(configNode, siteConfig);
+                     loadFacetConfiguration(configNode, siteConfig);
+
+                     siteConfig.setPluginFolderPattern(configNode.valueOf(SITE_CONFIG_ELEMENT_PLUGIN_FOLDER_PATTERN));
+
+                     String requirePeerReviewValue =
+                             configNode.valueOf(SITE_CONFIG_XML_ELEMENT_WORKFLOW + "/" +
+                                     SITE_CONFIG_XML_ELEMENT_PUBLISHER + "/" +
+                                     SITE_CONFIG_XML_ELEMENT_REQUIRE_PEER_REVIEW);
+                     if (StringUtils.isEmpty(requirePeerReviewValue)) {
+                         siteConfig.setRequirePeerReview(false);
+                     } else {
+                         siteConfig.setRequirePeerReview(Boolean.parseBoolean(requirePeerReviewValue));
+                     }
+
+                     List<String> protectedFolderPatterns =
+                             getStringList(configNode.selectNodes(SITE_CONFIG_XML_ELEMENT_PROTECTED_FOLDER_PATTERNS));
+                     siteConfig.setProtectedFolderPatterns(protectedFolderPatterns);
+
+                     configurationCache.put(cacheKey, siteConfig);
+                 }
+             } catch(ServiceLayerException e) {
+                 LOGGER.error("No site configuration found for " + site + " at " + getConfigFileName());
              }
-             siteConfig.setSandboxBranch(sandboxBranch);
-             String stagingEnvironmentEnabledValue =
-                     configNode.valueOf(SITE_CONFIG_XML_ELEMENT_PUBLISHED_REPOSITORY +
-                     "/" + SITE_CONFIG_XML_ELEMENT_ENABLE_STAGING_ENVIRONMENT);
-             if (StringUtils.isEmpty(stagingEnvironmentEnabledValue)) {
-                 siteConfig.setStagingEnvironmentEnabled(false);
-             } else {
-                 siteConfig.setStagingEnvironmentEnabled(Boolean.valueOf(stagingEnvironmentEnabledValue));
-             }
-
-             String stagingEnvironment = configNode.valueOf(SITE_CONFIG_XML_ELEMENT_PUBLISHED_REPOSITORY + "/" +
-                     SITE_CONFIG_XML_ELEMENT_STAGING_ENVIRONMENT);
-             if (StringUtils.isEmpty(stagingEnvironment)) {
-                 stagingEnvironment = studioConfiguration.getProperty(REPO_PUBLISHED_STAGING);
-             }
-             siteConfig.setStagingEnvironment(stagingEnvironment);
-             String liveEnvironment = configNode.valueOf(SITE_CONFIG_XML_ELEMENT_PUBLISHED_REPOSITORY + "/" +
-                     SITE_CONFIG_XML_ELEMENT_LIVE_ENVIRONMENT);
-             if (StringUtils.isEmpty(liveEnvironment)) {
-                 liveEnvironment = studioConfiguration.getProperty(REPO_PUBLISHED_LIVE);
-             }
-             siteConfig.setLiveEnvironment(liveEnvironment);
-
-             loadSiteUrlsConfiguration(siteConfig, configNode.selectSingleNode(SITE_CONFIG_ELEMENT_SITE_URLS));
-
-             String adminEmailAddressValue = configNode.valueOf(SITE_CONFIG_ELEMENT_ADMIN_EMAIL_ADDRESS);
-             siteConfig.setAdminEmailAddress(adminEmailAddressValue);
-
-             loadSiteRepositoryConfiguration(siteConfig, configNode.selectSingleNode("repository"));
-             // set the last updated date
-             siteConfig.setLastUpdated(ZonedDateTime.now(ZoneOffset.UTC));
-
-             loadFacetConfiguration(configNode, siteConfig);
-
-             siteConfig.setPluginFolderPattern(configNode.valueOf(SITE_CONFIG_ELEMENT_PLUGIN_FOLDER_PATTERN));
-         } else {
-             LOGGER.error("No site configuration found for " + site + " at " + getConfigFileName());
          }
          return siteConfig;
+     }
+
+     protected void loadSiteUrlsConfiguration(SiteConfigTO siteConfig, Node configNode) {
+         if (Objects.nonNull(configNode)) {
+             String authoringUrlValue = configNode.valueOf(SITE_CONFIG_ELEMENT_AUTHORING_URL);
+             siteConfig.setAuthoringUrl(authoringUrlValue);
+
+             String stagingUrlValue = configNode.valueOf(SITE_CONFIG_ELEMENT_STAGING_URL);
+             siteConfig.setStagingUrl(stagingUrlValue);
+
+             String liveUrlValue = configNode.valueOf(SITE_CONFIG_ELEMENT_LIVE_URL);
+             siteConfig.setLiveUrl(liveUrlValue);
+         }
+     }
+
+     protected void loadSearchFields(Node root, SiteConfigTO config) {
+         Map<String, Float> fields = new TreeMap<>();
+         List<Node> fieldsConfig = root.selectNodes("search/fields/field");
+         if(CollectionUtils.isNotEmpty(fieldsConfig)) {
+             fieldsConfig.forEach(fieldConfig -> {
+                 String name = XmlUtils.selectSingleNodeValue(fieldConfig, "name/text()");
+                 String boost = XmlUtils.selectSingleNodeValue(fieldConfig, "boost/text()");
+                 fields.put(name, StringUtils.isNotEmpty(boost)? Float.parseFloat(boost) : 1.0f);
+             });
+         }
+         config.setSearchFields(fields);
      }
 
     protected void loadSiteUrlsConfiguration(SiteConfigTO siteConfig, Node configNode) {
@@ -382,7 +450,6 @@ public class ServicesConfigImpl implements ServicesConfig {
      * @param root configuration to read
      * @param config configuration to update
      */
-    @SuppressWarnings("unchecked")
     protected void loadFacetConfiguration(Node root, SiteConfigTO config) {
         List<Node> facetsConfig = root.selectNodes("search/facets/facet");
         if(CollectionUtils.isNotEmpty(facetsConfig)) {
@@ -427,7 +494,6 @@ public class ServicesConfigImpl implements ServicesConfig {
      * @param siteConfig
      * @param node
      */
-    @SuppressWarnings("unchecked")
     protected void loadSiteRepositoryConfiguration(SiteConfigTO siteConfig, Node node) {
         RepositoryConfigTO repoConfigTO = new RepositoryConfigTO();
         repoConfigTO.setRootPrefix(node.valueOf("@rootPrefix"));
@@ -467,7 +533,6 @@ public class ServicesConfigImpl implements ServicesConfig {
      * @param site
      * @param nodes
      */
-    @SuppressWarnings("unchecked")
     protected void loadPatterns(SiteConfigTO site, RepositoryConfigTO repo, List<Node> nodes) {
         if (nodes != null) {
             for (Node node : nodes) {
@@ -553,12 +618,6 @@ public class ServicesConfigImpl implements ServicesConfig {
 
     @Override
     @ValidateParams
-    public void reloadConfiguration(@ValidateStringParam(name = "site") String site) {
-        SiteConfigTO config = loadConfiguration(site);
-    }
-
-    @Override
-    @ValidateParams
     public String getSandboxBranchName(@ValidateStringParam(name = "site") String site) {
         SiteConfigTO config = getSiteConfig(site);
         if (config != null) {
@@ -592,6 +651,15 @@ public class ServicesConfigImpl implements ServicesConfig {
             return config.getLiveEnvironment();
         }
         return null;
+    }
+
+    @Override
+    public Map<String, Float> getSearchFields(String site) {
+        SiteConfigTO config = getSiteConfig(site);
+        if(Objects.nonNull(config)) {
+            return config.getSearchFields();
+        }
+        return Collections.emptyMap();
     }
 
     /**
@@ -654,6 +722,24 @@ public class ServicesConfigImpl implements ServicesConfig {
         return null;
     }
 
+    @Override
+    public boolean isRequirePeerReview(String siteId) {
+        SiteConfigTO config = getSiteConfig(siteId);
+        if (config != null) {
+            return config.isRequirePeerReview();
+        }
+        return false;
+    }
+
+    @Override
+    public List<String> getProtectedFolderPatterns(String siteId) {
+        SiteConfigTO config = getSiteConfig(siteId);
+        if (config != null) {
+            return config.getProtectedFolderPatterns();
+        }
+        return null;
+    }
+
     public void setContentService(ContentService contentService) {
 		this.contentService = contentService;
 	}
@@ -697,4 +783,9 @@ public class ServicesConfigImpl implements ServicesConfig {
     public void setConfigurationService(ConfigurationService configurationService) {
         this.configurationService = configurationService;
     }
+
+    public void setConfigurationCache(Cache<String, SiteConfigTO> configurationCache) {
+        this.configurationCache = configurationCache;
+    }
+
 }

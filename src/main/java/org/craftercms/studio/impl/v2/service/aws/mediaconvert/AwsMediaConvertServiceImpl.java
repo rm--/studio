@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -244,7 +244,7 @@ public class AwsMediaConvertServiceImpl extends AbstractAwsService<MediaConvertP
     }
 
     /**
-     * Builds a remote-asset url using the given profile & S3 URI
+     * Builds a remote-asset url using the given profile and S3 URI
      */
     protected String createUrl(String profileId, String fullUri) {
         AmazonS3URI uri = new AmazonS3URI(fullUri);

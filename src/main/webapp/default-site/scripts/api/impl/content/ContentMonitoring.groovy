@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -25,6 +25,7 @@ class ContentMonitoring {
 	static SITE_SERVICE_BEAN = "cstudioSiteServiceSimple"
 	static NOTIFICATION_SERVICE_BEAN = "cstudioNotificationService"
 	static SEARCH_SERVICE_BEAN = "searchServiceInternal"
+	static CONFIGURATION_SERVICE_BEAN = "configurationService"
 
 	static doMonitoringForAllSites(context, logger) {
 		def results = []
@@ -54,10 +55,10 @@ class ContentMonitoring {
 
 		def searchService = context.get(SEARCH_SERVICE_BEAN)
 		def notificationService = context.get(NOTIFICATION_SERVICE_BEAN)
-		def siteService = context.get(SITE_SERVICE_BEAN)
 		def servicesConfig = context.get(SERVICES_CONFIG_BEAN)
+		def configurationService = context.get(CONFIGURATION_SERVICE_BEAN)
 
-		def config = siteService.getConfiguration(site, "site-config.xml", false);
+		def config = configurationService.legacyGetConfiguration(site, "site-config.xml")
 
 		if(config.contentMonitoring != null && config.contentMonitoring.monitor != null) {
 			if(config.contentMonitoring.monitor instanceof Map) {
@@ -69,7 +70,7 @@ class ContentMonitoring {
 			config.contentMonitoring.monitor.each { monitor ->
 				def authoringBaseUrl = servicesConfig.getAuthoringUrl(site)
 
-				logger.info("executing monitor: ${monitor.name}")
+				logger.debug("executing monitor: ${monitor.name}")
 
 				if(monitor.paths !=null && monitor.paths.path!=null) {
 					if(monitor.paths.path instanceof Map) {
@@ -86,7 +87,7 @@ class ContentMonitoring {
 					def executedQuery = searchService.search(site, Collections.emptyList(), searchParams)
 					def itemsFound = executedQuery.total
 					def items = executedQuery.items
-					logger.info("content monitor (${monitor.name}) found $itemsFound items")
+					logger.debug("content monitor (${monitor.name}) found $itemsFound items")
 
 					monitor.paths.path.each { path ->
 						// there are paths, query for items and then match against paths patterns

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+  ~ Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
   ~
   ~ This program is free software: you can redistribute it and/or modify
   ~ it under the terms of the GNU General Public License version 3 as published by
@@ -50,6 +50,20 @@
         <result property="groupDescription" column="group_description"/>
     </resultMap>
 
+    <resultMap id="UserProperty" type="org.craftercms.studio.api.v2.dal.UserProperty">
+        <result property="key" column="property_key"/>
+        <result property="value" column="property_value"/>
+    </resultMap>
+
+    <!-- Simplified version of User exposed for new APIs -->
+    <resultMap id="PersonMap" type="org.craftercms.studio.model.rest.Person">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="firstName" column="first_name" />
+        <result property="lastName" column="last_name" />
+        <result property="avatar" column="avatar" />
+    </resultMap>
+
     <select id="getAllUsersForSite" parameterType="java.util.Map" resultMap="UserMap">
         SELECT u.*
         FROM ((`user` u INNER JOIN `group_user` gu ON gu.user_id = u.id)
@@ -59,6 +73,9 @@
         <foreach collection="groupNames" index="index" separator="," item="groupName" open="(" close=")">
             #{groupName}
         </foreach>
+        <if test="keyword != null" >
+        AND u.username like '%${keyword}%'
+        </if>
         ORDER BY #{sort}
         LIMIT #{offset}, #{limit}
     </select>
@@ -67,6 +84,9 @@
         SELECT u.*
         FROM `user` u
         WHERE u.deleted = 0
+        <if test="keyword != null" >
+            AND u.username like '%${keyword}%'
+        </if>
         ORDER BY #{sort}
         LIMIT #{offset}, #{limit}
     </select>
@@ -137,11 +157,17 @@
         <foreach collection="groupNames" index="index" separator="," item="groupName" open="(" close=")">
             #{groupName}
         </foreach>
+        <if test="keyword != null" >
+            AND u.username like '%${keyword}%'
+        </if>
     </select>
 
     <select id="getAllUsersTotal" resultType="int" parameterType="java.util.Map">
             SELECT COUNT(DISTINCT username)
             FROM `user` WHERE deleted = 0
+        <if test="keyword != null" >
+            AND username like '%${keyword}%'
+        </if>
     </select>
 
     <update id="setUserPassword" parameterType="java.util.Map">
@@ -171,4 +197,38 @@
         AND deleted = 0
         LIMIT 1
     </select>
+
+    <!-- TODO: Update to support multiple sites when needed -->
+    <select id="getUserProperties" resultMap="UserProperty" resultType="list">
+        SELECT property_key, property_value
+        FROM user_properties
+        WHERE site_id = #{siteId} AND user_id = #{userId}
+    </select>
+
+    <delete id="deleteUserProperties">
+        DELETE FROM user_properties WHERE user_id = #{userId} AND site_id = #{siteId} AND property_key IN
+        <foreach collection="keys" item="key" open="(" close=")" separator=",">
+            #{key}
+        </foreach>
+    </delete>
+
+    <insert id="updateUserProperties">
+        INSERT INTO user_properties (user_id, site_id, property_key, property_value) VALUES
+        <foreach collection="properties" index="key" item="value" separator=",">
+            (#{userId}, #{siteId}, #{key}, #{value})
+        </foreach>
+        ON DUPLICATE KEY UPDATE property_value = VALUES(property_value)
+    </insert>
+
+    <delete id="deleteUserPropertiesBySiteId">
+        DELETE FROM user_properties WHERE site_id = #{siteId}
+    </delete>
+
+    <delete id="deleteUserPropertiesByUserIds">
+        DELETE FROM user_properties WHERE user_id in
+        <foreach collection="userIds" item="userId" open="(" close=")" separator=",">
+            #{userId}
+        </foreach>
+    </delete>
+
 </mapper>

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -16,9 +16,9 @@
 package org.craftercms.studio.impl.v2.repository.blob;
 
 import org.apache.commons.io.FilenameUtils;
-import org.craftercms.commons.config.ConfigurationException;
-import org.craftercms.studio.api.v1.dal.DeploymentSyncHistory;
+import org.craftercms.studio.api.v1.exception.ContentNotFoundException;
 import org.craftercms.studio.api.v1.exception.ServiceLayerException;
+import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
 import org.craftercms.studio.api.v1.repository.RepositoryItem;
 import org.craftercms.studio.api.v1.service.deployment.DeploymentException;
 import org.craftercms.studio.api.v1.to.DeploymentItemTO;
@@ -40,7 +40,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-import static java.time.ZonedDateTime.now;
 import static java.util.Collections.singletonList;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
 import static org.mockito.Mockito.*;
@@ -55,6 +54,8 @@ public class BlobAwareContentRepositoryTest {
     public static final String SITE = "test";
     public static final String PARENT_PATH = "/static-assets";
     public static final String ORIGINAL_PATH = PARENT_PATH + "/test.txt";
+    public static final String LOCAL_FOLDER_PATH = PARENT_PATH + "/local/test";
+
     public static final String BLOB_EXT = "blob";
     public static final String POINTER_PATH = ORIGINAL_PATH + "." + BLOB_EXT;
     public static final String FOLDER_PATH = PARENT_PATH + "/folder";
@@ -70,6 +71,9 @@ public class BlobAwareContentRepositoryTest {
     public static final String COMMENT = "Going live!";
     public static final String STORE_ID = "BLOB_STORE";
     public static final String LOCAL_PATH = "/site/website/index.xml";
+    public static final String CONFIG_PATH = "/config/studio/site-config.xml";
+    public static final String COMMIT_1 = "some commit";
+    public static final String COMMIT_2 = "some other commit";
 
     @InjectMocks
     private BlobAwareContentRepository proxy;
@@ -100,12 +104,12 @@ public class BlobAwareContentRepositoryTest {
         when(resolver.getByPaths(SITE, ORIGINAL_PATH, NEW_FILE_PATH)).thenReturn(store);
         when(resolver.getByPaths(SITE, FOLDER_PATH, NEW_FOLDER_PATH)).thenReturn(store);
         when(resolver.getByPaths(SITE, NO_EXT_PATH)).thenReturn(store);
+        when(resolver.getByPaths(SITE, CONFIG_PATH)).thenReturn(null);
 
-        when(localV1.contentExists(SITE, NEW_FILE_PATH)).thenReturn(false);
-        when(localV1.isFolder(SITE, NEW_FILE_PATH)).thenReturn(false);
+        when(resolver.getAll(SITE)).thenReturn(List.of(store));
 
         when(localV1.isFolder(SITE, FOLDER_PATH)).thenReturn(true);
-        when(localV1.isFolder(SITE, NEW_FOLDER_PATH)).thenReturn(false);
+        when(localV1.isFolder(SITE, NEW_FOLDER_PATH)).thenReturn(true);
 
         when(localV1.contentExists(SITE, ORIGINAL_PATH)).thenReturn(false);
         when(localV1.contentExists(SITE, POINTER_PATH)).thenReturn(true);
@@ -113,9 +117,9 @@ public class BlobAwareContentRepositoryTest {
         when(localV1.isFolder(SITE, PARENT_PATH)).thenReturn(true);
 
         Map<String, String> delta = new TreeMap<>();
-        delta.put(POINTER_PATH, "C");
-        delta.put("/unrelated/file.xml", "U");
-        when(localV2.getChangeSetPathsFromDelta(SITE, null, null)).thenReturn(delta);
+        delta.put(POINTER_PATH, "D");
+        delta.put(NEW_POINTER_PATH, POINTER_PATH);
+        when(localV2.getChangeSetPathsFromDelta(SITE, COMMIT_1, COMMIT_2)).thenReturn(delta);
 
         when(store.contentExists(SITE, ORIGINAL_PATH)).thenReturn(true);
         when(store.contentExists(SITE, POINTER_PATH)).thenReturn(false);
@@ -123,6 +127,7 @@ public class BlobAwareContentRepositoryTest {
         when(store.getContentSize(SITE, ORIGINAL_PATH)).thenReturn(SIZE);
         when(store.isFolder(SITE, PARENT_PATH)).thenReturn(false);
         when(store.isFolder(SITE, ORIGINAL_PATH)).thenReturn(false);
+        when(store.isFolder(SITE,LOCAL_FOLDER_PATH)).thenReturn(true);
 
         when(store.copyContent(SITE, FOLDER_PATH, NEW_FOLDER_PATH)).thenReturn("something");
 
@@ -138,12 +143,20 @@ public class BlobAwareContentRepositoryTest {
     }
 
     @Test
+    public void configShouldNotBeIntercepted() {
+        proxy.contentExists(SITE, CONFIG_PATH);
+
+        verify(localV1).contentExists(SITE, CONFIG_PATH);
+        verify(store, never()).contentExists(SITE, CONFIG_PATH);
+    }
+
+    @Test
     public void contentExistsTest() {
         assertTrue(proxy.contentExists(SITE, ORIGINAL_PATH), "original path should exist");
     }
 
     @Test
-    public void getContentTest() {
+    public void getContentTest() throws ContentNotFoundException {
         assertEquals(proxy.getContent(SITE, ORIGINAL_PATH), CONTENT, "original path should return the original content");
     }
 
@@ -185,11 +198,19 @@ public class BlobAwareContentRepositoryTest {
     }
 
     @Test
-    public void deleteFolderTest() {
+    public void deleteRemoteFolderTest() {
         proxy.deleteContent(SITE, FOLDER_PATH, USER);
 
         verify(store).deleteContent(SITE, FOLDER_PATH, USER);
         verify(localV1).deleteContent(SITE, FOLDER_PATH, USER);
+    }
+
+    @Test
+    public void deleteLocalFolderTest() {
+        proxy.deleteContent(SITE, LOCAL_FOLDER_PATH, USER);
+
+        verify(store, never()).deleteContent(SITE, LOCAL_FOLDER_PATH, USER);
+        verify(localV1).deleteContent(SITE, LOCAL_FOLDER_PATH, USER);
     }
 
     @Test
@@ -220,6 +241,7 @@ public class BlobAwareContentRepositoryTest {
     @Test
     public void copyFileTest() {
         when(store.copyContent(SITE, ORIGINAL_PATH, NEW_FILE_PATH)).thenReturn(EMPTY);
+        when(localV1.contentExists(SITE, POINTER_PATH)).thenReturn(true);
 
         proxy.copyContent(SITE, ORIGINAL_PATH, NEW_FILE_PATH);
 
@@ -334,22 +356,6 @@ public class BlobAwareContentRepositoryTest {
     }
 
     @Test
-    public void getDeploymentHistoryTest() {
-        DeploymentSyncHistory history = new DeploymentSyncHistory();
-        history.setPath(POINTER_PATH);
-
-        when(localV2.getDeploymentHistory(eq(SITE), any(), any(), any(), any(), any(), anyInt()))
-                .thenReturn(singletonList(history));
-
-        List<DeploymentSyncHistory> result =
-                proxy.getDeploymentHistory(SITE, singletonList(ENV), now(), now(), null, null, 10);
-
-        assertNotNull(result);
-        assertFalse(result.isEmpty());
-        assertEquals(result.get(0).getPath(), ORIGINAL_PATH);
-    }
-
-    @Test
     public void getContentVersionHistoryTest() {
         VersionTO version1 = new VersionTO();
         VersionTO version2 = new VersionTO();
@@ -371,11 +377,21 @@ public class BlobAwareContentRepositoryTest {
         verify(localV1).writeContent(eq(SITE), eq(NO_EXT_PATH + "." + BLOB_EXT), any());
     }
 
-    @Test void getChangeSetPathsFromDeltaTest() {
-        Map<String, String> result = proxy.getChangeSetPathsFromDelta(SITE, null, null);
+    @Test
+    public void getChangeSetPathsFromDeltaTest() {
+        Map<String, String> map = proxy.getChangeSetPathsFromDelta(SITE, COMMIT_1, COMMIT_2);
 
-        assertEquals(result.size(), 2);
-        assertTrue(result.containsKey(ORIGINAL_PATH), "the blob extension should have been removed");
+        assertEquals(map.size(), 2);
+        map.forEach((key, value) -> assertFalse(key.endsWith(BLOB_EXT) || value.endsWith(BLOB_EXT),
+                "The changeSet should not contain pointer paths"));
+    }
+
+    @Test
+    public void initialPublishTest() throws SiteNotFoundException {
+        proxy.initialPublish(SITE);
+
+        verify(store).initialPublish(SITE);
+        verify(localV2).initialPublish(SITE);
     }
 
 }

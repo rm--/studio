@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+  ~ Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
   ~
   ~ This program is free software: you can redistribute it and/or modify
   ~ it under the terms of the GNU General Public License version 3 as published by
@@ -17,10 +17,8 @@
 
 <beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xmlns="http://www.springframework.org/schema/beans"
-       xmlns:util="http://www.springframework.org/schema/util"
        xsi:schemaLocation="
-       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
-       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
     <bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource" depends-on="studioConfiguration" destroy-method="close">
         <property name="driverClassName"
@@ -88,7 +86,7 @@
                   value="#{studioConfiguration.getProperty(T(org.craftercms.studio.api.v2.utils.StudioConfiguration).DB_SCRIPT_RUNNER_BUFFER_SIZE)}" />
     </bean>
 
-    <bean id="retryingOperation" class="org.craftercms.studio.api.v2.annotation.RetryingOperationAspect" >
+    <bean id="retryingOperation" class="org.craftercms.studio.api.v2.annotation.RetryingDatabaseOperationAnnotationHandler" >
         <property name="maxRetries"
                   value="#{studioConfiguration.getProperty(T(org.craftercms.studio.api.v2.utils.StudioConfiguration).DB_RETRYING_OPERATION_MAX_ATTEMPTS)}" />
         <property name="maxSleep"
@@ -96,7 +94,7 @@
     </bean>
 
     <bean id="studio.retryingRepositoryOperation"
-          class="org.craftercms.studio.api.v2.annotation.RetryingRepositoryOperationAspect" >
+          class="org.craftercms.studio.api.v2.annotation.RetryingRepositoryOperationAnnotationHandler" >
         <property name="maxRetries"
                   value="#{studioConfiguration.getProperty(T(org.craftercms.studio.api.v2.utils.StudioConfiguration).REPO_RETRYING_OPERATION_MAX_ATTEMPTS)}" />
         <property name="maxSleep"
@@ -104,33 +102,32 @@
     </bean>
 
     <!-- MyBatis Mappers -->
-    <bean id="studio.retryingOperationFacade"
-          class="org.craftercms.studio.impl.v2.dal.RetryingOperationFacadeImpl">
-        <property name="gitLogDao" ref="gitLogDao" />
-        <property name="clusterDao" ref="clusterDao" />
+    <bean id="studio.retryingDatabaseOperationFacade"
+          class="org.craftercms.studio.impl.v2.dal.RetryingDatabaseOperationFacadeImpl">
         <property name="dependencyMapper" ref="dependencyMapper" />
+        <property name="navigationOrderSequenceMapper" ref="navigationOrderSequenceMapper" />
         <property name="publishRequestMapper" ref="publishRequestMapper" />
-        <property name="itemStateMapper" ref="itemStateMapper" />
         <property name="siteFeedMapper" ref="siteFeedMapper" />
+        <property name="auditDao" ref="auditDao" />
+        <property name="clusterDao" ref="clusterDao" />
+        <property name="gitLogDao" ref="gitLogDao" />
+        <property name="groupDao" ref="groupDao" />
+        <property name="itemDao" ref="itemDao" />
+        <property name="publishRequestDao" ref="publishRequestDao" />
+        <property name="remoteRepositoryDao" ref="remoteRepositoryDao" />
+        <property name="securityDao" ref="securityDao" />
+        <property name="userDao" ref="userDao" />
+        <property name="workflowDao" ref="workflowDao" />
+        <property name="activityStreamDAO" ref="activityStreamDao" />
     </bean>
-    
+
     <bean id="dependencyMapper" class="org.mybatis.spring.mapper.MapperFactoryBean">
         <property name="mapperInterface" value="org.craftercms.studio.api.v1.dal.DependencyMapper" />
         <property name="sqlSessionFactory" ref="sqlSessionFactory" />
     </bean>
 
-    <bean id="groupDAO" class="org.mybatis.spring.mapper.MapperFactoryBean">
+    <bean id="groupDao" class="org.mybatis.spring.mapper.MapperFactoryBean">
         <property name="mapperInterface" value="org.craftercms.studio.api.v2.dal.GroupDAO" />
-        <property name="sqlSessionFactory" ref="sqlSessionFactory" />
-    </bean>
-
-    <bean id="itemMetadataMapper" class="org.mybatis.spring.mapper.MapperFactoryBean">
-        <property name="mapperInterface" value="org.craftercms.studio.api.v1.dal.ItemMetadataMapper" />
-        <property name="sqlSessionFactory" ref="sqlSessionFactory" />
-    </bean>
-
-    <bean id="itemStateMapper" class="org.mybatis.spring.mapper.MapperFactoryBean">
-        <property name="mapperInterface" value="org.craftercms.studio.api.v1.dal.ItemStateMapper" />
         <property name="sqlSessionFactory" ref="sqlSessionFactory" />
     </bean>
 
@@ -149,7 +146,7 @@
         <property name="sqlSessionFactory" ref="sqlSessionFactory" />
     </bean>
 
-    <bean id="securityMapper" class="org.mybatis.spring.mapper.MapperFactoryBean">
+    <bean id="securityDao" class="org.mybatis.spring.mapper.MapperFactoryBean">
         <property name="mapperInterface" value="org.craftercms.studio.api.v2.dal.SecurityDAO" />
         <property name="sqlSessionFactory" ref="sqlSessionFactory" />
     </bean>
@@ -159,7 +156,7 @@
         <property name="sqlSessionFactory" ref="sqlSessionFactory" />
     </bean>
 
-    <bean id="userDAO" class="org.mybatis.spring.mapper.MapperFactoryBean">
+    <bean id="userDao" class="org.mybatis.spring.mapper.MapperFactoryBean">
         <property name="mapperInterface" value="org.craftercms.studio.api.v2.dal.UserDAO" />
         <property name="sqlSessionFactory" ref="sqlSessionFactory" />
     </bean>
@@ -191,6 +188,21 @@
 
     <bean id="gitLogDao" class="org.mybatis.spring.mapper.MapperFactoryBean">
         <property name="mapperInterface" value="org.craftercms.studio.api.v2.dal.GitLogDAO" />
+        <property name="sqlSessionFactory" ref="sqlSessionFactory" />
+    </bean>
+
+    <bean id="itemDao" class="org.mybatis.spring.mapper.MapperFactoryBean">
+        <property name="mapperInterface" value="org.craftercms.studio.api.v2.dal.ItemDAO" />
+        <property name="sqlSessionFactory" ref="sqlSessionFactory" />
+    </bean>
+
+    <bean id="workflowDao" class="org.mybatis.spring.mapper.MapperFactoryBean">
+        <property name="mapperInterface" value="org.craftercms.studio.api.v2.dal.WorkflowDAO" />
+        <property name="sqlSessionFactory" ref="sqlSessionFactory" />
+    </bean>
+
+    <bean id="activityStreamDao" class="org.mybatis.spring.mapper.MapperFactoryBean">
+        <property name="mapperInterface" value="org.craftercms.studio.api.v2.dal.ActivityStreamDAO" />
         <property name="sqlSessionFactory" ref="sqlSessionFactory" />
     </bean>
 

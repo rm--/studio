@@ -1,5 +1,5 @@
 <!--
-  ~ Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+  ~ Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
   ~
   ~ This program is free software: you can redistribute it and/or modify
   ~ it under the terms of the GNU General Public License version 3 as published by
@@ -15,7 +15,7 @@
   -->
 
 <content-type name="/component/articles-widget" is-wcm-type="true">
-	<label>Component - Articles Widget</label>
+	<label>Articles Widget</label>
 	<form>/component/articles-widget</form>
 	<form-path>simple</form-path>
 	<model-instance-path>NOT-USED-BY-SIMPLE-FORM-ENGINE</model-instance-path>

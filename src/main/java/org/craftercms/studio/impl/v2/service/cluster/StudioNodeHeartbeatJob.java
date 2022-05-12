@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -23,7 +23,9 @@ import org.craftercms.studio.api.v1.log.LoggerFactory;
 import org.craftercms.studio.api.v2.annotation.RetryingOperation;
 import org.craftercms.studio.api.v2.dal.ClusterDAO;
 import org.craftercms.studio.api.v2.dal.ClusterMember;
+import org.craftercms.studio.api.v2.dal.RetryingDatabaseOperationFacade;
 import org.craftercms.studio.api.v2.utils.StudioConfiguration;
+import org.craftercms.studio.api.v2.utils.spring.context.SystemStatusProvider;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -40,25 +42,31 @@ public class StudioNodeHeartbeatJob implements Runnable {
 
     private StudioConfiguration studioConfiguration;
     private ClusterDAO clusterDAO;
+    private RetryingDatabaseOperationFacade retryingDatabaseOperationFacade;
+    private SystemStatusProvider systemStatusProvider;
+
 
     private final static ReentrantLock singleWorkerLock = new ReentrantLock();
 
     @Override
     public void run() {
-        if (singleWorkerLock.tryLock()) {
-            try {
-                updateHeartbeat();
-            } catch (Exception error) {
-                logger.error("Error during execution of node heartbeat job", error);
-            } finally {
-                singleWorkerLock.unlock();
+        if (systemStatusProvider.isSystemReady()) {
+            if (singleWorkerLock.tryLock()) {
+                try {
+                    updateHeartbeat();
+                } catch (Exception error) {
+                    logger.error("Error during execution of node heartbeat job", error);
+                } finally {
+                    singleWorkerLock.unlock();
+                }
+            } else {
+                logger.debug("Another worker is updating heartbeat. Skipping cycle.");
             }
         } else {
-            logger.debug("Another worker is updating heartbeat. Skipping cycle.");
+            logger.debug("System not ready yet. Skipping cycle");
         }
     }
 
-    @RetryingOperation
     public void updateHeartbeat() {
         HierarchicalConfiguration<ImmutableNode> registrationData = getConfiguration();
         if (registrationData != null && !registrationData.isEmpty()) {
@@ -67,7 +75,7 @@ public class StudioNodeHeartbeatJob implements Runnable {
             params.put(CLUSTER_LOCAL_ADDRESS, localAddress);
             params.put(CLUSTER_STATE, ClusterMember.State.ACTIVE.toString());
             logger.debug("Update heartbeat for cluster member with local address: " + localAddress);
-            clusterDAO.updateHeartbeat(params);
+            retryingDatabaseOperationFacade.updateClusterNodeHeartbeat(params);
         }
     }
 
@@ -90,4 +98,17 @@ public class StudioNodeHeartbeatJob implements Runnable {
     public void setClusterDAO(ClusterDAO clusterDAO) {
         this.clusterDAO = clusterDAO;
     }
+
+    public RetryingDatabaseOperationFacade getRetryingDatabaseOperationFacade() {
+        return retryingDatabaseOperationFacade;
+    }
+
+    public void setRetryingDatabaseOperationFacade(RetryingDatabaseOperationFacade retryingDatabaseOperationFacade) {
+        this.retryingDatabaseOperationFacade = retryingDatabaseOperationFacade;
+    }
+
+    public void setSystemStatusProvider(SystemStatusProvider systemStatusProvider) {
+        this.systemStatusProvider = systemStatusProvider;
+    }
+
 }

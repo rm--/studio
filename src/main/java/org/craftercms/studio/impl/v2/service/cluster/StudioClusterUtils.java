@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -16,9 +16,6 @@
 
 package org.craftercms.studio.impl.v2.service.cluster;
 
-import com.jcraft.jsch.JSch;
-import com.jcraft.jsch.JSchException;
-import com.jcraft.jsch.Session;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.configuration2.HierarchicalConfiguration;
 import org.apache.commons.configuration2.tree.ImmutableNode;
@@ -26,29 +23,27 @@ import org.apache.commons.lang3.StringUtils;
 import org.craftercms.commons.crypto.CryptoException;
 import org.craftercms.commons.crypto.TextEncryptor;
 import org.craftercms.studio.api.v1.exception.ServiceLayerException;
+import org.craftercms.studio.api.v1.exception.repository.InvalidRemoteRepositoryCredentialsException;
+import org.craftercms.studio.api.v1.exception.repository.RemoteRepositoryNotFoundException;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
 import org.craftercms.studio.api.v1.service.GeneralLockService;
 import org.craftercms.studio.api.v2.dal.ClusterDAO;
 import org.craftercms.studio.api.v2.dal.ClusterMember;
-import org.craftercms.studio.api.v2.dal.RemoteRepository;
+import org.craftercms.studio.api.v2.repository.RetryingRepositoryOperationFacade;
+import org.craftercms.studio.api.v2.utils.GitRepositoryHelper;
 import org.craftercms.studio.api.v2.utils.StudioConfiguration;
+import org.craftercms.studio.impl.v2.utils.GitUtils;
 import org.eclipse.jgit.api.CloneCommand;
 import org.eclipse.jgit.api.DeleteBranchCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ListBranchCommand;
 import org.eclipse.jgit.api.RemoteRemoveCommand;
-import org.eclipse.jgit.api.TransportCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.InvalidRemoteException;
 import org.eclipse.jgit.api.errors.TransportException;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.Ref;
-import org.eclipse.jgit.transport.JschConfigSessionFactory;
-import org.eclipse.jgit.transport.OpenSshConfig;
-import org.eclipse.jgit.transport.SshTransport;
-import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
-import org.eclipse.jgit.util.FS;
 
 import java.io.File;
 import java.io.IOException;
@@ -62,7 +57,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.UUID;
 
 import static org.craftercms.studio.api.v1.constant.StudioConstants.CLUSTER_MEMBER_LOCAL_ADDRESS;
@@ -76,22 +70,13 @@ import static org.craftercms.studio.api.v2.utils.StudioConfiguration.PUBLISHING_
 public class StudioClusterUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(StudioClusterUtils.class);
-    private static final String NON_SSH_GIT_URL_REGEX = "(file|https?|git)://.+";
-    private static final String PROP_STRICT_HOST_KEY_CHECKING = "StrictHostKeyChecking";
-    private static final String PROP_STRICT_HOST_KEY_CHECKING_VALUE = "no";
 
     private TextEncryptor encryptor;
     private ClusterDAO clusterDao;
     private StudioConfiguration studioConfiguration;
+    private RetryingRepositoryOperationFacade retryingRepositoryOperationFacade;
     private GeneralLockService generalLockService;
-
-    public StudioClusterUtils(ClusterDAO clusterDao, StudioConfiguration studioConfiguration, TextEncryptor encryptor
-            , GeneralLockService generalLockService) {
-        this.clusterDao = clusterDao;
-        this.studioConfiguration = studioConfiguration;
-        this.encryptor = encryptor;
-        this.generalLockService = generalLockService;
-    }
+    private GitRepositoryHelper helper;
 
     public HierarchicalConfiguration<ImmutableNode> getClusterConfiguration() {
         return studioConfiguration.getSubConfig(CLUSTERING_NODE_REGISTRATION);
@@ -116,11 +101,11 @@ public class StudioClusterUtils {
     public void removeRemote(Git git, String remoteName) throws GitAPIException {
         RemoteRemoveCommand remoteRemoveCommand = git.remoteRemove();
         remoteRemoveCommand.setRemoteName(remoteName);
-        remoteRemoveCommand.call();
+        retryingRepositoryOperationFacade.call(remoteRemoveCommand);
 
-        List<Ref> resultRemoteBranches = git.branchList()
-                .setListMode(ListBranchCommand.ListMode.REMOTE)
-                .call();
+        ListBranchCommand listBranchCommand = git.branchList()
+                .setListMode(ListBranchCommand.ListMode.REMOTE);
+        List<Ref> resultRemoteBranches = retryingRepositoryOperationFacade.call(listBranchCommand);
 
         List<String> branchesToDelete = new ArrayList<String>();
         for (Ref remoteBranchRef : resultRemoteBranches) {
@@ -133,114 +118,7 @@ public class StudioClusterUtils {
             String[] array = new String[branchesToDelete.size()];
             delBranch.setBranchNames(branchesToDelete.toArray(array));
             delBranch.setForce(true);
-            delBranch.call();
-        }
-    }
-
-    public <T extends TransportCommand> T configureAuthenticationForCommand(ClusterMember remoteNode,
-                                                                            T gitCommand, final Path tempKey)
-            throws CryptoException, IOException, ServiceLayerException {
-        boolean sshProtocol = !remoteNode.getGitUrl().matches(NON_SSH_GIT_URL_REGEX);
-
-        switch (remoteNode.getGitAuthType()) {
-            case RemoteRepository.AuthenticationType.NONE:
-                logger.debug("No authentication");
-                break;
-            case RemoteRepository.AuthenticationType.BASIC:
-                logger.debug("Basic Authentication");
-                configureBasicAuthentication(remoteNode, gitCommand, encryptor, sshProtocol);
-                break;
-            case RemoteRepository.AuthenticationType.TOKEN:
-                logger.debug("Token based Authentication");
-                configureTokenAuthentication(remoteNode, gitCommand, encryptor, sshProtocol);
-                break;
-            case RemoteRepository.AuthenticationType.PRIVATE_KEY:
-                if (!sshProtocol) {
-                    throw new ServiceLayerException("Can't do private key authentication with non-ssh URLs");
-                }
-
-                logger.debug("Private Key Authentication");
-                configurePrivateKeyAuthentication(remoteNode, gitCommand, encryptor, tempKey);
-                break;
-            default:
-                throw new ServiceLayerException("Unsupported authentication type " + remoteNode.getGitAuthType());
-        }
-
-        return gitCommand;
-    }
-
-    private <T extends TransportCommand> void configureBasicAuthentication(
-            ClusterMember remoteNode, T gitCommand, TextEncryptor encryptor, boolean sshProtocol) throws CryptoException {
-        String password = encryptor.decrypt(remoteNode.getGitPassword());
-        UsernamePasswordCredentialsProvider credentialsProvider = new UsernamePasswordCredentialsProvider(
-                remoteNode.getGitUsername(), password);
-
-        if (sshProtocol) {
-            gitCommand.setTransportConfigCallback(transport -> {
-                SshTransport sshTransport = (SshTransport) transport;
-                sshTransport.setSshSessionFactory(new StudioClusterUtils.StrictHostCheckingOffSshSessionFactory() {
-
-                    @Override
-                    protected void configure(OpenSshConfig.Host host, Session session) {
-                        super.configure(host, session);
-                        session.setPassword(password);
-                    }
-
-                });
-            });
-        }
-
-        gitCommand.setCredentialsProvider(credentialsProvider);
-    }
-
-    private <T extends TransportCommand> void configureTokenAuthentication(
-            ClusterMember remoteNode, T gitCommand, TextEncryptor encryptor, boolean sshProtocol) throws CryptoException {
-        UsernamePasswordCredentialsProvider credentialsProvider = new UsernamePasswordCredentialsProvider(
-                encryptor.decrypt(remoteNode.getGitToken()), StringUtils.EMPTY);
-
-        if (sshProtocol) {
-            gitCommand.setTransportConfigCallback(transport -> {
-                SshTransport sshTransport = (SshTransport) transport;
-                sshTransport.setSshSessionFactory(new StudioClusterUtils.StrictHostCheckingOffSshSessionFactory());
-            });
-        }
-
-        gitCommand.setCredentialsProvider(credentialsProvider);
-    }
-
-    private <T extends TransportCommand> void configurePrivateKeyAuthentication(
-            ClusterMember remoteNode, T gitCommand, TextEncryptor encryptor, final Path tempKey)
-            throws CryptoException, IOException  {
-        String privateKey = encryptor.decrypt(remoteNode.getGitPrivateKey());
-        try {
-            Files.write(tempKey, privateKey.getBytes());
-        } catch (IOException e) {
-            throw new IOException("Failed to write private key for SSH connection to temp location", e);
-        }
-
-        tempKey.toFile().deleteOnExit();
-
-        gitCommand.setTransportConfigCallback(transport -> {
-            SshTransport sshTransport = (SshTransport)transport;
-            sshTransport.setSshSessionFactory(new StudioClusterUtils.StrictHostCheckingOffSshSessionFactory() {
-                @Override
-                protected JSch createDefaultJSch(FS fs) throws JSchException {
-                    JSch defaultJSch = super.createDefaultJSch(fs);
-                    defaultJSch.addIdentity(tempKey.toAbsolutePath().toString());
-                    return defaultJSch;
-                }
-
-            });
-        });
-    }
-
-    private static class StrictHostCheckingOffSshSessionFactory extends JschConfigSessionFactory {
-
-        @Override
-        protected void configure(OpenSshConfig.Host hc, Session session) {
-            Properties config = new Properties();
-            config.put(PROP_STRICT_HOST_KEY_CHECKING, PROP_STRICT_HOST_KEY_CHECKING_VALUE);
-            session.setConfig(config);
+            retryingRepositoryOperationFacade.call(delBranch);
         }
     }
 
@@ -261,12 +139,9 @@ public class StudioClusterUtils {
         return clusterNodeId;
     }
 
-    public int getLockTTL() {
-        return studioConfiguration.getProperty(PUBLISHING_SITE_LOCK_TTL, Integer.class);
-    }
-
     public boolean cloneGlobalRepository(List<ClusterMember> clusterNodes)
-            throws CryptoException, ServiceLayerException {
+            throws CryptoException, ServiceLayerException, InvalidRemoteRepositoryCredentialsException,
+                    RemoteRepositoryNotFoundException, IOException {
         // Clone from the first node in the cluster (it doesn't matter which one to clone from, so pick the first)
         // we will eventually to catch up to the latest
         boolean cloned = false;
@@ -288,11 +163,12 @@ public class StudioClusterUtils {
                     CloneCommand cloneCommand = Git.cloneRepository();
                     Git cloneResult = null;
 
+                    Path tempKey = Files.createTempFile(UUID.randomUUID().toString(), ".tmp");
                     try {
-                        final Path tempKey = Files.createTempFile(UUID.randomUUID().toString(), ".tmp");
                         logger.debug("Add user credentials if provided");
-
-                        configureAuthenticationForCommand(remoteNode, cloneCommand, tempKey);
+                        helper.setAuthenticationForCommand(cloneCommand, remoteNode.getGitAuthType(),
+                                remoteNode.getGitUsername(), remoteNode.getGitPassword(), remoteNode.getGitToken(),
+                                remoteNode.getGitPrivateKey(), tempKey, true);
 
                         String cloneUrl = remoteNode.getGitUrl().replace("/sites/{siteId}", "/global");
 
@@ -303,23 +179,18 @@ public class StudioClusterUtils {
                                 .setDirectory(localPath)
                                 .setCloneAllBranches(true)
                                 .call();
-                        Files.deleteIfExists(tempKey);
                         cloned = true;
 
                     } catch (InvalidRemoteException e) {
                         logger.error("Invalid remote repository: " + remoteNode.getGitRemoteName() +
                                 " (" + remoteNode.getGitUrl() + ")", e);
                     } catch (TransportException e) {
-                        if (StringUtils.endsWithIgnoreCase(e.getMessage(), "not authorized")) {
-                            logger.error("Bad credentials or read only repository: " + remoteNode.getGitRemoteName() +
-                                    " (" + remoteNode.getGitUrl() + ")", e);
-                        } else {
-                            logger.error("Remote repository not found: " + remoteNode.getGitRemoteName() +
-                                    " (" + remoteNode.getGitUrl() + ")", e);
-                        }
+                        GitUtils.translateException(e, logger, remoteNode.getGitRemoteName(), remoteNode.getGitUrl(),
+                                remoteNode.getGitUsername());
                     } catch (GitAPIException | IOException e) {
-                        logger.error("Error while creating repository for site with path" + siteSandboxPath.toString(), e);
+                        logger.error("Error while creating repository for site with path" + siteSandboxPath, e);
                     } finally {
+                        Files.deleteIfExists(tempKey);
                         if (cloneResult != null) {
                             cloneResult.close();
                         }
@@ -333,4 +204,53 @@ public class StudioClusterUtils {
         }
         return cloned;
     }
+
+    public int getLockTTL() {
+        return studioConfiguration.getProperty(PUBLISHING_SITE_LOCK_TTL, Integer.class);
+    }
+
+    public TextEncryptor getEncryptor() {
+        return encryptor;
+    }
+
+    public void setEncryptor(TextEncryptor encryptor) {
+        this.encryptor = encryptor;
+    }
+
+    public ClusterDAO getClusterDao() {
+        return clusterDao;
+    }
+
+    public void setClusterDao(ClusterDAO clusterDao) {
+        this.clusterDao = clusterDao;
+    }
+
+    public StudioConfiguration getStudioConfiguration() {
+        return studioConfiguration;
+    }
+
+    public void setStudioConfiguration(StudioConfiguration studioConfiguration) {
+        this.studioConfiguration = studioConfiguration;
+    }
+
+    public RetryingRepositoryOperationFacade getRetryingRepositoryOperationFacade() {
+        return retryingRepositoryOperationFacade;
+    }
+
+    public void setRetryingRepositoryOperationFacade(RetryingRepositoryOperationFacade retryingRepositoryOperationFacade) {
+        this.retryingRepositoryOperationFacade = retryingRepositoryOperationFacade;
+    }
+
+    public GeneralLockService getGeneralLockService() {
+        return generalLockService;
+    }
+
+    public void setGeneralLockService(GeneralLockService generalLockService) {
+        this.generalLockService = generalLockService;
+    }
+
+    public void setHelper(GitRepositoryHelper helper) {
+        this.helper = helper;
+    }
+
 }

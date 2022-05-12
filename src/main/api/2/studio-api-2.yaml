@@ -4,7 +4,7 @@ servers:
 info:
   description: |-
     Crafter Studio API v2
-  version: '3.1.23'
+  version: '4.0.0.26'
   title: Crafter Studio
   termsOfService: ''
   contact:
@@ -13,7 +13,7 @@ info:
     name: GPL 3.0
     url: 'https://www.gnu.org/licenses/gpl-3.0.en.html'
 externalDocs:
-  description: Crafter CMS - Studio
+  description: CrafterCMS - Studio
   url: 'https://docs.craftercms.org/en/3.1/developers/projects/studio/index.html'
 tags:
   - name: groups
@@ -60,6 +60,8 @@ tags:
     description: Translation operations
   - name: workflow
     description: Workflow operations
+  - name: tasks
+    description: tasks operations
 
 paths:
 
@@ -71,6 +73,12 @@ paths:
       operationId: getGroups
       description: 'Required Permission: "READ_GROUPS"'
       parameters:
+        - name: keyword
+          in: query
+          description: The keyword to filter groups
+          required: false
+          schema:
+            type: string
         - name: offset
           in: query
           description: Offset of first group in the response
@@ -443,6 +451,12 @@ paths:
         - name: site
           in: query
           description: The site ID to filter users for a particular site
+          required: false
+          schema:
+            type: string
+        - name: keyword
+          in: query
+          description: The keyword to filter users
           required: false
           schema:
             type: string
@@ -1027,6 +1041,168 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /users/me/sites/{site}/permissions:
+    get:
+      tags:
+        - users
+      summary: Get the site permissions for the current authenticated user
+      description: 'Required Permission: "LOGGED_IN"'
+      operationId: getCurrentUserSitePermissions
+      parameters:
+        - name: site
+          in: path
+          description: The site ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  'permissions':
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/me/sites/{site}/has_permissions:
+    post:
+      tags:
+        - users
+      summary: Check if the current authenticated user has given permissions
+      description: 'Required Permission: "LOGGED_IN"'
+      operationId: hasCurrentUserSitePermissions
+      parameters:
+        - name: site
+          in: path
+          description: The site ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: request body to check if current authenticated user has permissions
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                'permissions':
+                  type: array
+                  items:
+                    type: string
+              required:
+                - permissions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  'permissions':
+                    type: object
+                    example:
+                      create: true
+                      update: true
+                      delete: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/me/global/permissions:
+    get:
+      tags:
+        - users
+      summary: Get the global for the current authenticated user
+      description: 'Required Permission: "LOGGED_IN"'
+      operationId: getCurrentUserGlobalPermissions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  'permissions':
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/me/global/has_permissions:
+    post:
+      tags:
+        - users
+      summary: Check if the current authenticated user has given global permissions
+      description: 'Required Permission: "LOGGED_IN"'
+      operationId: hasCurrentUserGlobalPermissions
+      requestBody:
+        description: request body to check if current authenticated user has permissions
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                'permissions':
+                  type: array
+                  items:
+                    type: string
+              required:
+                - permissions
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  'permissions':
+                    type: object
+                    example:
+                      create: true
+                      update: true
+                      delete: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /users/me/logout/sso/url:
     get:
       tags:
@@ -1093,6 +1269,128 @@ paths:
                     $ref: '#/components/schemas/ApiResponse'
                   user:
                     $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/me/properties:
+    get:
+      tags:
+        - users
+      summary: Retrieve properties for the current user
+      description: 'Required Permission: "LOGGED_IN"'
+      operationId: getUserProperties
+      parameters:
+        - name: siteId
+          schema:
+            type: string
+          in: query
+          description: The id of the site (defaults to global)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  properties:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      additionalProperties:
+                        type: string
+                    description: The properties of the current user grouped by site
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags:
+        - users
+      summary: Update properties for the current user
+      description: 'Required Permission: "LOGGED_IN"'
+      operationId: updateUserProperties
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  type: string
+                  description: The id of the site (defaults to global)
+                properties:
+                  type: object
+                  additionalProperties:
+                    type : string
+                  description: Properties to update or add
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  properties:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      The properties of the current user after the updates
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - users
+      summary: Delete properties for the current user
+      description: 'Required Permission: "LOGGED_IN"'
+      operationId: deleteUserProperties
+      parameters:
+        - name: siteId
+          in: query
+          schema:
+            type: string
+          description: The id of the site (defaults to global)
+        - name: properties
+          in: query
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+          description: List of keys to delete
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  properties:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      The properties of the current user after the updates
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1583,6 +1881,92 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /sites/{siteId}:
+    post:
+      tags:
+        - sites
+      summary: Updates the name and description for a given site
+      description: 'Required Permission: "EDIT_SITE"'
+      operationId: updateSite
+      parameters:
+        - name: siteId
+          in: path
+          required: true
+          description: The site ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  description: The name of the site
+                  type: string
+                description:
+                  description: The description of the site
+                  type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /sites/{siteId}/policy/validate:
+    post:
+      tags:
+        - sites
+      summary: Verifies if all indicated actions are compliant with the site policies
+      operationId: validate
+      parameters:
+        - name: siteId
+          in: path
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentValidationRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  result:
+                    $ref: '#/components/schemas/ContentValidationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /search/search:
     post:
       tags:
@@ -1626,7 +2010,7 @@ paths:
       parameters:
         - name: siteId
           in: query
-          description: Site ID (id from database) - optional for super admin user, otherwise required
+          description: Site ID (site identifier) - optional for super admin user, otherwise required
           required: false
           schema:
             type: string
@@ -1684,7 +2068,7 @@ paths:
             type: string
         - name: target
           in: query
-          description: Regular espression to filter target values
+          description: Regular expression to filter target values
           required: false
           schema:
             type: string
@@ -1708,7 +2092,7 @@ paths:
             type: string
         - name: order
           in: query
-          description: Order in sorted result. Posible values `ASC` and `DESC`
+          description: Order in sorted result. Possible values `ASC` and `DESC`
           required: false
           schema:
             type: string
@@ -1751,7 +2135,7 @@ paths:
     get:
       tags:
         - audit
-      summary: Get audiy log entry
+      summary: Get audit log entry
       operationId: getAuditLogById
       parameters:
         - name: id
@@ -1839,6 +2223,17 @@ paths:
                     $ref: '#/components/schemas/ApiResponse'
                   status:
                     $ref: '#/components/schemas/StatusItem'
+        '202':
+          description: Replica responding status OK. Primary will respond with status 200
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  status:
+                    $ref: '#/components/schemas/ClusterStatusItem'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -2020,7 +2415,7 @@ paths:
             type: string
         - name: path
           in: query
-          description: path to look under. Note this will be under the `base path` secified in cmis-config.xml
+          description: path to look under. Note this will be under the `base path` specified in cmis-config.xml
           required: false
           schema:
             type: string
@@ -2279,6 +2674,19 @@ paths:
                 properties:
                   response:
                     $ref: '#/components/schemas/ApiResponse'
+                  result:
+                    type: object
+                    properties:
+                      successful:
+                        type: boolean
+                        description: Indicates if the pull was successful
+                      commitsMerged:
+                        type: integer
+                        format: int64
+                        description: Total number of commits merged from the remote repository
+                      mergeCommitId:
+                        type: string
+                        description: The merge commit id
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2916,6 +3324,30 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /configuration/clear_cache:
+    get:
+      tags:
+        - configuration
+      summary: Clear all configuration cache for a given site
+      description: 'Required Permission: "LOGGED_IN"'
+      operationId: clearConfigurationCache
+      parameters:
+        - name: siteId
+          in: query
+          description: Site ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /configuration/get_configuration_history:
     get:
       tags:
@@ -2969,8 +3401,140 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /plugin/file:
+  /configuration/translation:
     get:
+      tags:
+        - configuration
+      summary: Get translation configuration for a given site
+      operationId: getTranslationConfig
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  config:
+                    $ref: '#/components/schemas/TranslationConfig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /configuration/content-type/usage:
+    get:
+      tags:
+        - configuration
+      summary: Get all usage of a given content-type
+      operationId: getContentTypeUsage
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: contentType
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  dependencies:
+                    type: object
+                    properties:
+                      templates:
+                        type: array
+                        items:
+                          type: string
+                        description: All templates associated with the given content-type
+                      scripts:
+                        type: array
+                        items:
+                          type: string
+                        description: All scripts associated with the given content-type
+                      content:
+                        type: array
+                        items:
+                          type: string
+                        description: All content types instantiated from the given content-type
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /configuration/content-type/delete:
+    post:
+      tags:
+        - configuration
+      summary: Delete files related to a given content-type
+      operationId: deleteContentType
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  type: string
+                  description: The id of the site
+                contentType:
+                  type: string
+                  description: The content-type to delete
+                deleteDependencies:
+                  type: boolean
+                  description: Indicates if all dependencies of the content-type should be deleted (defaults to false)
+              required:
+                - siteId
+                - contentType
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+
+  /plugin/file:
+    # Override the server to change the prefix
+    servers:
+      - url: http://localhost:8080/studio/1
+    get:
+      # Override the security because this requires login instead of JWT or Http Basic
+      security: []
       tags:
         - plugin
       summary: Get a file for a given plugin
@@ -3000,6 +3564,13 @@ paths:
           required: true
           schema:
             type: string
+        - name: pluginId
+          in: query
+          description: |-
+            The id of the plugin (e.g. org.craftercms.plugin). This is only needed for plugins installed from the
+            marketplace
+          schema:
+            type: string
       responses:
         '200':
           description: 'OK'
@@ -3019,6 +3590,133 @@ paths:
               schema:
                 type: integer
                 format: int64
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /plugin/get_configuration:
+    get:
+      tags:
+        - plugin
+      summary: Get configuration for the given site and plugin
+      description: 'Required permission "site member"'
+      operationId: getPluginConfiguration
+      parameters:
+        - name: siteId
+          in: query
+          description: The id of the site
+          required: true
+          schema:
+            type: string
+        - name: pluginId
+          in: query
+          description: The id of the plugin
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  content:
+                    type: string
+                    description: configuration file content
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /plugin/write_configuration:
+    post:
+      tags:
+        - plugin
+      summary: Write configuration content a given site and plugin
+      description: 'Required permission "write_configuration" and "site member"'
+      operationId: writePluginConfiguration
+      requestBody:
+        description: write configuration request body
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  type: string
+                  description: The id of the site
+                pluginId:
+                  type: string
+                  description: The id of the plugin
+                content:
+                  type: string
+                  description: configuration file content
+              required:
+                - siteId
+                - pluginId
+                - content
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /plugin/script/reload:
+    get:
+      tags:
+        - plugin
+      summary: Reloads groovy classes for all plugins in a given site
+      operationId: reloadClasses
+      parameters:
+        - name: siteId
+          in: query
+          description: Site ID
+          required: true
+          schema:
+            type: string
+        - name: token
+          in: query
+          description: Management token
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3066,27 +3764,29 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   /content/get_delete_package:
-    get:
+    post:
       tags:
         - content
       summary: Get a list of delete children (will be deleted) and dependent items (will have broken references) for a given list of items to be deleted
       description: 'Required permission "delete_content"'
       operationId: getDeletePackage
-      parameters:
-        - name: siteId
-          in: query
-          description: Site ID
-          required: true
-          schema:
-            type: string
-        - name: paths
-          in: query
-          description: Content paths to get a delete package for
-          required: true
-          schema:
-            type: array
-            items:
-              type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  description: Site ID
+                  type: string
+                paths:
+                  description: Content paths to get a delete package for
+                  type: array
+                  items:
+                    type: string
+              required:
+                - siteId
+                - paths
       responses:
         '200':
           description: OK
@@ -3118,36 +3818,42 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   /content/delete:
-    delete:
+    post:
       tags:
         - content
       summary: Delete content
-      description: 'Required Permission: "delete_content"'
-      operationId: deleteContent
-      parameters:
-        - name: siteId
-          in: query
-          description: Site ID
-          required: true
-          schema:
-            type: string
-        - name: paths
-          in: query
-          description: Content paths to be deleted
-          required: true
-          schema:
-            type: array
-            items:
-              type: string
-        - name: submissionComment
-          in: query
-          description: Submission comment
-          required: false
-          schema:
-            type: string
+      description: 'Required permission "content_delete"'
+      operationId: contentDelete
+      requestBody:
+        description: parameters for delete content
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  type: string
+                  description: site identifier
+                items:
+                  type: array
+                  description: path(s) of content item(s)
+                  items:
+                    type: string
+                optionalDependencies:
+                  type: array
+                  description: optional (soft) dependencies
+                  items:
+                    type: string
+                comment:
+                  type: string
+                  description: deletion comment by the user performing the delete
+              required:
+                - siteId
+                - items
       responses:
         '200':
-          description: Deleted
+          description: OK
           content:
             application/json:
               schema:
@@ -3159,67 +3865,67 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
   /content/children_by_id:
-    get:
+    post:
       tags:
         - content
       summary: Get list of children for given item id
-      description: 'Required permission "get_children" ("site member")'
+      description: 'Required permission "get_children" and "site member"'
       operationId: getChildrenById
-      parameters:
-        - name: siteId
-          in: query
-          description: Site ID
-          required: true
-          schema:
-            type: string
-        - name: id
-          in: query
-          description: item id to get children for
-          required: true
-          schema:
-            type: string
-        - name: locale
-          in: query
-          description: filter children by locale, or show source items (not translation) if translatation to specified locale does not exist
-          schema:
-            type: string
-        - name: sortStrategy
-          in: query
-          description: >-
-            sort strategy (sort order)
-            Possible values:
-              - default (order by: navigation pages, floating pages, folders, level descriptor)
-              - alphabetical
-              - foldersFirst (order by: folders alphabetical, files alphabetical)
-          schema:
-            type: string
-        - name: order
-          in: query
-          description: order for srot strategy ascending or descending (ASC / DESC)
-          schema:
-            type: string
-            format: ASC, DESC
-        - name: offset
-          in: query
-          description: offset of first child in response - default 0
-          schema:
-            type: integer
-        - name: limit
-          in: query
-          description: number of children to return
-          schema:
-            type: integer
-        - name: keyword
-          in: query
-          description: filter children by keyword
-          schema:
-            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  description: Site ID
+                  type: string
+                id:
+                  description: item id to get children for
+                  type: integer
+                  format: int64
+                localeCode:
+                  description: |-
+                    filter children by locale code, or show source items (not translation) if translation to
+                    specified locale code does not exist
+                  type: string
+                sortStrategy:
+                  description: >-
+                    sort strategy (sort order)
+                    Possible values:
+                      - alphabetical (default)
+                      - foldersFirst (order by: folders alphabetical, files alphabetical)
+                  type: string
+                order:
+                  description: order for sort strategy ascending or descending (ASC / DESC)
+                  type: string
+                  format: ASC, DESC
+                offset:
+                  description: offset of first child in response - default 0
+                  type: integer
+                limit:
+                  description: number of children to return
+                  type: integer
+                keyword:
+                  description: filter children by keyword
+                  type: string
+                exclude:
+                  description: exclude items by regular expression
+                  type: array
+                  items:
+                    type: string
+              required:
+                - siteId
+                - id
       responses:
         '200':
           description: OK
@@ -3230,8 +3936,6 @@ paths:
                 properties:
                   response:
                     $ref: '#/components/schemas/ApiResponse'
-                  parent:
-                    $ref: '#/components/schemas/SandboxItem'
                   levelDescriptor:
                     $ref: '#/components/schemas/SandboxItem'
                   children:
@@ -3262,61 +3966,58 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   /content/children_by_path:
-    get:
+    post:
       tags:
         - content
       summary: Get list of children for given item path
-      description: 'Required permission "get_children" ("site member")'
+      description: 'Required permission "get_children" and "site member"'
       operationId: getChildrenByPath
-      parameters:
-        - name: siteId
-          in: query
-          description: Site ID
-          required: true
-          schema:
-            type: string
-        - name: path
-          in: query
-          description: item path to get children for
-          required: true
-          schema:
-            type: string
-        - name: locale
-          in: query
-          description: filter children by locale, or show source items (not translation) if translatation to specified locale does not exist
-          schema:
-            type: string
-        - name: sortStrategy
-          in: query
-          description: >-
-            sort strategy (sort order)
-            Possible values:
-              - default (order by: navigation pages, floating pages, folders, level descriptor)
-              - alphabetical
-              - folders first
-          schema:
-            type: string
-        - name: order
-          in: query
-          description: order for srot strategy ascending or descending (ASC / DESC)
-          schema:
-            type: string
-            format: ASC, DESC
-        - name: offset
-          in: query
-          description: offset of first child in response - default 0
-          schema:
-            type: integer
-        - name: limit
-          in: query
-          description: number of children to return
-          schema:
-            type: integer
-        - name: keyword
-          in: query
-          description: filter children by keyword
-          schema:
-            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  description: Site ID
+                  type: string
+                path:
+                  description: item path to get children for
+                  type: string
+                localeCode:
+                  description: |-
+                    filter children by locale code, or show source items (not translation) if translation to
+                    specified locale code does not exist
+                  type: string
+                sortStrategy:
+                  description: >-
+                    sort strategy (sort order)
+                    Possible values:
+                      - alphabetical (default)
+                      - foldersFirst (order by: folders alphabetical, files alphabetical)
+                  type: string
+                order:
+                  description: order for sort strategy ascending or descending (ASC / DESC)
+                  type: string
+                  format: ASC, DESC
+                offset:
+                  description: offset of first child in response - default 0
+                  type: integer
+                limit:
+                  description: number of children to return
+                  type: integer
+                keyword:
+                  description: filter children by keyword
+                  type: string
+                exclude:
+                  description: exclude items by regular expression
+                  type: array
+                  items:
+                    type: string
+              required:
+                - siteId
+                - path
       responses:
         '200':
           description: OK
@@ -3327,8 +4028,6 @@ paths:
                 properties:
                   response:
                     $ref: '#/components/schemas/ApiResponse'
-                  parent:
-                    $ref: '#/components/schemas/SandboxItem'
                   levelDescriptor:
                     $ref: '#/components/schemas/SandboxItem'
                   children:
@@ -3363,7 +4062,7 @@ paths:
       tags:
         - content
       summary: Get content item for given item id
-      description: 'Required permission "get_detailed_item" "read_item" ("site member")'
+      description: 'Required permission "get_detailed_item" and "read_item" and "site member"'
       operationId: getDetailedItemById
       parameters:
         - name: siteId
@@ -3377,7 +4076,14 @@ paths:
           description: item identifier
           required: true
           schema:
-            type: string
+            type: integer
+            format: int64
+        - name: preferContent
+          in: query
+          description: when set to true, return an item instead of a folder if the path can match either
+          required: false
+          schema:
+            type: boolean
       responses:
         '200':
           description: OK
@@ -3406,7 +4112,7 @@ paths:
       tags:
         - content
       summary: Get item details for given an item path
-      description: 'Required permission "get_detailed_item" "read_item" ("site member")'
+      description: 'Required permission "get_detailed_item" and "read_item" and "site member"'
       operationId: getDetailedItemByPath
       parameters:
         - name: siteId
@@ -3421,6 +4127,12 @@ paths:
           required: true
           schema:
             type: string
+        - name: preferContent
+          in: query
+          description: when set to true, return an item instead of a folder if the path can match either
+          required: false
+          schema:
+            type: boolean
       responses:
         '200':
           description: OK
@@ -3444,28 +4156,520 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /dependency/dependencies:
+  /content/sandbox_items_by_id:
+    post:
+      tags:
+        - content
+      summary: Get list of items for given list of item ids
+      description: 'Required permission "get_children" and "site member"'
+      operationId: getSandboxItemsById
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  description: Site ID
+                  type: string
+                ids:
+                  description: item ids to get
+                  type: array
+                  items:
+                    type: integer
+                    format: int64
+                preferContent:
+                  description: when set to true, return an item instead of a folder if the path can match either
+                  type: boolean
+              required:
+                - siteId
+                - ids
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SandboxItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /content/sandbox_items_by_path:
+    post:
+      tags:
+        - content
+      summary: Get list of items for given item paths
+      description: 'Required permission "get_children" and "site member"'
+      operationId: getSandboxItemsByPath
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  description: Site ID
+                  type: string
+                paths:
+                  description: item paths to get
+                  type: array
+                  items:
+                    type: string
+                preferContent:
+                  description: when set to true, return an item instead of a folder if the path can match either
+                  type: boolean
+              required:
+                - siteId
+                - paths
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SandboxItem'
+                  missingItems:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /content/descriptor:
     get:
+      tags:
+        - content
+      summary: Get the XML descriptor for a given path
+      operationId: getDescriptor
+      parameters:
+        - name: siteId
+          in: query
+          description: The site ID
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: query
+          description: The path of the descriptor
+          required: true
+          schema:
+            type: string
+        - name: flatten
+          in: query
+          description: Indicates if included descriptors should be flattened
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  xml:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /content/paste:
+    post:
+      tags:
+        - content
+      summary: |-
+        Paste a tree of items to a target path (copy content or move content).
+        To be used by the UI in the clipboard implementation.
+      description: 'Required permission "Write"'
+      operationId: pasteItems
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasteRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  items:
+                    description: The list of pasted items
+                    type: array
+                    items:
+                      type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /content/duplicate:
+    post:
+      tags:
+        - content
+      summary: Duplicate the given item in the same location
+      description: 'Required permission "Write"'
+      operationId: duplicateItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  type: string
+                  description: The id of the site
+                path:
+                  type: string
+                  description: The path of the item to duplicate
+              required:
+                - siteId
+                - path
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  item:
+                    description: the path of the new item
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /content/item_lock_by_path:
+    post:
+      tags:
+        - content
+      summary: Lock item by path
+      description: 'Required permission "content_write"'
+      operationId: itemLockByPath
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  type: string
+                  description: The id of the site
+                path:
+                  type: string
+                  description: Path of item to lock
+              required:
+                - siteId
+                - path
+      responses:
+        '200':
+          description: OK
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Item already locked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  person:
+                    $ref: '#/components/schemas/Person'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /content/item_lock_by_id:
+    post:
+      tags:
+        - content
+      summary: Lock item by id
+      description: 'Required permission "content_write"'
+      operationId: itemLockById
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  type: string
+                  description: The id of the site
+                itemId:
+                  type: integer
+                  format: int64
+                  description: Id of item to lock
+              required:
+                - siteId
+                - itemId
+      responses:
+        '200':
+          description: OK
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Item already locked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  person:
+                    $ref: '#/components/schemas/Person'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /content/item_unlock_by_path:
+    post:
+      tags:
+        - content
+      summary: Unlock item by path
+      description: 'Required permission "item_unlock" or lock owner'
+      operationId: itemUnlockByPath
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  type: string
+                  description: The id of the site
+                path:
+                  type: string
+                  description: The path of the item to unlock
+              required:
+                - siteId
+                - path
+      responses:
+        '200':
+          description: OK
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Item already unlocked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /content/item_unlock_by_id:
+    post:
+      tags:
+        - content
+      summary: Unlock item by id
+      description: 'Required permission "item_unlock" or lock owner'
+      operationId: itemUnlockById
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  type: string
+                  description: The id of the site
+                itemId:
+                  type: integer
+                  format: int64
+                  description: The id of the item to unlock
+              required:
+                - siteId
+                - itemId
+      responses:
+        '200':
+          description: OK
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Item already unlocked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /content/get_content_by_commit_id:
+    get:
+      tags:
+        - content
+      summary: Get content for commit id
+      description: 'Required permission "site member"'
+      operationId: getContentByCommitId
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: query
+          description: path of the content
+          required: true
+          schema:
+            type: string
+        - name: commitId
+          in: query
+          description: commit id of the content version
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  content:
+                    type: string
+                    description: requested content
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /dependency/dependencies:
+    post:
       tags:
         - dependency
       summary: Get list of dependencies for given content paths
       description: 'Required permission "site member"'
       operationId: getDependencies
-      parameters:
-        - name: siteId
-          in: query
-          description: Site ID
-          required: true
-          schema:
-            type: string
-        - name: paths
-          in: query
-          description: Content paths to get dependencies for
-          required: true
-          schema:
-            type: array
-            items:
-              type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  description: Site ID
+                  type: string
+                paths:
+                  description: Content paths to get dependencies for
+                  type: array
+                  items:
+                    type: string
+              required:
+                - siteId
+                - paths
       responses:
         '200':
           description: OK
@@ -3531,6 +4735,11 @@ paths:
           schema:
             type: integer
             format: int64
+        - name: showIncompatible
+          in: query
+          description: Include incompatible plugins (defaults to false)
+          schema:
+            type: boolean
       responses:
         '200':
           description: OK
@@ -3564,6 +4773,237 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /marketplace/installed:
+    get:
+      tags:
+        - marketplace
+      summary: Get the list of plugins installed in the given site
+      description: 'Required permission "list_plugins"'
+      operationId: getInstalledPlugins
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  plugins:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PluginRecord'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /marketplace/install:
+    post:
+      tags:
+        - marketplace
+      summary: Install a plugin in the given site
+      description: 'Required permission "install_plugins"'
+      operationId: installPlugin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  description: The id of the site
+                  type: string
+                pluginId:
+                  description: The id of the plugin
+                  type: string
+                pluginVersion:
+                  $ref: '#/components/schemas/Version'
+                parameters:
+                  type: object
+                  description: Object containing all parameters for the plugin. It should include all required parameters from the descriptor
+                  additionalProperties:
+                    type: string
+              required:
+                - siteId
+                - pluginId
+                - pluginVersion
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /marketplace/copy:
+    post:
+      tags:
+        - marketplace
+      summary: Copy a local plugin to a given site
+      description: 'Required permission "install_plugins"'
+      operationId: copyPlugin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  description: The id of the site
+                  type: string
+                path:
+                  description: The path of the local plugin source folder
+                  type: string
+                parameters:
+                  type: object
+                  description: Object containing all parameters for the plugin. It should include all required parameters from the descriptor
+                  additionalProperties:
+                    type: string
+              required:
+                - siteId
+                - path
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /marketplace/remove:
+    post:
+      tags:
+        - marketplace
+      summary: Remove a plugin from the given site
+      description: 'Required permission "remove_plugins"'
+      operationId: removePlugin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  description: The id of the site
+                  type: string
+                pluginId:
+                  description: The id of the plugin
+                  type: string
+                force:
+                  description: Indicates if the plugin should be removed even if there are dependant items
+              required:
+                - siteId
+                - pluginId
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /marketplace/usage:
+    get:
+      tags:
+        - marketplace
+      summary: List dependant items for a plugin
+      description: 'Required permission "remove_plugins"'
+      operationId: pluginUsage
+      parameters:
+        - name: siteId
+          description: The id of the site
+          schema:
+            type: string
+          required: true
+          in: query
+        - name: pluginId
+          description: The id of the plugin
+          schema:
+            type: string
+          required: true
+          in: query
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  items:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /publish/packages:
     get:
       tags:
@@ -3578,9 +5018,9 @@ paths:
           required: true
           schema:
             type: string
-        - name: environment
+        - name: publishingTarget
           in: query
-          description: filter by publishing environment
+          description: filter by publishing target
           required: false
           schema:
             type: string
@@ -3807,6 +5247,109 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /publish/history:
+    get:
+      tags:
+        - publishing
+      summary: Get publishing history for site
+      description: 'Required permission "publish"'
+      operationId: getPublishingHistory
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: days
+          in: query
+          description: number of days to display history for
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - name: num
+          in: query
+          description: number of items to fetch
+          required: true
+          schema:
+            type: integer
+            format: int32
+        - name: filterType
+          in: query
+          description: filter items by type (all, page, component, asset)
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  publishingStatus:
+                    $ref: '#/components/schemas/DeploymentHistoryGroup'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /publish/available_targets:
+    get:
+      tags:
+        - publishing
+      summary: Get available publishing targets for site
+      description: 'Required permission "publish"'
+      operationId: getAvailablePublishingTargets
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  publishingTargets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: Target name
+                        order:
+                          type: integer
+                          format: int32
+                          description: order for display in the dropdown
+                  published:
+                    type: boolean
+                    description: true if site has been published at least once (initial publish; published repository exist), otherwise false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /security/encrypt:
     post:
       tags:
@@ -3844,81 +5387,13 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /dashboard/content:
+  /security/tokens:
     get:
       tags:
-        - dashboard
-      summary: Get content dashboard
-      description: 'Required permission "get_dashboard" ("site member")'
-      operationId: getContentDashboard
-      parameters:
-        - name: siteId
-          in: query
-          description: site ID
-          required: true
-          schema:
-            type: string
-        - name: sortBy
-          in: query
-          description: >-
-            order result by column
-            List of columns:
-              - label - label or internalName - user friendly name of item
-              - path - path of an item item
-              - modifier - user that last modified item
-              - modifiedDate - data and time of last modification of an item
-              - contentType - content type of an item
-          schema:
-            type: string
-        - name: order
-          in: query
-          description: order of sorted data (ASC or DESC)
-          schema:
-            type: string
-            format: ASC, DESC
-        - name: offset
-          in: query
-          description: offset of the first result item, default 0
-          schema:
-            type: integer
-        - name: limit
-          in: query
-          description: number of results to return, default 10
-          schema:
-            type: integer
-        - name: filters.path
-          in: query
-          description: filter items by path regular expression
-          schema:
-            type: string
-        - name: filters.modifier
-          in: query
-          description: filter items by username that modified content
-          schema:
-            type: string
-        - name: filters.modifiedDateFrom
-          in: query
-          description: filter items by modified date setting lower boundary for date range
-          schema:
-            type: string
-            format: datetime
-        - name: filters.modifiedDateTo
-          in: query
-          description: filter items by modified date setting upper boundary for date range
-          schema:
-            type: string
-            format: datetime
-        - name: filters.contentType
-          in: query
-          description: filter items by contentTypes
-          schema:
-            type: string
-        - name: filters.state
-          in: query
-          description: filter items by state (bitmap state values)
-          schema:
-            type: integer
-            format: int64
+        - security
+      summary: Get all existing tokes for the current user
+      operationId: getAccessTokens
+      description: Required permission "manage_access_token"
       responses:
         '200':
           description: OK
@@ -3929,114 +5404,82 @@ paths:
                 properties:
                   response:
                     $ref: '#/components/schemas/ApiResponse'
-                  total:
-                    type: integer
-                    format: int32
-                    description: Total records in the system
-                  offset:
-                    type: integer
-                    format: int32
-                    description: Offset of first record in this response
-                  limit:
-                    type: integer
-                    format: int32
-                    description: Number of records returned in this response
-                  items:
+                  tokens:
                     type: array
                     items:
-                      $ref: '#/components/schemas/DashboardItem'
+                      $ref: '#/components/schemas/AccessToken'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags:
+        - security
+      summary: Creates a new access token for the current user
+      operationId: createAccessToken
+      description: Required permission "manage_access_token"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                  description: The label for the access token
+                expiresAt:
+                  type: string
+                  format: date-time
+                  description: The date of expiration for the access token
+              required:
+                - label
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  token:
+                    $ref: '#/components/schemas/AccessToken'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /dashboard/publishing:
-    get:
+  /security/tokens/{id}:
+    post:
       tags:
-        - dashboard
-      summary: Get publishing dashboard
-      description: 'Required permission "get_dashboard" ("site member")'
-      operationId: getPublishingDashboard
+        - security
+      summary: Updates an access token for the current user
+      operationId: updateAccessToken
+      description: Required permission "manage_access_token"
       parameters:
-        - name: siteId
-          in: query
-          description: site ID
-          required: true
-          schema:
-            type: string
-        - name: sortBy
-          in: query
-          description: >-
-            order result by column
-            List of columns:
-              - label - label or internalName - user friendly name of item
-              - path - path of an item item
-              - publisher - user that published item
-              - publishedDate - data and time when item was published
-              - environment - environment where item was published
-              - content type - content type of an item
-          schema:
-            type: string
-        - name: order
-          in: query
-          description: order of sorted data (ASC or DESC)
-          schema:
-            type: string
-            format: ASC, DESC
-        - name: offset
-          in: query
-          description: offset of the first result item, default 0
-          schema:
-            type: integer
-        - name: limit
-          in: query
-          description: number of results to return, default 10
-          schema:
-            type: integer
-        - name: filters.path
-          in: query
-          description: filter items by path regular expression
-          schema:
-            type: string
-        - name: filters.publisher
-          in: query
-          description: filter items by username that published content
-          schema:
-            type: string
-        - name: filters.publishedDateFrom
-          in: query
-          description: filter items by published date setting lower boundary for date range
-          schema:
-            type: string
-            format: datetime
-        - name: filters.publishedDateTo
-          in: query
-          description: filter items by published date setting upper boundary for date range
-          schema:
-            type: string
-            format: datetime
-        - name: filters.environment
-          in: query
-          description: filter items by environment where published
-          schema:
-            type: string
-        - name: filters.contentType
-          in: query
-          description: filter items by contentTypes
-          schema:
-            type: string
-        - name: filters.state
-          in: query
-          description: filter items by state (bitmap state values)
+        - name: id
+          in: path
           schema:
             type: integer
             format: int64
+          description: The id of the access token to update
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  description: Indicates if the access token is enabled
+              required:
+                - enabled
       responses:
         '200':
           description: OK
@@ -4047,40 +5490,50 @@ paths:
                 properties:
                   response:
                     $ref: '#/components/schemas/ApiResponse'
-                  total:
-                    type: integer
-                    format: int32
-                    description: Total records in the system
-                  offset:
-                    type: integer
-                    format: int32
-                    description: Offset of first record in this response
-                  limit:
-                    type: integer
-                    format: int32
-                    description: Number of records returned in this response
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/PublishingDashboardItem'
+                  token:
+                    $ref: '#/components/schemas/AccessToken'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - security
+      summary: Deletes an access token for the current user
+      operationId: deleteAccessToken
+      description: Required permission "manage_access_token"
+      parameters:
+       - name: id
+         in: path
+         schema:
+           type: integer
+           format: int64
+         description: The id of the access token to delete
+         required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /dashboard/audit:
+  /dashboard/activity:
     get:
       tags:
         - dashboard
-      summary: Get audit dashboard
-      description: 'Required permission "get_dashboard" ("site member")'
-      operationId: getAuditDashboard
+      summary: Get user activities
+      description: 'Required permission "site_member"'
+      operationId: getDashboardActivities
       parameters:
         - name: siteId
           in: query
@@ -4088,63 +5541,48 @@ paths:
           required: true
           schema:
             type: string
-        - name: sortBy
+        - name: usernames
           in: query
-          description: >-
-            order result by column
-            List of columns:
-              - site - site of the audit item
-              - actor - user that executed action
-              - operation - operation that was audited
-              - operationTimestamp - timestamp when operation was executed
-              - target - target upon which operation was executed
-          schema:
-            type: string
-        - name: order
-          in: query
-          description: order of sorted data (ASC or DESC)
-          schema:
-            type: string
-            format: ASC, DESC
-        - name: offset
-          in: query
-          description: offset of the first result item, default 0
-          schema:
-            type: integer
-        - name: limit
-          in: query
-          description: number of results to return, default 10
-          schema:
-            type: integer
-        - name: filters.actor
-          in: query
-          description: filter items by username
-          schema:
-            type: string
-        - name: filters.operations
-          in: query
-          description: filter items by operations
+          description: filter activities for given users only
+          required: false
           schema:
             type: array
             items:
               type: string
-        - name: filters.operationTimestampFrom
+        - name: actions
           in: query
-          description: filter items by operations timestamp setting lower boundary for date range
+          description: filter activities for given actions only
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: dateFrom
+          in: query
+          description: lower boundary to filter by date-time range
+          required: false
           schema:
             type: string
-            format: datetime
-        - name: filters.operationTimestampTo
+            format: date-time
+        - name: dateTo
           in: query
-          description: filter items by operations timestamp setting upper boundary for date range
+          description: upper boundary to filter by date-time range
+          required: false
           schema:
             type: string
-            format: datetime
-        - name: filters.target
+            format: date-time
+        - name: offset
           in: query
-          description: filter items by target
+          description: offset of the first result item, default 0
+          required: false
           schema:
-            type: string
+            type: integer
+        - name: limit
+          in: query
+          description: number of results to return, default 10
+          required: false
+          schema:
+            type: integer
       responses:
         '200':
           description: OK
@@ -4167,10 +5605,10 @@ paths:
                     type: integer
                     format: int32
                     description: Number of records returned in this response
-                  items:
+                  activities:
                     type: array
                     items:
-                      $ref: '#/components/schemas/AuditDashboardItem'
+                      $ref: '#/components/schemas/Activity'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4182,106 +5620,711 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-#  /dashboard/workflow:
-#    get:
-#      tags:
-#        - dashboard
-#      summary: Get workflow dashboard
-#      description: 'Required permission "get_dashboard" ("site member")'
-#      operationId: getWorkflowDashboard
-#      parameters:
-#        - name: siteId
-#          in: query
-#          description: site ID
-#          required: true
-#          schema:
-#            type: string
-#        - name: sortBy
-#          in: query
-#          description: >-
-#            order result by column
-#            List of columns:
-#              - label - label or internalName - user friendly name of item
-#              - path - path of an item item
-#              - actor - user that last acted on the item
-#              - scheduledDate - data and time item is scheduled
-#              - environment - environment where item is scheduled
-#              - contentType - content type of an item
-#          schema:
-#            type: string
-#        - name: order
-#          in: query
-#          description: order of sorted data (ASC or DESC)
-#          schema:
-#            type: string
-#            format: ASC, DESC
-#        - name: offset
-#          in: query
-#          description: offset of the first result item, default 0
-#          schema:
-#            type: integer
-#        - name: limit
-#          in: query
-#          description: number of results to return, default 10
-#          schema:
-#            type: integer
-#        - name: filters
-#          in: query
-#          description: >-
-#            list of filters to apply on result set
-#            Filter:
-#              - path - filter items by path regex
-#              - actor - filter items by username(s) of last actor
-#              - scheduledDateFrom - filter items by scheduled date setting lower boudery for date range
-#              - scheduledDateTo - filter items by scheduled date setting upper boudery for date range
-#              - contentType - filter items by content type
-#              - environment - filter items by environment where scheduled
-#              - state - filter items by state (state bitmap values)
-#          schema:
-#            type: array
-#            items:
-#              type: object
-#              properties:
-#                column:
-#                  type: string
-#                value:
-#                  type: string
-#      responses:
-#        '200':
-#          description: OK
-#          content:
-#            application/json:
-#              schema:
-#                type: object
-#                properties:
-#                  response:
-#                    $ref: '#/components/schemas/ApiResponse'
-#                  total:
-#                    type: integer
-#                    format: int32
-#                    description: Total records in the system
-#                  offset:
-#                    type: integer
-#                    format: int32
-#                    description: Offset of first record in this response
-#                  limit:
-#                    type: integer
-#                    format: int32
-#                    description: Number of records returned in this response
-#                  items:
-#                    type: array
-#                    items:
-#                      $ref: '#/components/schemas/DashboardItem'
-#        '400':
-#          $ref: '#/components/responses/BadRequest'
-#        '401':
-#          $ref: '#/components/responses/Unauthorized'
-#        '403':
-#          $ref: '#/components/responses/Forbidden'
-#        '404':
-#          $ref: '#/components/responses/NotFound'
-#        '500':
-#          $ref: '#/components/responses/InternalServerError'
+  /dashboard/activity/me:
+    get:
+      tags:
+        - dashboard
+      summary: Get current user's activities
+      description: 'Required permission "site_member"'
+      operationId: getDashboardMyActivities
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: actions
+          in: query
+          description: filter activities for given actions only
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: dateFrom
+          in: query
+          description: lower boundary to filter by date-time range
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: dateTo
+          in: query
+          description: upper boundary to filter by date-time range
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: offset
+          in: query
+          description: offset of the first result item, default 0
+          required: false
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: number of results to return, default 10
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  total:
+                    type: integer
+                    format: int32
+                    description: Total records in the system
+                  offset:
+                    type: integer
+                    format: int32
+                    description: Offset of first record in this response
+                  limit:
+                    type: integer
+                    format: int32
+                    description: Number of records returned in this response
+                  activities:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Activity'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /dashboard/content/pending_approval:
+    get:
+      tags:
+        - dashboard
+      summary: Get publishing packages that are pending for approval
+      description: 'Required permission "site_member"'
+      operationId: getDashboardContentPendingApproval
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: offset of the first result item, default 0
+          required: false
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: number of results to return, default 10
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  total:
+                    type: integer
+                    format: int32
+                    description: Total records in the system
+                  offset:
+                    type: integer
+                    format: int32
+                    description: Offset of first record in this response
+                  limit:
+                    type: integer
+                    format: int32
+                    description: Number of records returned in this response
+                  publishingPackages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DashboardPublishingPackage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /dashboard/content/pending_approval/{id}:
+    get:
+      tags:
+        - dashboard
+      summary: Get content items of the package that is pending for approval
+      description: 'Required permission "site_member"'
+      operationId: getDashboardContentPendingApprovalDetail
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          description: package ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  publishingPackageItems:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SandboxItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /dashboard/content/unpublished:
+    get:
+      tags:
+        - dashboard
+      summary: Get unpublished items for site
+      description: 'Required permission "site_member"'
+      operationId: getDashboardContentUnpublished
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: offset of the first result item, default 0
+          required: false
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: number of results to return, default 10
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  total:
+                    type: integer
+                    format: int32
+                    description: Total records in the system
+                  offset:
+                    type: integer
+                    format: int32
+                    description: Offset of first record in this response
+                  limit:
+                    type: integer
+                    format: int32
+                    description: Number of records returned in this response
+                  unpublishedItems:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SandboxItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /dashboard/publishing/scheduled:
+    get:
+      tags:
+        - dashboard
+      summary: Get scheduled publishing packages
+      description: 'Required permission "site_member"'
+      operationId: getDashboardPublishingScheduled
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: publishingTarget
+          in: query
+          description: publishing target to filter results
+          required: false
+          schema:
+            type: string
+        - name: approver
+          in: query
+          description: approver user to filter results
+          required: false
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          description: lower boundary to filter by date-time range
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: dateTo
+          in: query
+          description: upper boundary to filter by date-time range
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: offset
+          in: query
+          description: offset of the first result item, default 0
+          required: false
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: number of results to return, default 10
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  total:
+                    type: integer
+                    format: int32
+                    description: Total records in the system
+                  offset:
+                    type: integer
+                    format: int32
+                    description: Offset of first record in this response
+                  limit:
+                    type: integer
+                    format: int32
+                    description: Number of records returned in this response
+                  publishingPackages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DashboardPublishingPackage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /dashboard/publishing/scheduled/{id}:
+    get:
+      tags:
+        - dashboard
+      summary: Get content items of the package that is scheduled
+      description: 'Required permission "site_member"'
+      operationId: getDashboardPublishingScheduledDetail
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          description: package ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  publishingPackageItems:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SandboxItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /dashboard/publishing/history:
+    get:
+      tags:
+        - dashboard
+      summary: Get history of published packages
+      description: 'Required permission "site_member"'
+      operationId: getDashboardPublishingHistory
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: publishingTarget
+          in: query
+          description: publishing target to filter results
+          required: false
+          schema:
+            type: string
+        - name: approver
+          in: query
+          description: approver user to filter results
+          required: false
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          description: lower boundary to filter by date-time range
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: dateTo
+          in: query
+          description: upper boundary to filter by date-time range
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: offset
+          in: query
+          description: offset of the first result item, default 0
+          required: false
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: number of results to return, default 10
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  total:
+                    type: integer
+                    format: int32
+                    description: Total records in the system
+                  offset:
+                    type: integer
+                    format: int32
+                    description: Offset of first record in this response
+                  limit:
+                    type: integer
+                    format: int32
+                    description: Number of records returned in this response
+                  publishingPackages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DashboardPublishingPackage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /dashboard/publishing/history/{id}:
+    get:
+      tags:
+        - dashboard
+      summary: Get content items of the package that was published
+      description: 'Required permission "site_member"'
+      operationId: getDashboardPublishingHistoryDetail
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          description: package ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  publishingPackageItems:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SandboxItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /dashboard/publishing/stats:
+    get:
+      tags:
+        - dashboard
+      summary: Get publishing stats
+      description: 'Required permission "site_member"'
+      operationId: getDashboardPublishingStats
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: days
+          in: query
+          description: number of days to display stats for
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  publishingStats:
+                    $ref: '#/components/schemas/PublishingStats'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /dashboard/content/expiring:
+    get:
+      tags:
+        - dashboard
+      summary: Get content that is expiring
+      description: 'Required permission "site_member"'
+      operationId: getDashboardContentExpiring
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          description: lower boundary to filter by date-time range
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: dateTo
+          in: query
+          description: upper boundary to filter by date-time range
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: offset
+          in: query
+          description: offset of the first result item, default 0
+          required: false
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: number of results to return, default 10
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        itemName:
+                          type: string
+                          description: internal name
+                        itemPath:
+                          type: string
+                          description: content path
+                        expireDateTime:
+                          type: string
+                          format: date-time
+                          description: date and time when content expires
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /dashboard/content/expired:
+    get:
+      tags:
+        - dashboard
+      summary: Get content that expired
+      description: 'Required permission "site_member"'
+      operationId: getDashboardContentExpired
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: offset of the first result item, default 0
+          required: false
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: number of results to return, default 10
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        itemName:
+                          type: string
+                          description: internal name
+                        itemPath:
+                          type: string
+                          description: content path
+                        expiredDateTime:
+                          type: string
+                          format: date-time
+                          description: date and time when content expired
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /translation/list:
     get:
@@ -4374,27 +6417,30 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   /translation/item_by_id:
-    get:
+    post:
       tags:
         - translation
-      summary: Get transaltion item(s) detail
+      summary: Get translation item(s) detail
       description: 'Required permission "get_translation_item_detail"'
       operationId: getTranslationItemById
-      parameters:
-        - name: siteId
-          in: query
-          description: site ID
-          required: true
-          schema:
-            type: string
-        - name: id
-          in: query
-          description: Id(s) of item(s) to retrieve
-          required: true
-          schema:
-            type: array
-            items:
-              type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  description: site ID
+                  type: string
+                id:
+                  description: Id(s) of item(s) to retrieve
+                  type: array
+                  items:
+                    type: string
+              required:
+                - siteId
+                - id
       responses:
         '200':
           description: OK
@@ -4421,27 +6467,30 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   /translation/item_by_path:
-    get:
+    post:
       tags:
         - translation
-      summary: Get transaltion item(s) detail
+      summary: Get translation item(s) detail
       description: 'Required permission "get_translation_item_detail"'
       operationId: getTranslationItemByPath
-      parameters:
-        - name: siteId
-          in: query
-          description: site ID
-          required: true
-          schema:
-            type: string
-        - name: path
-          in: query
-          description: Path(s) to item(s) to retrieve
-          required: true
-          schema:
-            type: array
-            items:
-              type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  description: site ID
+                  type: string
+                path:
+                  description: Path(s) to item(s) to retrieve
+                  type: array
+                  items:
+                    type: string
+              required:
+                - siteId
+                - path
       responses:
         '200':
           description: OK
@@ -4588,7 +6637,7 @@ paths:
                   description: path(s) of the item(s)
                   items:
                     type: string
-                  
+
                 locales:
                   type: array
                   description: locale codes
@@ -4598,6 +6647,812 @@ paths:
                 - siteId
                 - path
                 - locales
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /workflow/item_states:
+    get:
+      tags:
+        - workflow
+      summary: Get item workflow states for site
+      description: 'Required permission "get_item_states"'
+      operationId: getItemStates
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: query
+          description: path regex
+          required: false
+          schema:
+            type: string
+        - name: states
+          in: query
+          description: states bitmap mask
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  total:
+                    type: integer
+                    format: int32
+                    description: Total records in the system
+                  offset:
+                    type: integer
+                    format: int32
+                    description: Offset of first record in this response
+                  limit:
+                    type: integer
+                    format: int32
+                    description: Number of records returned in this response
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SandboxItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - workflow
+      summary: Set item workflow states for site
+      description: 'Required permission "set_item_states"'
+      operationId: setItemStates
+      requestBody:
+        description: List of items to set workflow state(s)
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId: 
+                  type: string
+                  description: site ID
+                items:
+                  type: array
+                  description: path(s) of item(s)
+                  items:
+                    type: string
+                clearSystemProcessing:
+                  type: boolean
+                  description: true if system processing is to be cleared
+                clearUserLocked:
+                  type: boolean
+                  description: true if user lock is to be cleared
+                live:
+                  type: boolean
+                  description: true if item is to be set as live, otherwise false
+                staged:
+                  type: boolean
+                  description: true if item is to be set as staged, otherwise false
+              required:
+                - siteId
+                - items
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /workflow/update_item_states_by_query:
+    post:
+      tags:
+        - workflow
+      summary: Set item workflow states for site using query
+      description: 'Required permission "set_item_states"'
+      operationId: updateItemStates
+      requestBody:
+        description: List of items to set workflow state(s)
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: object
+                  properties:
+                    siteId: 
+                      type: string
+                      description: site ID
+                    path:
+                      type: string
+                      description: path regex of item(s)
+                    states:
+                      type: integer
+                      format: int64
+                      description: state bitmap mask to filter by state
+                  required:
+                    - siteId
+                    - paths
+                update:
+                  type: object
+                  properties:
+                    clearSystemProcessing:
+                      type: boolean
+                      description: true if system processing is to be cleared
+                    clearUserLocked:
+                      type: boolean
+                      description: true if user lock is to be cleared
+                    live:
+                      type: boolean
+                      description: true if item is to be set as live, otherwise false
+                    staged:
+                      type: boolean
+                      description: true if item is to be set as staged, otherwise false
+              required:
+                - query
+                - update
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /workflow/affected_paths:
+    get:
+      tags:
+        - workflow
+      summary: Get workflow affected paths
+      description: 'Required permission "site member"'
+      operationId: getWorkflowAffectedPaths
+      parameters:
+        - name: siteId
+          in: query
+          description: site ID
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: query
+          description: path of the content
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SandboxItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /workflow/request_publish:
+    post:
+      tags:
+        - workflow
+      summary: Request publish for content
+      description: 'Required permission "site_member"'
+      operationId: workflowRequestPublish
+      requestBody:
+        description: parameters for request publish
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: 
+                siteId:
+                  type: string
+                  description: site identifier
+                items:
+                  type: array
+                  description: path(s) of content item(s)
+                  items:
+                    type: string
+                optionalDependencies:
+                  type: array
+                  description: optional (soft) dependencies
+                  items:
+                    type: string
+                publishingTarget:
+                  type: string
+                  description: target to publish content to
+                schedule:
+                  type: string
+                  format: datetime
+                  description: schedule when to publish content
+                comment:
+                  type: string
+                  description: comment about publish request
+                sendEmailNotifications:
+                  type: boolean
+                  description: if true, send email notifications
+              required:
+                - siteId
+                - items
+                - publishingTarget
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /workflow/publish:
+    post:
+      tags:
+        - workflow
+      summary: Publish content
+      description: 'Required permission "publish"'
+      operationId: workflowPublish
+      requestBody:
+        description: parameters for publish content
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: 
+                siteId:
+                  type: string
+                  description: site identifier
+                items:
+                  type: array
+                  description: path(s) of content item(s)
+                  items:
+                    type: string
+                optionalDependencies:
+                  type: array
+                  description: optional (soft) dependencies
+                  items:
+                    type: string
+                publishingTarget:
+                  type: string
+                  description: target to publish content to
+                schedule:
+                  type: string
+                  format: datetime
+                  description: schedule when to publish content
+                comment:
+                  type: string
+                  description: submission comment by publisher
+              required:
+                - siteId
+                - items
+                - publishingTarget
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /workflow/approve:
+    post:
+      tags:
+        - workflow
+      summary: Approve request publish submission
+      description: 'Required permission "publish"'
+      operationId: workflowApprove
+      requestBody:
+        description: parameters for approve request publish submission
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: 
+                siteId:
+                  type: string
+                  description: site identifier
+                items:
+                  type: array
+                  description: path(s) of content item(s)
+                  items:
+                    type: string
+                optionalDependencies:
+                  type: array
+                  description: optional (soft) dependencies
+                  items:
+                    type: string
+                publishingTarget:
+                  type: string
+                  description: target to publish content to
+                schedule:
+                  type: string
+                  format: datetime
+                  description: schedule when to publish content
+                comment:
+                  type: string
+                  description: Reviewer's comment
+              required:
+                - siteId
+                - items
+                - publishingTarget
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /workflow/reject:
+    post:
+      tags:
+        - workflow
+      summary: Reject request publish submission
+      description: 'Required permission "publish"'
+      operationId: workflowReject
+      requestBody:
+        description: parameters for reject request publish submission
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: 
+                siteId:
+                  type: string
+                  description: site identifier
+                items:
+                  type: array
+                  description: path(s) of content item(s)
+                  items:
+                    type: string
+                comment:
+                  type: string
+                  description: Reviewer's rejection comment
+              required:
+                - siteId
+                - items
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /workflow/packages:
+    get:
+      tags:
+        - workflow
+      summary: List workflow packages order by scheduled date
+      description: Required permission "request_publish, publish"
+      operationId: workflowListPackage
+      parameters:
+        - name: siteId
+          in: query
+          description: filter workflow packages by site
+          required: true
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          description: lower boundary for filtering results by scheduled date
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: dateTo
+          in: query
+          description: upper boundary for filtering results by scheduled date
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: offset
+          in: query
+          description: Offset of the first package in the response
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: limit
+          in: query
+          description: Number of packages to return
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: order
+          in: query
+          description: ascending or descending (ASC | DESC). Default ascending
+          required: false
+          schema:
+            type: string       
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  total:
+                    type: integer
+                    format: int32
+                    description: Total records in the system
+                  offset:
+                    type: integer
+                    format: int32
+                    description: Offset of first record in this response
+                  limit:
+                    type: integer
+                    format: int32
+                    description: Number of records returned in this response
+                  packages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkflowPackage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags:
+        - workflow
+      summary: Create workflow package
+      description: Required permission "request_publish, publish"
+      operationId: workflowCreatePackage
+      requestBody:
+        description: parameters to create new workflow package
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  type: string
+                  description: site identifier
+                paths:
+                  type: array
+                  description: paths of content items to add to package
+                  items:
+                    type: string
+                publishingTarget:
+                  type: string
+                  description: target where to publish content
+                schedule:
+                  type: string
+                  format: datetime
+                  description: schedule when publishing should be performed
+                authorComment:
+                  type: string
+                  description: author's comment about the package
+                label:
+                  type: string
+                  description: user friendly name for the package
+              required:
+                - siteId
+                - paths
+                - publishingTarget   
+      responses:
+        '201':
+          description: CREATED
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags:
+        - workflow
+      summary: Update workflow package
+      description: Required permission "request_publish, publish"
+      operationId: workflowUpdatePackage
+      requestBody:
+        description: Workflow package entity to update
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowPackage'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  package:
+                    $ref: '#/components/schemas/WorkflowPackage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /workflow/packages/{id}:
+    get:
+      tags:
+        - workflow
+      summary: Get workflow package by id
+      description: Required permission "request_publish, publish"
+      operationId: workflowGetPackage
+      parameters:
+        - name: id
+          in: path
+          description: The workflow package ID
+          required: true
+          schema:
+            type: string
+            format: UUID                
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+                  package:
+                    $ref: '#/components/schemas/WorkflowPackage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /workflow/packages/approve:
+    post:
+      tags:
+        - workflow
+      summary: Approve workflow package
+      description: Required permission "publish"
+      operationId: workflowApprovePackage
+      requestBody:
+        description: parameters to approve a workflow package
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  type: string
+                  description: site identifier
+                packages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      packageId:
+                        type: string
+                        description: Id of the workflow package to approve
+                      approverComment:
+                        type: string
+                        description: approver's comment about approved workflow package
+                    required:
+                      - packageId
+                      - approverComment
+                schedule:
+                  type: string
+                  format: datetime
+                  description: approved schedule when to publish package
+              required:
+                - siteId
+                - packages
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /workflow/packages/reject:
+    post:
+      tags:
+        - workflow
+      summary: Create workflow package
+      description: Required permission "request_publish, publish"
+      operationId: workflowRejectPackage
+      requestBody:
+        description: parameters to create new workflow package
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                siteId:
+                  type: string
+                  description: site identifier
+                packages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      packageId:
+                        type: string
+                        description: Id of the workflow package to approve
+                      rejectionComment:
+                        type: string
+                        description: approver's comment about approved workflow package
+                    required:
+                      - packageId
+                      - rejectionComment
+              required:
+                - siteId
+                - packages              
       responses:
         '200':
           description: OK
@@ -4635,15 +7490,17 @@ components:
           * `CODE:` 3000, `MESSAGE:` Organization not found, `REMEDIAL ACTION:` Check if you sent in the right Org Id
           * `CODE:` 3001, `MESSAGE:` Organization already exists, `REMEDIAL ACTION:` Try a different organization name
           * `CODE:` 4000, `MESSAGE:` Group not found, `REMEDIAL ACTION:` Check if you sent in the right Group Id
-          * `CODE:` 5000, `MESSAGE:` Project not found, `REMEDIAL ACTION:` Check if you sent in the right Project Id
-          * `CODE:` 5001, `MESSAGE:` Project already exists, `REMEDIAL ACTION:` Try a different project name
+          * `CODE:` 5000, `MESSAGE:` Site not found, `REMEDIAL ACTION:` Check if you sent in the right Site Id
+          * `CODE:` 5001, `MESSAGE:` Site already exists, `REMEDIAL ACTION:` Try a different site name
           * `CODE:` 6000, `MESSAGE:` User not found, `REMEDIAL ACTION:` Check if you're using the correct User ID
           * `CODE:` 6001, `MESSAGE:` User already exists, `REMEDIAL ACTION:` Try a different username
           * `CODE:` 6002, `MESSAGE:` User is externally managed, `REMEDIAL ACTION:` Update the user in the main identity system (e.g. LDAP)
-          * `CODE:` 6003, `MESSAGE:` User password does not fullfill requirements, `REMEDIAL ACTION:` Use password that will fullfill password requirements
+          * `CODE:` 6003, `MESSAGE:` User password does not fulfill requirements, `REMEDIAL ACTION:` Use password that will fulfill password requirements
           * `CODE:` 6004, `MESSAGE:` User current password does not match, `REMEDIAL ACTION:` Use correct current password
           * `CODE:` 7000, `MESSAGE:` Content not found, `REMEDIAL ACTION:` Check if you sent in the right Content Id
-          * `CODE:` 7001, `MESSAGE:` Content already exists, `REMEDIAL ACTION:` Advise the user that the content already exists
+          * `CODE:` 7001, `MESSAGE:` Content already exists, `REMEDIAL ACTION:` Edit the existing item or delete it before creating it again
+          * `CODE:` 7002, `MESSAGE:` Content already locked, `REMEDIAL ACTION:` The user that locked the item or the administrator must unlock the item first
+          * `CODE:` 7003, `MESSAGE:` Content already unlocked, `REMEDIAL ACTION:` The item is already unlocked
           * `CODE:` 8000, `MESSAGE:` Publishing is disabled, `REMEDIAL ACTION:` Advise the user to enable publishing
           * `CODE:` 9000, `MESSAGE:` Search is unreachable, `REMEDIAL ACTION:` Advise the user that the search engine is not reachable
           * `CODE:` 10000, `MESSAGE:` LoV not found, `REMEDIAL ACTION:` Check if you sent in the right LoV Id
@@ -4656,8 +7513,11 @@ components:
           * `CODE:` 12004, `MESSAGE:` Failed to remove remote repository, `REMEDIAL ACTION:` Contact your system administrator.
           * `CODE:` 12005, `MESSAGE:` Push to remote repository failed, `REMEDIAL ACTION:` Check your repository settings or contact your system administrator.
           * `CODE:` 12006, `MESSAGE:` Remove remote repository failed, `REMEDIAL ACTION:` The remote repository is a cluster node repository. It can't be removed.
+          * `CODE:` 12007, `MESSAGE:` Remote repository authentication failed, `REMEDIAL ACTION:` Recreate the remote repository with the correct authentication credentials and make sure you have write access.
           * `CODE:` 40000, `MESSAGE:` Marketplace service is not initialized, `REMEDIAL ACTION:` Contact your system administrator.
           * `CODE:` 40001, `MESSAGE:` Marketplace server is unreachable, `REMEDIAL ACTION:` Check the configuration to make sure the Marketplace URL is correct
+          * `CODE:` 40002, `MESSAGE:` Plugin is already installed, `REMEDIAL ACTION:` Check that the site id, plugin id and plugin version are correct
+          * `CODE:` 40003, `MESSAGE:` Error installing plugin, `REMEDIAL ACTION:` Check the plugin requirements
           * `CODE:` 50000, `MESSAGE:` CMIS server is unreachable, `REMEDIAL ACTION:` Advise the user that the CMIS server is not reachable
           * `CODE:` 50001, `MESSAGE:` Request to CMIS server timed out, `REMEDIAL ACTION:` Advise the user that the request to CMIS server timed out
           * `CODE:` 50002, `MESSAGE:` CMIS server was not found, `REMEDIAL ACTION:` Advise the user that the CMIS server was not found
@@ -4779,6 +7639,12 @@ components:
         siteId:
           type: string
           description: 'Site ID, unique and immutable'
+        uuid:
+          type: string
+          description: Site UUID unique and immutable
+        name:
+          type: string
+          description: site name 
         desc:
           type: string
           description: Site description
@@ -5029,25 +7895,16 @@ components:
                 $ref: '#/components/schemas/Link'
             company:
               $ref: '#/components/schemas/Link'
-        build:
-          type: object
-          properties:
-            id:
-              type: string
-              description: Build id of the plugin
-            date:
-              type: string
-              description: Build date of the plugin
         license:
           $ref: '#/components/schemas/Link'
         crafterCmsVersions:
           type: array
-          description: The supported Crafter CMS versions of the plugin
+          description: The supported CrafterCMS versions of the plugin
           items:
             $ref: '#/components/schemas/Version'
         crafterCmsEditions:
           type: array
-          description: The supported Crafter CMS editions of the plugin
+          description: The supported CrafterCMS editions of the plugin
           items:
             type: string
         parameters:
@@ -5118,6 +7975,34 @@ components:
         - blueprintId
         - blueprintVersion
 
+    PluginRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The id of the plugin
+        version:
+          $ref: '#/components/schemas/Version'
+        pluginUrl:
+          type: string
+          description: The URL of the plugin
+        installationDate:
+          type: string
+          format: date-time
+          description: The date when the plugin was installed
+        files:
+          type: array
+          description: The list of installed files
+          items:
+            $ref: '#/components/schemas/FileRecord'
+
+    FileRecord:
+      type: object
+      properties:
+        path:
+          type: string
+          description: The path where the file was copied during installation
+
     SearchParams:
       type: object
       properties:
@@ -5144,6 +8029,9 @@ components:
         sortOrder:
           type: string
           description: The order to sort the results (defaults to DESC)
+        orOperator:
+          type: boolean
+          description: Indicates if the filters should use an OR instead of an AND operator (defaults to false)
         filters:
           type: object
           description: >-
@@ -5258,9 +8146,9 @@ components:
           format: int64
           description: Organization ID
         siteId:
-          type: integer
-          format: int64
-          description: Site ID
+          type: string
+          format: string
+          description: Site Identifier
         siteName:
           type: string
           format: string
@@ -5327,7 +8215,7 @@ components:
         - origin
         - primaryTargetId
         - primaryTargetType
-        - promaryTargetValue
+        - primaryTargetValue
         - actorId
 
     VersionItem:
@@ -5376,6 +8264,31 @@ components:
           type: string
           format: date-time
           description: The date and time when the JVM started
+
+    ClusterStatusItem:
+      type: object
+      properties:
+        uptime:
+          type: integer
+          format: int64
+          description: The time in seconds that the JVM has been up
+        startup:
+          type: string
+          format: date-time
+          description: The date and time when the JVM started
+        age:
+          type: integer
+          format: int64
+          description: The time in seconds that the cluster node has been up
+        role:
+          type: string
+          description: Role that the node has in the cluster. Possible values PRIMARY, REPLICA, UNASSIGNED
+        readyToTakeTraffic:
+          type: boolean
+          description: True if the cluster node is ready to take traffic. Typically it is a Primary node
+        readyToBecomePrimary:
+          type: boolean
+          description: True if the cluster node is a Replica and in sync with the Primary node
 
     MemoryItem:
       type: object
@@ -5471,7 +8384,7 @@ components:
           description: >-
             Authentication type to use to access remote repository
 
-            Posible values:
+            Possible values:
 
               - none: no authentication
 
@@ -5496,7 +8409,7 @@ components:
         - siteId
         - remoteName
         - remoteUrl
-        - autheticationType
+        - authenticationType
 
     RemoteRepositoryInfo:
       type: object
@@ -5549,7 +8462,7 @@ components:
       properties:
         conflicting:
           type: array
-          description: list of conficting files
+          description: list of conflicting files
           items:
             type: string
         uncommittedChanges:
@@ -5559,7 +8472,7 @@ components:
             type: string
         clean:
           type: boolean
-          description: true if there are no conflicts or uncommited changes
+          description: true if there are no conflicts or uncommitted changes
 
     History:
       type: object
@@ -5612,9 +8525,9 @@ components:
         state:
           type: string
           description: package state
-        environment:
+        publishingTarget:
           type: string
-          description: environment where package will be published
+          description: publishing target where package will be published
         comment:
           type: string
           description: submission comment
@@ -5624,7 +8537,7 @@ components:
         - schedule
         - approver
         - state
-        - environment
+        - publishingTarget
 
     PublishingPackageDetails:
       type: object
@@ -5645,9 +8558,9 @@ components:
         state:
           type: string
           description: package state
-        environment:
+        publishingTarget:
           type: string
-          description: environment where package will be published
+          description: publishing target where package will be published
         comment:
           type: string
           description: submission comment
@@ -5670,7 +8583,7 @@ components:
         - schedule
         - approver
         - state
-        - environment
+        - publishingTarget
         - items
 
     PublishingStatus:
@@ -5682,15 +8595,30 @@ components:
         status:
           type: string
           description: publishing status for site
-        message:
-          type: string
-          description: publishing message for site
         lockOwner:
           type: string
           description: studio instance owner of publishing lock
         lockTTL:
           type: string
           description: TTL timestamp for publishing lock
+        totalItems:
+          type: integer
+          format: int32
+          description: total number of item being published right now
+        numberOfItems:
+          type: integer
+          format: int32
+          description: number of items published so far
+        submissionId:
+          type: string
+          description: identifier of a submission being published
+        publishingTarget:
+          type: string
+          description: publishing target for package
+        published:
+          type: boolean
+          description: true if site has been published at least once (initial publish; published repository exist), otherwise false
+
       required:
         - enabled
         - status
@@ -5698,15 +8626,44 @@ components:
         - lockOwner
         - lockTTL
 
+    DeploymentHistoryGroup:
+      type: object
+      properties:
+        internalName:
+          type: string
+          description: user friendly label
+        numberOfChildren:
+          type: integer
+          format: int32
+          description: number of items in the group
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentItem'
+        publishingTarget:
+          type: string
+          description: publishing target where item was published
+      required:
+        - internalName
+        - numberOfChildren
+        - children
+        - publishingTarget
+
+
     SandboxItem:
       type: object
       properties:
         id:
-          type: string
+          type: integer
+          format: int64
           description: content item ID
         label:
           type: string
           description: user friendly display name for content item
+        parentId:
+          type: integer
+          format: int64
+          description: parent item ID
         contentTypeId:
           type: string
           description: content type of content item
@@ -5718,7 +8675,7 @@ components:
           description: url for previewing content item
         systemType:
           type: string
-          description: one of predifined type values (page, component, asset, levelDescriptor, folder ...)
+          description: one of predefined type values (page, component, asset, levelDescriptor, folder ...)
         mimeType:
           type: string
           description: mime-type of content item file
@@ -5732,19 +8689,31 @@ components:
               * `BIT ORDER (little-endian)`: 2: `FLAG`: Deleted, `DESCRIPTION`: The item is deleted
               * `BIT ORDER (little-endian)`: 3: `FLAG`: User Locked, `DESCRIPTION`: The item is locked by a user
               * `BIT ORDER (little-endian)`: 4, `FLAG`: System Processing, `DESCRIPTION`: The item is locked by the system for processing
-              * `BIT ORDER (little-endian)`: 5, `FLAG`: In Workflow, `DESCRIPTION`: The item has been submitted to the workflow engine
-              * `BIT ORDER (little-endian)`: 6, `FLAG`: Scheduled, `DESCRIPTION`: The item has been scheduled for publishing
-              * `BIT ORDER (little-endian)`: 7, `FLAG`: Staged, `DESCRIPTION`: The item has been pushed to the staging environment
-              * `BIT ORDER (little-endian)`: 8, `FLAG`: Live, `DESCRIPTION`: The item has been pushed to the live environment
-              * `BIT ORDER (little-endian)`: 9, `FLAG`: Translation Up To Date, `DESCRIPTION`: This item is a translation of another and it’s up to date
-              * `BIT ORDER (little-endian)`: 10, `FLAG`: Translation Pending, `DESCRIPTION`: This item is a translation of another and it’s pending translation
-              * `BIT ORDER (little-endian)`: 11, `FLAG`: Translation in Progress, `DESCRIPTION`: This item is a translation of another and is currently being translated
+              * `BIT ORDER (little-endian)`: 5, `FLAG`: In Workflow, `DESCRIPTION`: The item has been submitted for review
+              * `BIT ORDER (little-endian)`: 6, `FLAG`: Scheduled, `DESCRIPTION`: The item has been scheduled for review or publishing ounce approved
+              * `BIT ORDER (little-endian)`: 7, `FLAG`: Publishing, `DESCRIPTION`: The item is being published
+              * `BIT ORDER (little-endian)`: 8, `FLAG`: Destination, `DESCRIPTION`: If the item is being published, the destination is staging if 0, and live if 1
+              * `BIT ORDER (little-endian)`: 9, `FLAG`: Staged, `DESCRIPTION`: The item has been pushed to the staging publishing target
+              * `BIT ORDER (little-endian)`: 10, `FLAG`: Live, `DESCRIPTION`: The item has been pushed to the live publishing target
+              * `BIT ORDER (little-endian)`: 11, `FLAG`: Disabled, `DESCRIPTION`: The item has been disabled
+              * `BIT ORDER (little-endian)`: 12, `FLAG`: Reserved 12, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 13, `FLAG`: Reserved 11, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 14, `FLAG`: Reserved 10, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 15, `FLAG`: Reserved 9, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 16, `FLAG`: Reserved 8, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 17, `FLAG`: Reserved 7, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 18, `FLAG`: Reserved 6, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 19, `FLAG`: Reserved 5, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 20, `FLAG`: Reserved 4, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 21, `FLAG`: Reserved 3, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 22, `FLAG`: Reserved 2, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 23, `FLAG`: Reserved 1, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 24, `FLAG`: Translation Up To Date, `DESCRIPTION`: This item is a translation of another and it’s up to date
+              * `BIT ORDER (little-endian)`: 25, `FLAG`: Translation Pending, `DESCRIPTION`: This item is a translation of another and it’s pending translation
+              * `BIT ORDER (little-endian)`: 26, `FLAG`: Translation in Progress, `DESCRIPTION`: This item is a translation of another and is currently being translated
         lockOwner:
           type: string
           description: username of user that locked item for editing
-        disabled:
-          type: boolean
-          description: true if item is disabled for rendering in delivery, otherwise false
         localeCode:
           type: string
           description: locale of content item
@@ -5754,14 +8723,14 @@ components:
         creator:
           type: string
           description: username of user that created item
-        createdDate:
+        dateCreated:
           type: string
           format: datetime
           description: timestamp when item was created
         modifier:
           type: string
           description: username of last user that modified item
-        lastModifiedDate:
+        dateModified:
           type: string
           format: datetime
           description: timestamp when was item last modified
@@ -5772,6 +8741,44 @@ components:
           type: integer
           format: int64
           description: size of content item in the repository
+        expiresOn:
+          type: string
+          format: datetime
+          description: timestamp when the item will expire, can be null if not present/set
+        availableActions:
+          type: integer
+          format: int64
+          description: >-
+            available actions bitmap
+              * `BIT ORDER (little-endian)`: 0, `FLAG`: Content: Read, `DESCRIPTION`: Read content
+              * `BIT ORDER (little-endian)`: 1, `FLAG`: Content: Copy, `DESCRIPTION`: Copy content
+              * `BIT ORDER (little-endian)`: 2, `FLAG`: Content: Read Version History, `DESCRIPTION`: Read version history for content
+              * `BIT ORDER (little-endian)`: 3, `FLAG`: Content: Get Dependencies, `DESCRIPTION`: Get content dependencies
+              * `BIT ORDER (little-endian)`: 4, `FLAG`: Publish: Request, `DESCRIPTION`: Request publish for content
+              * `BIT ORDER (little-endian)`: 5, `FLAG`: Content: Create, `DESCRIPTION`: Create content
+              * `BIT ORDER (little-endian)`: 6, `FLAG`: Content: Paste, `DESCRIPTION`: Paste content
+              * `BIT ORDER (little-endian)`: 7, `FLAG`: Content: Edit, `DESCRIPTION`: Update content
+              * `BIT ORDER (little-endian)`: 8, `FLAG`: Content: Rename, `DESCRIPTION`: Rename or move content
+              * `BIT ORDER (little-endian)`: 9, `FLAG`: Content: Cut, `DESCRIPTION`: Cut content
+              * `BIT ORDER (little-endian)`: 10, `FLAG`: Content: Upload, `DESCRIPTION`: Upload content
+              * `BIT ORDER (little-endian)`: 11, `FLAG`: Content: Duplicate, `DESCRIPTION`: Duplicate content
+              * `BIT ORDER (little-endian)`: 12, `FLAG`: Content: Change Type, `DESCRIPTION`: Change content type
+              * `BIT ORDER (little-endian)`: 13, `FLAG`: Content: Revert, `DESCRIPTION`: Revert content
+              * `BIT ORDER (little-endian)`: 14, `FLAG`: Content: Edit controller, `DESCRIPTION`: Edit controller for content type
+              * `BIT ORDER (little-endian)`: 15, `FLAG`: Content: Edit template, `DESCRIPTION`: Edit rendering template
+              * `BIT ORDER (little-endian)`: 16, `FLAG`: Content: Create folder, `DESCRIPTION`: Create folder
+              * `BIT ORDER (little-endian)`: 17, `FLAG`: Content: Delete, `DESCRIPTION`: Delete content
+              * `BIT ORDER (little-endian)`: 18, `FLAG`: Content: Delete controller, `DESCRIPTION`: Delete content type controller
+              * `BIT ORDER (little-endian)`: 19, `FLAG`: Content: Delete template, `DESCRIPTION`: Delete rendering template
+              * `BIT ORDER (little-endian)`: 20, `FLAG`: Publish: Publish, `DESCRIPTION`: Publish content
+              * `BIT ORDER (little-endian)`: 21, `FLAG`: Publish: Approve, `DESCRIPTION`: Approve publish request
+              * `BIT ORDER (little-endian)`: 22, `FLAG`: Publish: Schedule, `DESCRIPTION`: Schedule publish
+              * `BIT ORDER (little-endian)`: 23, `FLAG`: Publish: Reject, `DESCRIPTION`: Reject publish request
+              * `BIT ORDER (little-endian)`: 24, `FLAG`: Content: Unlock, `DESCRIPTION`: Unlock content item
+        childrenCount:
+          type: integer
+          format: int32
+          description: number of children of the item
       required:
         - id
         - label
@@ -5782,22 +8789,27 @@ components:
         - mimeType
         - state
         - lockOwner
-        - disabled
         - createdDate
         - creator
         - modifier
         - lastModifiedDate
         - commitId
+        - availableActions
 
     DetailedItem:
       type: object
       properties:
         id:
-          type: string
+          type: integer
+          format: int64
           description: content item ID
         label:
           type: string
           description: user friendly display name for content item
+        parentId:
+          type: integer
+          format: int64
+          description: parent item ID
         contentTypeId:
           type: string
           description: content type of content item
@@ -5810,7 +8822,7 @@ components:
         systemType:
           type: string
           format: page, component, asset, levelDescriptor, folder
-          description: type of item in crafter CMS domain
+          description: type of item in CrafterCMS domain
         mimeType:
           type: string
           description: mime-type of content item file
@@ -5824,25 +8836,71 @@ components:
               * `BIT ORDER (little-endian)`: 2: `FLAG`: Deleted, `DESCRIPTION`: The item is deleted
               * `BIT ORDER (little-endian)`: 3: `FLAG`: User Locked, `DESCRIPTION`: The item is locked by a user
               * `BIT ORDER (little-endian)`: 4, `FLAG`: System Processing, `DESCRIPTION`: The item is locked by the system for processing
-              * `BIT ORDER (little-endian)`: 5, `FLAG`: In Workflow, `DESCRIPTION`: The item has been submitted to the workflow engine
-              * `BIT ORDER (little-endian)`: 6, `FLAG`: Scheduled, `DESCRIPTION`: The item has been scheduled for publishing
-              * `BIT ORDER (little-endian)`: 7, `FLAG`: Staged, `DESCRIPTION`: The item has been pushed to the staging environment
-              * `BIT ORDER (little-endian)`: 8, `FLAG`: Live, `DESCRIPTION`: The item has been pushed to the live environment
-              * `BIT ORDER (little-endian)`: 9, `FLAG`: Translation Up To Date, `DESCRIPTION`: This item is a translation of another and it’s up to date
-              * `BIT ORDER (little-endian)`: 10, `FLAG`: Translation Pending, `DESCRIPTION`: This item is a translation of another and it’s pending translation
-              * `BIT ORDER (little-endian)`: 11, `FLAG`: Translation in Progress, `DESCRIPTION`: This item is a translation of another and is currently being translated
+              * `BIT ORDER (little-endian)`: 5, `FLAG`: In Workflow, `DESCRIPTION`: The item has been submitted for review
+              * `BIT ORDER (little-endian)`: 6, `FLAG`: Scheduled, `DESCRIPTION`: The item has been scheduled for review or publishing ounce approved
+              * `BIT ORDER (little-endian)`: 7, `FLAG`: Publishing, `DESCRIPTION`: The item is being published
+              * `BIT ORDER (little-endian)`: 8, `FLAG`: Destination, `DESCRIPTION`: If the item is being published, the destination is staging if 0, and live if 1
+              * `BIT ORDER (little-endian)`: 9, `FLAG`: Staged, `DESCRIPTION`: The item has been pushed to the staging publishing target
+              * `BIT ORDER (little-endian)`: 10, `FLAG`: Live, `DESCRIPTION`: The item has been pushed to the live publishing target
+              * `BIT ORDER (little-endian)`: 11, `FLAG`: Disabled, `DESCRIPTION`: The item has been disabled
+              * `BIT ORDER (little-endian)`: 12, `FLAG`: Reserved 12, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 13, `FLAG`: Reserved 11, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 14, `FLAG`: Reserved 10, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 15, `FLAG`: Reserved 9, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 16, `FLAG`: Reserved 8, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 17, `FLAG`: Reserved 7, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 18, `FLAG`: Reserved 6, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 19, `FLAG`: Reserved 5, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 20, `FLAG`: Reserved 4, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 21, `FLAG`: Reserved 3, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 22, `FLAG`: Reserved 2, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 23, `FLAG`: Reserved 1, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 24, `FLAG`: Translation Up To Date, `DESCRIPTION`: This item is a translation of another and it’s up to date
+              * `BIT ORDER (little-endian)`: 25, `FLAG`: Translation Pending, `DESCRIPTION`: This item is a translation of another and it’s pending translation
+              * `BIT ORDER (little-endian)`: 26, `FLAG`: Translation in Progress, `DESCRIPTION`: This item is a translation of another and is currently being translated
         lockOwner:
           type: string
           description: username of user that locked item for editing
-        disabled:
-          type: boolean
-          description: true if item is disabled for rendering in delivery, otherwise false
         localeCode:
           type: string
           description: locale of content item
         translationSourceId:
           type: string
           description: ID of content item that is original for translation that current item represents
+        expiresOn:
+          type: string
+          format: datetime
+          description: timestamp when the item will expire, can be null if not present/set
+        availableActions:
+          type: integer
+          format: int64
+          description: >-
+            available actions bitmap
+              * `BIT ORDER (little-endian)`: 0, `FLAG`: Content: Read, `DESCRIPTION`: Read content
+              * `BIT ORDER (little-endian)`: 1, `FLAG`: Content: Copy, `DESCRIPTION`: Copy content
+              * `BIT ORDER (little-endian)`: 2, `FLAG`: Content: Read Version History, `DESCRIPTION`: Read version history for content
+              * `BIT ORDER (little-endian)`: 3, `FLAG`: Content: Get Dependencies, `DESCRIPTION`: Get content dependencies
+              * `BIT ORDER (little-endian)`: 4, `FLAG`: Publish: Request, `DESCRIPTION`: Request publish for content
+              * `BIT ORDER (little-endian)`: 5, `FLAG`: Content: Create, `DESCRIPTION`: Create content
+              * `BIT ORDER (little-endian)`: 6, `FLAG`: Content: Paste, `DESCRIPTION`: Paste content
+              * `BIT ORDER (little-endian)`: 7, `FLAG`: Content: Edit, `DESCRIPTION`: Update content
+              * `BIT ORDER (little-endian)`: 8, `FLAG`: Content: Rename, `DESCRIPTION`: Rename or move content
+              * `BIT ORDER (little-endian)`: 9, `FLAG`: Content: Cut, `DESCRIPTION`: Cut content
+              * `BIT ORDER (little-endian)`: 10, `FLAG`: Content: Upload, `DESCRIPTION`: Upload content
+              * `BIT ORDER (little-endian)`: 11, `FLAG`: Content: Duplicate, `DESCRIPTION`: Duplicate content
+              * `BIT ORDER (little-endian)`: 12, `FLAG`: Content: Change Type, `DESCRIPTION`: Change content type
+              * `BIT ORDER (little-endian)`: 13, `FLAG`: Content: Revert, `DESCRIPTION`: Revert content
+              * `BIT ORDER (little-endian)`: 14, `FLAG`: Content: Edit controller, `DESCRIPTION`: Edit controller for content type
+              * `BIT ORDER (little-endian)`: 15, `FLAG`: Content: Edit template, `DESCRIPTION`: Edit rendering template
+              * `BIT ORDER (little-endian)`: 16, `FLAG`: Content: Create folder, `DESCRIPTION`: Create folder
+              * `BIT ORDER (little-endian)`: 17, `FLAG`: Content: Delete, `DESCRIPTION`: Delete content
+              * `BIT ORDER (little-endian)`: 18, `FLAG`: Content: Delete controller, `DESCRIPTION`: Delete content type controller
+              * `BIT ORDER (little-endian)`: 19, `FLAG`: Content: Delete template, `DESCRIPTION`: Delete rendering template
+              * `BIT ORDER (little-endian)`: 20, `FLAG`: Publish: Publish, `DESCRIPTION`: Publish content
+              * `BIT ORDER (little-endian)`: 21, `FLAG`: Publish: Approve, `DESCRIPTION`: Approve publish request
+              * `BIT ORDER (little-endian)`: 22, `FLAG`: Publish: Schedule, `DESCRIPTION`: Schedule publish
+              * `BIT ORDER (little-endian)`: 23, `FLAG`: Publish: Reject, `DESCRIPTION`: Reject publish request
+              * `BIT ORDER (little-endian)`: 24, `FLAG`: Content: Unlock, `DESCRIPTION`: Unlock content item
         sandbox:
           type: object
           description: metadata of content item version stored in sandbox repository
@@ -5850,14 +8908,14 @@ components:
             creator:
               type: string
               description: username of user that created item
-            createdDate:
+            dateCreated:
               type: string
               format: datetime
               description: timestamp when item was created
             modifier:
               type: string
               description: username of last user that modified sandbox version of item
-            lastModifiedDate:
+            dateModified:
               type: string
               format: datetime
               description: timestamp when was item last modified in sandbox
@@ -5872,11 +8930,11 @@ components:
           type: object
           description: metadata of content item version stored in staging repository
           properties:
-            lastScheduledDate:
+            dateScheduled:
               type: string
               format: datetime
               description: timestamp when is item scheduled for publishing to staging repository
-            lastPublishedDate:
+            datePublished:
               type: string
               format: datetime
               description: timestamp when was item last time published to staging repository
@@ -5890,20 +8948,24 @@ components:
           type: object
           description: metadata of content item version stored in live repository
           properties:
-            lastScheduledDate:
+            dateScheduled:
               type: string
               format: datetime
               description: timestamp when is item scheduled for publishing to live repository
-            lastPublishedDate:
+            datePublished:
               type: string
               format: datetime
-              description: timestamp when was item last time published to live repositroy
+              description: timestamp when was item last time published to live repository
             publisher:
               type: string
               description: username of last user that published item to live repository
             commitId:
               type: string
               description: commit id of last modification in the live repository
+        childrenCount:
+          type: integer
+          format: int32
+          description: number of children of the item
       required:
         - id
         - label
@@ -5914,18 +8976,23 @@ components:
         - mimeType
         - state
         - lockOwner
-        - disabled
         - staging
+        - availableActions
 
     LocalizationItem:
       type: object
       properties:
         id:
-          type: string
+          type: integer
+          format: int64
           description: content item ID
         label:
           type: string
           description: user friendly display name for content item
+        parentId:
+          type: integer
+          format: int64
+          description: parent item ID
         path:
           type: string
           description: path where content item is stored inside repository (with filename)
@@ -5934,7 +9001,7 @@ components:
           description: url for previewing content item
         systemType:
           type: string
-          description: one of predifined type values (page, component, asset, level descriptor, folder ...)
+          description: one of predefined type values (page, component, asset, level descriptor, folder ...)
         mimeType:
           type: string
           description: mime-type of content item file
@@ -5948,19 +9015,31 @@ components:
               * `BIT ORDER (little-endian)`: 2: `FLAG`: Deleted, `DESCRIPTION`: The item is deleted
               * `BIT ORDER (little-endian)`: 3: `FLAG`: User Locked, `DESCRIPTION`: The item is locked by a user
               * `BIT ORDER (little-endian)`: 4, `FLAG`: System Processing, `DESCRIPTION`: The item is locked by the system for processing
-              * `BIT ORDER (little-endian)`: 5, `FLAG`: In Workflow, `DESCRIPTION`: The item has been submitted to the workflow engine
-              * `BIT ORDER (little-endian)`: 6, `FLAG`: Scheduled, `DESCRIPTION`: The item has been scheduled for publishing
-              * `BIT ORDER (little-endian)`: 7, `FLAG`: Staged, `DESCRIPTION`: The item has been pushed to the staging environment
-              * `BIT ORDER (little-endian)`: 8, `FLAG`: Live, `DESCRIPTION`: The item has been pushed to the live environment
-              * `BIT ORDER (little-endian)`: 9, `FLAG`: Translation Up To Date, `DESCRIPTION`: This item is a translation of another and it’s up to date
-              * `BIT ORDER (little-endian)`: 10, `FLAG`: Translation Pending, `DESCRIPTION`: This item is a translation of another and it’s pending translation
-              * `BIT ORDER (little-endian)`: 11, `FLAG`: Translation in Progress, `DESCRIPTION`: This item is a translation of another and is currently being translated
+              * `BIT ORDER (little-endian)`: 5, `FLAG`: In Workflow, `DESCRIPTION`: The item has been submitted for review
+              * `BIT ORDER (little-endian)`: 6, `FLAG`: Scheduled, `DESCRIPTION`: The item has been scheduled for review or publishing ounce approved
+              * `BIT ORDER (little-endian)`: 7, `FLAG`: Publishing, `DESCRIPTION`: The item is being published
+              * `BIT ORDER (little-endian)`: 8, `FLAG`: Destination, `DESCRIPTION`: If the item is being published, the destination is staging if 0, and live if 1
+              * `BIT ORDER (little-endian)`: 9, `FLAG`: Staged, `DESCRIPTION`: The item has been pushed to the staging publishing target
+              * `BIT ORDER (little-endian)`: 10, `FLAG`: Live, `DESCRIPTION`: The item has been pushed to the live publishing target
+              * `BIT ORDER (little-endian)`: 11, `FLAG`: Disabled, `DESCRIPTION`: The item has been disabled
+              * `BIT ORDER (little-endian)`: 12, `FLAG`: Reserved 12, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 13, `FLAG`: Reserved 11, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 14, `FLAG`: Reserved 10, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 15, `FLAG`: Reserved 9, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 16, `FLAG`: Reserved 8, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 17, `FLAG`: Reserved 7, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 18, `FLAG`: Reserved 6, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 19, `FLAG`: Reserved 5, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 20, `FLAG`: Reserved 4, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 21, `FLAG`: Reserved 3, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 22, `FLAG`: Reserved 2, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 23, `FLAG`: Reserved 1, `DESCRIPTION`: Reserved value for future use
+              * `BIT ORDER (little-endian)`: 24, `FLAG`: Translation Up To Date, `DESCRIPTION`: This item is a translation of another and it’s up to date
+              * `BIT ORDER (little-endian)`: 25, `FLAG`: Translation Pending, `DESCRIPTION`: This item is a translation of another and it’s pending translation
+              * `BIT ORDER (little-endian)`: 26, `FLAG`: Translation in Progress, `DESCRIPTION`: This item is a translation of another and is currently being translated
         lockOwner:
           type: string
           description: username of user that locked item for editing
-        disabled:
-          type: boolean
-          description: true if item is disabled for rendering in delivery, otherwise false
         localeCode:
           type: string
           description: locale of content item
@@ -5977,54 +9056,314 @@ components:
         - mimeType
         - state
         - lockOwner
-        - disabled
         - localeCode
 
-    AuditDashboardItem:
+    TranslationConfig:
       type: object
       properties:
-        siteId:
+        localeCodes:
+          type: array
+          description: List of codes for the supported locales
+          items:
+            type: string
+        defaultLocaleCode:
           type: string
-          description: site identifier
-        actor:
-          type: string
-          description: username of actor that executed operation
-        operation:
-          type: string
-          description: operation that was executed
-        operationTimestamp:
-          type: string
-          format: datetime
-          description: timestamp when operation was executed
-        target:
-          type: string
-          description: target upon which operation was executed
+          description: The code of the default locale for all new content
 
-    PublishingDashboardItem:
+    ContentValidationRequest:
       type: object
       properties:
-        siteId:
-          type: string
-          description: site identifier
-        label:
-          type: string
-          description: user friendly name of item
+        actions:
+          type: array
+          description: The list of actions to verify
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                description: >
+                  The type of action, possible values: CREATE, RENAME, MOVE, COPY
+              source:
+                type: string
+                description: The source value, only needed for recursive COPY, MOVE and RENAME actions
+              target:
+                type: string
+                description: The target value
+              recursive:
+                type: boolean
+                description: Indicates if all child items should be verified too
+                default: false
+              contentMetadata:
+                type: object
+                properties:
+                  fileSize:
+                    type: integer
+                    format: int64
+                    description: The size of the file in bytes, only needed for CREATE actions
+                  contentType:
+                    type: string
+                    description: The id of the crafter content type, only needed for CREATE actions
+            required:
+              - type
+              - target
+      required:
+        - siteId
+        - actions
+
+    ContentValidationResult:
+      type: object
+      properties:
+        actions:
+          type: array
+          description: The list of results
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                description: The type of action
+              target:
+                type: string
+                description: The target value
+              allowed:
+                type: boolean
+                description: Indicates if the operation is allowed
+              modifiedValue:
+                type: string
+                description: The adjusted value if available
+
+    PasteItem:
+      type: object
+      properties:
         path:
           type: string
-          description: path of the item
-        publisher:
+          description: The path of the item
+        children:
+          type: array
+          description: The child items
+          items:
+            $ref: '#/components/schemas/PasteItem'
+      required:
+        - path
+
+    PasteRequest:
+      type: object
+      properties:
+        siteId:
           type: string
-          description: user that published item
-        publishedDate:
+          description: The id of the site
+        operation:
+          type: string
+          description: Indicate the type of operation
+          enum:
+            - COPY
+            - CUT
+        targetPath:
+          type: string
+          description: The target path for the operation
+        item:
+          $ref: '#/components/schemas/PasteItem'
+      required:
+        - siteId
+        - target
+        - item
+
+    AccessToken:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Value of the access token, only visible when the token is created
+        expiresAt:
+          type: string
+          format: date-time
+          description: Date of expiration of the access token
+        id:
+          type: integer
+          format: int64
+          description: Id of the access token
+        label:
+          type: string
+          description: The label of the access token
+        enabled:
+          type: boolean
+          description: Indicates if the access token is enabled
+        createdOn:
+          type: string
+          format: date-time
+          description: Date of creation of the access token
+
+    WorkflowPackage:
+      type: object
+      properties:
+        id:
+          type: string
+          description: workflow package ID
+        siteId:
+          type: string
+          description: site identifier 
+        status:
+          type: string
+          description: workflow package status
+        author:
+          type: string
+          description: username of the author
+        reviewer:
+          type: string
+          description: username of the reviewer
+        schedule:
           type: string
           format: datetime
-          description: date and time when item was published
-        environment:
+          description: scheduled date and time to publish the package
+        publishingTarget:
           type: string
-          description: environment where item was published
+          description: name of the publishing target where package will be published
+        authorComment:
+          type: string
+          description: author's comment
+        reviewerComment: 
+          type: string
+          description: reviewer's comment
+        label: 
+          type: string
+          description: user friendly label for package
+      required:
+        - id
+        - siteId
+        - status
+        - author
+        - publishingTarget
 
-    DashboardItem:
+    Activity:
       type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: activity ID
+        person:
+          $ref: '#/components/schemas/Person'
+        actionType:
+          type: string
+          description: >-
+            operation performed by user
+              * CREATE
+              * UPDATE
+              * DELETE
+              * MOVE
+              * REQUEST_PUBLISH
+              * APPROVE
+              * APPROVE_SCHEDULED
+              * REJECT
+              * REVERT
+              * PUBLISH
+              * INITIAL_PUBLISH
+              * UNKNOWN
+        item:
+          type: object
+          description: item that operation was performed against
+          properties:
+            id:
+              type: integer
+              format: int64
+              description: The id of the item
+            path:
+              type: string
+              description: The path of the item
+            label:
+              type: string
+              description: The label of the item
+            previewUrl:
+              type: string
+              description: The preview URL of the item
+        package:
+          type: object
+          description: package that operation was performed against
+          properties:
+            id:
+              type: string
+              format: UUID
+              description: The id of the package
+      required:
+        - id
+        - person
+        - actionType
+
+    Person:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: user ID
+        username:
+          type: string
+          description: user's username
+        firstName:
+          type: string
+          description: user's first name
+        lastName:
+          type: string
+          description: user's last name
+        avatar:
+          type: string
+          format: CLOB
+          description: user's avatar
+      required:
+        - id
+        - username
+        - firstName
+        - lastName
+
+    DashboardPublishingPackage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: UUID
+          description: package id
+        label:
+          type: string
+          description: user friendly name of the package
+        submitter:
+          $ref: '#/components/schemas/Person'
+        size:
+          type: integer
+          format: int32
+          description: number of items in the package
+        publishingTarget:
+          type: string
+          description: publishing target where package will be published
+        schedule:
+          type: string
+          format: date-time
+          description: date and time when package will be published
+      required:
+        - id
+        - label
+        - submitter
+        - size
+        - publishingTarget
+
+    PublishingStats:
+      type: object
+      properties:
+        numberOfPublishes:
+          type: integer
+          format: int32
+          description: Number of published content for given unit of time
+        numberOfNewAndPublishedItems:
+          type: integer
+          format: int32
+          description: Number of newly created and published items for given unit of time
+        numberOfEditedAndPublishedItems:
+          type: integer
+          format: int32
+          description: Number of edited and published items for given unit of time
+      required:
+        - numberOfPublishes
+        - numberOfNewAndPublishedItems
+        - numberOfEditedAndPublishedItems
 
   responses:
     NotFound:
@@ -6102,7 +9441,16 @@ components:
             properties:
               response:
                 $ref: '#/components/schemas/ApiResponse'
-  securitySchemes: {}
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    basicAuth:
+      type: http
+      scheme: basic
   links: {}
   callbacks: {}
-security: []
+security:
+  - jwtAuth: []
+  - basicAuth: []

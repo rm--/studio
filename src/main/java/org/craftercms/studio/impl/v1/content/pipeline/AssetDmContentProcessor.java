@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -18,12 +18,11 @@ package org.craftercms.studio.impl.v1.content.pipeline;
 import org.apache.commons.lang3.StringUtils;
 import org.craftercms.studio.api.v1.constant.DmConstants;
 import org.craftercms.studio.api.v1.content.pipeline.PipelineContent;
-import org.craftercms.studio.api.v1.dal.ItemMetadata;
 import org.craftercms.studio.api.v1.exception.ContentProcessException;
 import org.craftercms.studio.api.v1.exception.ServiceLayerException;
+import org.craftercms.studio.api.v1.exception.security.UserNotFoundException;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
-import org.craftercms.studio.api.v1.service.objectstate.ObjectStateService;
 import org.craftercms.studio.api.v1.to.ContentAssetInfoTO;
 import org.craftercms.studio.api.v1.to.ContentItemTO;
 import org.craftercms.studio.api.v1.to.ResultTO;
@@ -32,10 +31,7 @@ import org.craftercms.studio.impl.v1.util.ContentFormatUtils;
 import org.craftercms.studio.impl.v1.util.ContentUtils;
 
 import java.io.InputStream;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Optional;
 
 import static org.craftercms.studio.api.v1.constant.StudioConstants.FILE_SEPARATOR;
 import static org.craftercms.studio.api.v2.dal.AuditLogConstants.OPERATION_CREATE;
@@ -96,7 +92,7 @@ public class AssetDmContentProcessor extends FormDmContentProcessor {
             } else {
                 result.setItem(assetInfo);
             }
-        } catch (ServiceLayerException e) {
+        } catch (ServiceLayerException | UserNotFoundException e) {
             throw new ContentProcessException("Failed to write " + content.getId()+", "+e, e);
         } finally {
             content.closeContentStream();
@@ -125,7 +121,7 @@ public class AssetDmContentProcessor extends FormDmContentProcessor {
                                                    String assetName, InputStream in, int width, int height,
                                                    boolean createFolders, boolean isPreview, boolean unlock,
                                                    boolean isSystemAsset, ResultTO result)
-            throws ServiceLayerException {
+            throws ServiceLayerException, UserNotFoundException {
         logger.debug("Writing content asset: [site: " + site + ", path: " + path + ", assetName: "
                 + assetName + ", createFolders: " + createFolders);
 
@@ -153,11 +149,8 @@ public class AssetDmContentProcessor extends FormDmContentProcessor {
                     updateFile(site, contentItem, contentPath, in, user, isPreview, unlock, result);
                     content.addProperty(DmConstants.KEY_ACTIVITY_TYPE, OPERATION_UPDATE);
                 } else {
-                    // TODO: define content type
-                    contentItem = createNewFile(site, parentContentItem, assetName, null, in, user,
-                            unlock, result);
+                    createNewFile(site, parentContentItem, assetName, in, user, unlock, result);
                     content.addProperty(DmConstants.KEY_ACTIVITY_TYPE, OPERATION_CREATE);
-                    objectStateService.insertNewEntry(site, contentItem);
                 }
                 ContentAssetInfoTO assetInfo = new ContentAssetInfoTO();
                 assetInfo.setFileName(assetName);
@@ -178,6 +171,13 @@ public class AssetDmContentProcessor extends FormDmContentProcessor {
                         assetInfo.setSizeUnit(FILE_SIZE_KB);
                     }
                 }
+                // Item
+                // TODO: get local code with API 2
+                String commitId = result.getCommitId();
+                if (StringUtils.isEmpty(commitId)) {
+                    commitId = contentRepository.getRepoLastCommitId(site);
+                }
+                itemServiceInternal.persistItemAfterWrite(site, contentPath, user, commitId, Optional.of(unlock));
                 assetInfo.setFileExtension(ext);
                 return assetInfo;
             } else {
@@ -200,7 +200,7 @@ public class AssetDmContentProcessor extends FormDmContentProcessor {
      */
     protected void updateFile(String site, ContentItemTO contentItem, String relativePath, InputStream input,
                               String user, boolean isPreview, boolean unlock, ResultTO result)
-            throws ServiceLayerException {
+            throws ServiceLayerException, UserNotFoundException {
         boolean success = false;
         try {
             success = contentService.writeContent(site, relativePath, input);
@@ -209,19 +209,8 @@ public class AssetDmContentProcessor extends FormDmContentProcessor {
         }
 
         if (success) {
-            Map<String, Object> properties = new HashMap<>();
-            properties.put(ItemMetadata.PROP_MODIFIER, user);
-            properties.put(ItemMetadata.PROP_MODIFIED, ZonedDateTime.now(ZoneOffset.UTC));
-            if (unlock) {
-                properties.put(ItemMetadata.PROP_LOCK_OWNER, StringUtils.EMPTY);
-            } else {
-                properties.put(ItemMetadata.PROP_LOCK_OWNER, user);
-            }
-            if (!objectMetadataManager.metadataExist(site, relativePath)) {
-                objectMetadataManager.insertNewObjectMetadata(site, relativePath);
-            }
-            objectMetadataManager.setObjectMetadata(site, relativePath, properties);
-            result.setCommitId(objectMetadataManager.getProperties(site, relativePath).getCommitId());
+            String commitId = contentRepository.getRepoLastCommitId(site);
+            result.setCommitId(commitId);
 
             // if there is anything pending and this is not a preview update, cancel workflow
             if (!isPreview) {
@@ -233,24 +222,19 @@ public class AssetDmContentProcessor extends FormDmContentProcessor {
                     }
                 }
             }
+
+            // Item
+            itemServiceInternal.persistItemAfterWrite(site, relativePath, user, commitId, Optional.of(unlock));
         }
         if (unlock) {
-            contentService.unLockContent(site, relativePath);
+            contentRepositoryV1.unLockItem(site, relativePath);
             logger.debug("Unlocked the content site " + site + " path " + relativePath);
         } else {
-            contentService.lockContent(site, relativePath);
+            contentRepository.lockItem(site, relativePath);
         }
     }
 
-    protected ObjectStateService objectStateService;
     protected StudioConfiguration studioConfiguration;
-
-    public ObjectStateService getObjectStateService() {
-        return objectStateService;
-    }
-    public void setObjectStateService(ObjectStateService objectStateService) {
-        this.objectStateService = objectStateService;
-    }
 
     public StudioConfiguration getStudioConfiguration() {
         return studioConfiguration;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -41,7 +41,7 @@ public class ServerlessDeliveryDeployer extends AbstractDeployer {
     private final static String ENV_SERVERLESS_DELIVERY = "serverless-delivery";
 
     @Override
-    public void createTargets(String site, String searchEngine) throws RestClientException {
+    public void createTargets(String site) throws RestClientException {
         if (isServerlessDeliveryEnabled()) {
             String localRepoPath = getRepoUrl(SERVERLESS_DELIVERY_DEPLOYER_TARGET_LOCAL_REPO_PATH, site);
             String repoUrl = getRepoUrl(SERVERLESS_DELIVERY_DEPLOYER_TARGET_REMOTE_REPO_URL, site);
@@ -51,7 +51,7 @@ public class ServerlessDeliveryDeployer extends AbstractDeployer {
             HierarchicalConfiguration<ImmutableNode> templateParams =
                     studioConfiguration.getSubConfig(SERVERLESS_DELIVERY_DEPLOYER_TARGET_TEMPLATE_PARAMS);
 
-            doCreateTarget(site, ENV_SERVERLESS_DELIVERY, searchEngine, template, replace, false, localRepoPath,
+            doCreateTarget(site, ENV_SERVERLESS_DELIVERY, template, replace, false, localRepoPath,
                            repoUrl, templateParams);
         }
     }

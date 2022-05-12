@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -15,8 +15,6 @@
  */
 
 package scripts.api.impl.content
-
-import scripts.api.impl.search.SolrSearch;
 
 /**
  * content services
@@ -193,19 +191,6 @@ class SpringContentServices {
 	def revertContentItem(site, path, version, major, comment){
         def springBackedService = this.context.applicationContext.get(CONTENT_SERVICES_BEAN)
         return springBackedService.revertContentItem(site, path, version, major, comment)
-	}
-
-	/**
-	 * search the repository
-	 * @param site - the project ID
-	 * @param keywords - keywords
-	 * @param filters - Filters object (document based)
-	 * @param sort - sort object
-	 * @param page - page to start on
-	 * @param resultsPerPage - items to return per page
-	 */
-	def search(site, keywords, searchParams, sort, page, resultsPerPage) {
-		return SolrSearch.search(site, keywords, searchParams, sort, page, resultsPerPage, this.context);
 	}
 
 	def writeContent(site, path, fileName, contentType, input, createFolders, edit, unlock) {

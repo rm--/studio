@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -23,8 +23,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.craftercms.studio.api.v2.dal.QueryParameterNames.CLUSTER_LOCAL_ADDRESS;
+import static org.craftercms.studio.api.v2.dal.QueryParameterNames.DESC;
 import static org.craftercms.studio.api.v2.dal.QueryParameterNames.LOCK_OWNER_ID;
-import static org.craftercms.studio.api.v2.dal.QueryParameterNames.MESSAGE;
+import static org.craftercms.studio.api.v2.dal.QueryParameterNames.NAME;
 import static org.craftercms.studio.api.v2.dal.QueryParameterNames.PUBLISHING_STATUS;
 import static org.craftercms.studio.api.v2.dal.QueryParameterNames.SITE_ID;
 import static org.craftercms.studio.api.v2.dal.QueryParameterNames.STATE;
@@ -40,7 +41,13 @@ public interface SiteFeedMapper {
 
 	boolean createSite(SiteFeed siteFeed);
 
-    boolean deleteSite(String siteId);
+    /**
+     * Delete site
+     * @param siteId site identifier
+     * @param state deleted state value
+     * @return
+     */
+    boolean deleteSite(@Param(SITE_ID) String siteId, @Param(STATE) String state);
 
     void updateLastCommitId(Map params);
 
@@ -50,6 +57,15 @@ public interface SiteFeedMapper {
 
     Integer existsByName(String name);
 
+    /**
+     * Checks if there is a site, different than the siteId, using the given name
+     *
+     * @param siteId the id of the site
+     * @param name the name of the site
+     * @return true if the name is being used by another site
+     */
+    boolean isNameUsed(@Param(SITE_ID) String siteId, @Param(NAME) String name);
+
     int getSitesPerUserQueryTotal(Map params);
 
     List<String> getSitesPerUserQuery(Map params);
@@ -58,8 +74,12 @@ public interface SiteFeedMapper {
 
     void enablePublishing(Map params);
 
-    void updatePublishingStatusMessage(@Param(SITE_ID) String siteId, @Param(PUBLISHING_STATUS) String status,
-                                       @Param(MESSAGE) String message);
+    /**
+     * Update publishing status
+     * @param siteId site identifier
+     * @param status publisher status
+     */
+    void updatePublishingStatus(@Param(SITE_ID) String siteId, @Param(PUBLISHING_STATUS) String status);
 
     void updateLastVerifiedGitlogCommitId(Map params);
 
@@ -95,6 +115,16 @@ public interface SiteFeedMapper {
      * @param siteId site identifier
      */
     void updatePublishingLockHeartbeatForSite(@Param(SITE_ID) String siteId);
+
+    /**
+     * Updates the name and description for the given site
+     *
+     * @param siteId the id of the site
+     * @param name the name of the site
+     * @param description the description of the site
+     * @return the number of changed rows
+     */
+    int updateSite(@Param(SITE_ID) String siteId, @Param(NAME) String name, @Param(DESC) String description);
 
     /**
      * Get last commit id for local studio node

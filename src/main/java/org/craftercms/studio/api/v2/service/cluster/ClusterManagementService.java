@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -28,7 +28,7 @@ public interface ClusterManagementService {
      *
      * @return List of cluster members
      */
-    List<ClusterMember> getAllMemebers();
+    List<ClusterMember> getAllMembers();
 
 
     /**
@@ -36,6 +36,8 @@ public interface ClusterManagementService {
      *
      * @param memberIds List of ids of member to remover from cluster
      * @return True if success, otherwise false
+     *
+     * @throws SiteNotFoundException site not found
      */
     boolean removeMembers(List<Long> memberIds) throws SiteNotFoundException;
 }

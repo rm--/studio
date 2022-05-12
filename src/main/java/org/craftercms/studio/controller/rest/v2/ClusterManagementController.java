@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -39,7 +39,7 @@ public class ClusterManagementController {
 
     @GetMapping("/api/2/cluster")
     public ResponseBody getAllMembers() throws ServiceLayerException {
-        List<ClusterMember> clusterMembers = clusterManagementService.getAllMemebers();
+        List<ClusterMember> clusterMembers = clusterManagementService.getAllMembers();
 
         ResponseBody responseBody = new ResponseBody();
         ResultList<ClusterMember> result = new ResultList<ClusterMember>();

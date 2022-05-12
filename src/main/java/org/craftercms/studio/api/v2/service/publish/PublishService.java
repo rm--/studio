@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -16,10 +16,13 @@
 
 package org.craftercms.studio.api.v2.service.publish;
 
+import org.craftercms.studio.api.v1.exception.ServiceLayerException;
 import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
+import org.craftercms.studio.api.v1.exception.security.UserNotFoundException;
 import org.craftercms.studio.api.v2.dal.DeploymentHistoryGroup;
 import org.craftercms.studio.api.v2.dal.PublishingPackage;
 import org.craftercms.studio.api.v2.dal.PublishingPackageDetails;
+import org.craftercms.studio.model.publish.PublishingTarget;
 import org.craftercms.studio.model.rest.dashboard.PublishingDashboardItem;
 
 import java.time.ZonedDateTime;
@@ -36,6 +39,8 @@ public interface PublishService {
      * @param states publishing package states
      *
      * @return total number of publishing packages
+     *
+     * @throws SiteNotFoundException site not found
      */
     int getPublishingPackagesTotal(String siteId, String environment, String path, List<String> states)
             throws SiteNotFoundException;
@@ -49,7 +54,10 @@ public interface PublishService {
      * @param states publishing package states
      * @param offset offset for pagination
      * @param limit limit for pagination
+     *
      * @return list of publishing packages
+     *
+     * @throws SiteNotFoundException site not found
      */
     List<PublishingPackage> getPublishingPackages(String siteId, String environment, String path, List<String> states,
                                                   int offset, int limit) throws SiteNotFoundException;
@@ -61,6 +69,8 @@ public interface PublishService {
      * @param packageId package identifier
      *
      * @return publishing package details
+     *
+     * @throws SiteNotFoundException site not found
      */
     PublishingPackageDetails getPublishingPackageDetails(String siteId, String packageId) throws SiteNotFoundException;
 
@@ -69,8 +79,11 @@ public interface PublishService {
      *
      * @param siteId site identifier
      * @param packageIds list of package identifiers
+     *
+     * @throws SiteNotFoundException site not found
      */
-    void cancelPublishingPackages(String siteId, List<String> packageIds) throws SiteNotFoundException;
+    void cancelPublishingPackages(String siteId, List<String> packageIds)
+            throws ServiceLayerException, UserNotFoundException;
 
     /**
      * Get total number of publishing history items for given search parameters
@@ -121,4 +134,19 @@ public interface PublishService {
      */
     List<DeploymentHistoryGroup> getDeploymentHistory(String siteId, int daysFromToday, int numberOfItems,
                                                       String filterType);
+
+    /**
+     * Get available publishing targets for given site
+     * @param siteId site identifier
+     * @return list of available publishing targets
+     */
+    List<PublishingTarget> getAvailablePublishingTargets(String siteId);
+
+    /**
+     * Check if site has ever been published.
+     *
+     * @param siteId site identifier
+     * @return true if site has been published at least once, otherwise false
+     */
+    boolean isSitePublished(String siteId);
 }

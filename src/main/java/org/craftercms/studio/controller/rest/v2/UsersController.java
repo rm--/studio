@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -25,23 +25,23 @@ import org.craftercms.studio.api.v1.exception.security.UserExternallyManagedExce
 import org.craftercms.studio.api.v1.exception.security.UserNotFoundException;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
-import org.craftercms.studio.api.v1.service.site.SiteService;
 import org.craftercms.studio.api.v2.dal.User;
-import org.craftercms.studio.api.v2.service.security.GroupService;
 import org.craftercms.studio.api.v2.service.security.UserService;
 import org.craftercms.studio.api.v2.utils.StudioConfiguration;
 import org.craftercms.studio.impl.v2.utils.PaginationUtils;
 import org.craftercms.studio.model.AuthenticatedUser;
-import org.craftercms.studio.model.rest.ResetPasswordRequest;
-import org.craftercms.studio.model.rest.SetPasswordRequest;
 import org.craftercms.studio.model.Site;
 import org.craftercms.studio.model.rest.ChangePasswordRequest;
 import org.craftercms.studio.model.rest.EnableUsers;
 import org.craftercms.studio.model.rest.PaginatedResultList;
+import org.craftercms.studio.model.rest.ResetPasswordRequest;
 import org.craftercms.studio.model.rest.ResponseBody;
 import org.craftercms.studio.model.rest.Result;
 import org.craftercms.studio.model.rest.ResultList;
 import org.craftercms.studio.model.rest.ResultOne;
+import org.craftercms.studio.model.rest.SetPasswordRequest;
+import org.craftercms.studio.model.users.HasPermissionsRequest;
+import org.craftercms.studio.model.users.UpdateUserPropertiesRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -56,13 +56,18 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletResponse;
+import javax.validation.Valid;
+import java.beans.ConstructorProperties;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.craftercms.studio.api.v1.constant.StudioConstants.DEFAULT_ORGANIZATION_ID;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.SECURITY_SET_PASSWORD_DELAY;
 import static org.craftercms.studio.controller.rest.v2.RequestConstants.REQUEST_PARAM_ID;
+import static org.craftercms.studio.controller.rest.v2.RequestConstants.REQUEST_PARAM_KEYWORD;
 import static org.craftercms.studio.controller.rest.v2.RequestConstants.REQUEST_PARAM_LIMIT;
 import static org.craftercms.studio.controller.rest.v2.RequestConstants.REQUEST_PARAM_OFFSET;
 import static org.craftercms.studio.controller.rest.v2.RequestConstants.REQUEST_PARAM_SITE;
@@ -75,10 +80,14 @@ import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.C
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.DISABLE;
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.ENABLE;
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.FORGOT_PASSWORD;
+import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.GLOBAL;
+import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.HAS_PERMISSIONS;
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.LOGOUT_SSO_URL;
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.ME;
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.PATH_PARAM_ID;
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.PATH_PARAM_SITE;
+import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.PERMISSIONS;
+import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.PROPERTIES;
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.RESET_PASSWORD;
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.ROLES;
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.SET_PASSWORD;
@@ -86,14 +95,15 @@ import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.S
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.USERS;
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.VALIDATE_TOKEN;
 import static org.craftercms.studio.controller.rest.v2.ResultConstants.RESULT_KEY_CURRENT_USER;
-import static org.craftercms.studio.controller.rest.v2.ResultConstants.RESULT_KEY_LOGOUT_URL;
 import static org.craftercms.studio.controller.rest.v2.ResultConstants.RESULT_KEY_MESSAGE;
+import static org.craftercms.studio.controller.rest.v2.ResultConstants.RESULT_KEY_PERMISSIONS;
 import static org.craftercms.studio.controller.rest.v2.ResultConstants.RESULT_KEY_ROLES;
 import static org.craftercms.studio.controller.rest.v2.ResultConstants.RESULT_KEY_SITES;
 import static org.craftercms.studio.controller.rest.v2.ResultConstants.RESULT_KEY_USER;
 import static org.craftercms.studio.controller.rest.v2.ResultConstants.RESULT_KEY_USERS;
 import static org.craftercms.studio.model.rest.ApiResponse.CREATED;
 import static org.craftercms.studio.model.rest.ApiResponse.DELETED;
+import static org.craftercms.studio.model.rest.ApiResponse.DEPRECATED;
 import static org.craftercms.studio.model.rest.ApiResponse.OK;
 import static org.craftercms.studio.model.rest.ApiResponse.UNAUTHORIZED;
 import static org.springframework.http.MediaType.ALL_VALUE;
@@ -106,9 +116,13 @@ public class UsersController {
     private static final Logger logger = LoggerFactory.getLogger(UsersController.class);
 
     private UserService userService;
-    private GroupService groupService;
-    private SiteService siteService;
     private StudioConfiguration studioConfiguration;
+
+    @ConstructorProperties({"userService", "studioConfiguration"})
+    public UsersController(UserService userService, StudioConfiguration studioConfiguration) {
+        this.userService = userService;
+        this.studioConfiguration = studioConfiguration;
+    }
 
     /**
      * Get all users API
@@ -122,6 +136,7 @@ public class UsersController {
     @GetMapping()
     public ResponseBody getAllUsers(
             @RequestParam(value = REQUEST_PARAM_SITE_ID, required = false) String siteId,
+            @RequestParam(value = REQUEST_PARAM_KEYWORD, required = false) String keyword,
             @RequestParam(value = REQUEST_PARAM_OFFSET, required = false, defaultValue = "0") int offset,
             @RequestParam(value = REQUEST_PARAM_LIMIT, required = false, defaultValue = "10") int limit,
             @RequestParam(value = REQUEST_PARAM_SORT, required = false, defaultValue = StringUtils.EMPTY) String sort)
@@ -129,11 +144,11 @@ public class UsersController {
         List<User> users = null;
         int total = 0;
         if (StringUtils.isEmpty(siteId)) {
-            total = userService.getAllUsersTotal();
-            users = userService.getAllUsers(offset, limit, sort);
+            total = userService.getAllUsersTotal(keyword);
+            users = userService.getAllUsers(keyword, offset, limit, sort);
         } else {
-            total = userService.getAllUsersForSiteTotal(DEFAULT_ORGANIZATION_ID, siteId);
-            users = userService.getAllUsersForSite(DEFAULT_ORGANIZATION_ID, siteId, offset, limit, sort);
+            total = userService.getAllUsersForSiteTotal(DEFAULT_ORGANIZATION_ID, siteId, keyword);
+            users = userService.getAllUsersForSite(DEFAULT_ORGANIZATION_ID, siteId, keyword, offset, limit, sort);
         }
 
         ResponseBody responseBody = new ResponseBody();
@@ -201,7 +216,7 @@ public class UsersController {
         ValidationUtils.validateAnyListNonEmpty(userIds, usernames);
 
         userService.deleteUsers(userIds != null? userIds : Collections.emptyList(),
-                                usernames != null? usernames : Collections.emptyList());
+                usernames != null? usernames : Collections.emptyList());
 
         ResponseBody responseBody = new ResponseBody();
         Result result = new Result();
@@ -417,14 +432,13 @@ public class UsersController {
      * or if logout is disabled
      *
      * @return Response containing SSO logout URL for the current authenticated user
+     * @deprecated since 3.2, all logout redirects are now handled by Spring Security
      */
     @GetMapping(ME + LOGOUT_SSO_URL)
-    public ResponseBody getCurrentUserSsoLogoutUrl() throws ServiceLayerException, AuthenticationException {
-        String logoutUrl = userService.getCurrentUserSsoLogoutUrl();
-
-        ResultOne<String> result = new ResultOne<>();
-        result.setResponse(OK);
-        result.setEntity(RESULT_KEY_LOGOUT_URL, logoutUrl);
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ResponseBody getCurrentUserSsoLogoutUrl() {
+        Result result = new Result();
+        result.setResponse(DEPRECATED);
 
         ResponseBody responseBody = new ResponseBody();
         responseBody.setResult(result);
@@ -519,28 +533,127 @@ public class UsersController {
         return responseBody;
     }
 
-    public UserService getUserService() {
-        return userService;
+    @GetMapping(value = ME + PROPERTIES, produces = APPLICATION_JSON_VALUE)
+    public ResponseBody getUserProperties(
+            @RequestParam(required = false, defaultValue = StringUtils.EMPTY) String siteId)
+            throws ServiceLayerException {
+        var result = new ResultOne<Map<String, Map<String, String>>>();
+        result.setResponse(OK);
+        result.setEntity("properties", userService.getUserProperties(siteId)); //TODO: Extract key
+
+        var response = new ResponseBody();
+        response.setResult(result);
+        return response;
     }
 
-    public void setUserService(UserService userService) {
-        this.userService = userService;
+    @PostMapping(value = ME + PROPERTIES, consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
+    public ResponseBody updateUserProperties(@Valid @RequestBody UpdateUserPropertiesRequest request)
+            throws ServiceLayerException {
+        var result = new ResultOne<Map<String, String>>();
+        result.setResponse(OK);
+        result.setEntity("properties", userService.updateUserProperties(request.getSiteId(), request.getProperties())); //TODO: Extract key
+
+        var response = new ResponseBody();
+        response.setResult(result);
+        return response;
     }
 
-    public GroupService getGroupService() {
-        return groupService;
+    @DeleteMapping(value = ME + PROPERTIES, produces = APPLICATION_JSON_VALUE)
+    public ResponseBody deleteUserProperties(
+            @RequestParam(required = false, defaultValue = StringUtils.EMPTY) String siteId,
+            @RequestParam List<String> properties) throws ServiceLayerException {
+        var result = new ResultOne<Map<String, String>>();
+        result.setResponse(OK);
+        result.setEntity("properties", userService.deleteUserProperties(siteId, properties)); //TODO: Extract key
+
+        var response = new ResponseBody();
+        response.setResult(result);
+        return response;
     }
 
-    public void setGroupService(GroupService groupService) {
-        this.groupService = groupService;
+    /**
+     * Get the permissions in a site of the current authenticated user API
+     *
+     * @return Response containing current authenticated user permissions
+     */
+    @GetMapping(value = ME + SITES + PATH_PARAM_SITE + PERMISSIONS, produces = APPLICATION_JSON_VALUE)
+    public ResponseBody getCurrentUserSitePermissions(@PathVariable(REQUEST_PARAM_SITE) String site)
+            throws AuthenticationException, ServiceLayerException, UserNotFoundException, ExecutionException {
+        List<String> permissions = userService.getCurrentUserSitePermissions(site);
+
+        ResultList<String> result = new ResultList<String>();
+        result.setResponse(OK);
+        result.setEntities(RESULT_KEY_PERMISSIONS, permissions);
+
+        ResponseBody responseBody = new ResponseBody();
+        responseBody.setResult(result);
+
+        return responseBody;
     }
 
-    public SiteService getSiteService() {
-        return siteService;
+    /**
+     * Check if user has permissions in a site of the current authenticated user API
+     *
+     * @return Response containing current authenticated user roles
+     */
+    @PostMapping(value = ME + SITES + PATH_PARAM_SITE + HAS_PERMISSIONS, consumes = APPLICATION_JSON_VALUE,
+            produces = APPLICATION_JSON_VALUE)
+    public ResponseBody checkCurrentUserHasSitePermissions(@PathVariable(REQUEST_PARAM_SITE) String site,
+                                                           @RequestBody HasPermissionsRequest permissionsRequest)
+            throws ServiceLayerException, UserNotFoundException, ExecutionException {
+        Map<String, Boolean> hasPermissions =
+                userService.hasCurrentUserSitePermissions(site, permissionsRequest.getPermissions());
+
+        ResultOne<Map> result = new ResultOne<Map>();
+        result.setResponse(OK);
+        result.setEntity(RESULT_KEY_PERMISSIONS, hasPermissions);
+
+        ResponseBody responseBody = new ResponseBody();
+        responseBody.setResult(result);
+
+        return responseBody;
     }
 
-    public void setSiteService(SiteService siteService) {
-        this.siteService = siteService;
+    /**
+     * Get the global permissions of the current authenticated user API
+     *
+     * @return Response containing current authenticated user global permissions
+     */
+    @GetMapping(value = ME + GLOBAL + PERMISSIONS, produces = APPLICATION_JSON_VALUE)
+    public ResponseBody getCurrentUserGlobalPermissions()
+            throws AuthenticationException, ServiceLayerException, UserNotFoundException, ExecutionException {
+        List<String> permissions = userService.getCurrentUserGlobalPermissions();
+
+        ResultList<String> result = new ResultList<String>();
+        result.setResponse(OK);
+        result.setEntities(RESULT_KEY_PERMISSIONS, permissions);
+
+        ResponseBody responseBody = new ResponseBody();
+        responseBody.setResult(result);
+
+        return responseBody;
+    }
+
+    /**
+     * Check if the current authenticated user has global permissions
+     *
+     * @return Response containing current authenticated user roles
+     */
+    @PostMapping(value = ME + GLOBAL + HAS_PERMISSIONS, consumes = APPLICATION_JSON_VALUE,
+            produces = APPLICATION_JSON_VALUE)
+    public ResponseBody checkCurrentUserHasGlobalPermissions(@RequestBody HasPermissionsRequest permissionsRequest)
+            throws ServiceLayerException, UserNotFoundException, ExecutionException {
+        Map<String, Boolean> hasPermissions =
+                userService.hasCurrentUserGlobalPermissions(permissionsRequest.getPermissions());
+
+        ResultOne<Map> result = new ResultOne<Map>();
+        result.setResponse(OK);
+        result.setEntity(RESULT_KEY_PERMISSIONS, hasPermissions);
+
+        ResponseBody responseBody = new ResponseBody();
+        responseBody.setResult(result);
+
+        return responseBody;
     }
 
     public StudioConfiguration getStudioConfiguration() {

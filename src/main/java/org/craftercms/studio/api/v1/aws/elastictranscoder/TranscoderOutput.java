@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -43,6 +43,8 @@ public class TranscoderOutput {
 
     /**
      * Returns the key suffix for files generated for this output (e.g. -small, -medium, -large)
+     *
+     * @return output key suffix
      */
     public String getOutputKeySuffix() {
         return outputKeySuffix;
@@ -50,6 +52,8 @@ public class TranscoderOutput {
 
     /**
      * Sets the key suffix for files generated for this output (e.g. -small, -medium, -large)
+     *
+     * @param outputKeySuffix output key suffix
      */
     public void setOutputKeySuffix(String outputKeySuffix) {
         this.outputKeySuffix = outputKeySuffix;
@@ -58,6 +62,8 @@ public class TranscoderOutput {
     /**
      * Returns the thumbnail suffix format for this output. If nothing is specified, no thumbnails will be generated. The format should
      * at least contain the macro {count} (required by AWS). {resolution} can also be specified. E.g. -{resolution}-{count}.jpg
+     *
+     * @return thumbnail suffix format
      */
     public String getThumbnailSuffixFormat() {
         return thumbnailSuffixFormat;
@@ -66,6 +72,8 @@ public class TranscoderOutput {
     /**
      * Sets the thumbnail suffix format for this output. If nothing is specified, no thumbnails will be generated. The format should
      * at least contain the macro {count} (required by AWS). {resolution} can also be specified. E.g. -{resolution}-{count}.jpg
+     *
+     * @param thumbnailSuffixFormat thumbnail suffix format
      */
     public void setThumbnailSuffixFormat(String thumbnailSuffixFormat) {
         this.thumbnailSuffixFormat = thumbnailSuffixFormat;

@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -35,44 +35,24 @@ class SpringSiteServices {
         this.context = context
     }
 
-    def writeConfiguration(path, content){
-        def springBackedService = this.context.applicationContext.get(SITE_SERVICES_BEAN)
-        return springBackedService.writeConfiguration(path, content);
-    }
-
-    def writeConfiguration(site, path, content){
-        def springBackedService = this.context.applicationContext.get(SITE_SERVICES_BEAN)
-        return springBackedService.writeConfiguration(site, path, content);
-    }
-
-    def getConfiguraiton(path) {
-        def springBackedService = this.context.applicationContext.get(SITE_SERVICES_BEAN)
-        return springBackedService.getConfiguration(site, path);
-    }
-
-    def getConfiguration(site, path, applyEnvironment) {
-        def springBackedService = this.context.applicationContext.get(SITE_SERVICES_BEAN)
-        return springBackedService.getConfiguration(site, path, applyEnvironment);
-    }
-
     def getAllAvailableSites() {
          def springBackedService = this.context.applicationContext.get(SITE_SERVICES_BEAN)
         return springBackedService.getAllAvailableSites()
     }
 
-    def createSiteFromBlueprint(blueprintName, siteName, siteId, sandboxBranch, desc, params, createAsOrphan) {
+    def createSiteFromBlueprint(blueprintName, siteId, siteName, sandboxBranch, desc, params, createAsOrphan) {
         def springBackedService = this.context.applicationContext.get(SITE_SERVICES_BEAN)
-        return springBackedService.createSiteFromBlueprint(blueprintName, siteName, siteId, sandboxBranch, desc,
+        return springBackedService.createSiteFromBlueprint(blueprintName, siteId, siteName, sandboxBranch, desc,
                 params, createAsOrphan)
     }
 
-    def createSiteWithRemoteOption(siteId, sandboxBranch, description, blueprint, remoteName, remoteUrl, remoteBranch,
-                                   singleBranch, authenticationType, remoteUsername, remotePassword, remoteToken,
-                                   remotePrivateKey, createOption, params, createAsOrphan) {
+    def createSiteWithRemoteOption(siteId, siteName, sandboxBranch, description, blueprint, remoteName, remoteUrl,
+                                   remoteBranch, singleBranch, authenticationType, remoteUsername, remotePassword,
+                                   remoteToken, remotePrivateKey, createOption, params, createAsOrphan) {
         def springBackedService = this.context.applicationContext.get(SITE_SERVICES_BEAN)
-        return springBackedService.createSiteWithRemoteOption(siteId, sandboxBranch, description, blueprint, remoteName,
-                remoteUrl, remoteBranch, singleBranch, authenticationType, remoteUsername, remotePassword, remoteToken,
-                remotePrivateKey, createOption, params, createAsOrphan)
+        return springBackedService.createSiteWithRemoteOption(siteId, siteName, sandboxBranch, description, blueprint,
+                remoteName, remoteUrl, remoteBranch, singleBranch, authenticationType, remoteUsername, remotePassword,
+                remoteToken, remotePrivateKey, createOption, params, createAsOrphan)
     }
 
     def deleteSite(siteId) {

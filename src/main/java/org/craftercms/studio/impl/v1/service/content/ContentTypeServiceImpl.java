@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -25,6 +25,7 @@ import org.craftercms.studio.api.v1.constant.StudioConstants;
 import org.craftercms.studio.api.v1.constant.DmConstants;
 import org.craftercms.studio.api.v1.exception.ContentNotFoundException;
 import org.craftercms.studio.api.v1.exception.ServiceLayerException;
+import org.craftercms.studio.api.v1.exception.security.UserNotFoundException;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
 import org.craftercms.studio.api.v1.repository.ContentRepository;
@@ -143,8 +144,7 @@ public class ContentTypeServiceImpl implements ContentTypeService {
     @ValidateParams
     public List<ContentTypeConfigTO> getAllowedContentTypesForPath(@ValidateStringParam(name = "site") String site,
                                                                    @ValidateSecurePathParam(name = "relativePath")
-                                                                           String relativePath)
-            throws ServiceLayerException {
+                                                                           String relativePath) {
         String user = securityService.getCurrentUser();
         Set<String> userRoles = securityService.getUserRoles(site, user);
         List<ContentTypeConfigTO> allContentTypes = getAllContentTypes(site);
@@ -197,7 +197,7 @@ public class ContentTypeServiceImpl implements ContentTypeService {
     public boolean changeContentType(@ValidateStringParam(name = "site") String site,
                                      @ValidateSecurePathParam(name = "path") String path,
                                      @ValidateStringParam(name = "contentType") String contentType)
-            throws ServiceLayerException {
+            throws ServiceLayerException, UserNotFoundException {
         ContentTypeConfigTO contentTypeConfigTO = getContentType(site, contentType);
         if (contentTypeConfigTO.getFormPath().equalsIgnoreCase(DmConstants.CONTENT_TYPE_CONFIG_FORM_PATH_SIMPLE)){
             // Simple form engine is not using templates - skip copying template and merging content
@@ -244,32 +244,6 @@ public class ContentTypeServiceImpl implements ContentTypeService {
             }
         }
         return contentTypes;
-    }
-
-    @Override
-    @ValidateParams
-    public void reloadConfiguration(@ValidateStringParam(name = "site") String site) {
-        String contentTypesRootPath = getConfigPath().replaceAll(StudioConstants.PATTERN_SITE, site);
-        RepositoryItem[] folders = contentRepository.getContentChildren(site, contentTypesRootPath);
-        List<ContentTypeConfigTO> contentTypes = new ArrayList<>();
-
-        if (folders != null) {
-            for (int i = 0; i < folders.length; i++) {
-                String configPath =
-                        folders[i].path + FILE_SEPARATOR + folders[i].name + FILE_SEPARATOR + getConfigFileName();
-                if (contentService.contentExists(site, configPath)) {
-                    ContentTypeConfigTO config = contentTypesConfig
-                            .reloadConfiguration(site, configPath
-                                    .replace(contentTypesRootPath, "")
-                                    .replace(FILE_SEPARATOR + getConfigFileName(), ""));
-                    if (config != null) {
-                        contentTypes.add(config);
-                    }
-                }
-
-                reloadContentTypeConfigForChildren(site, folders[i], contentTypes);
-            }
-        }
     }
 
     protected void reloadContentTypeConfigForChildren(String site, RepositoryItem node,

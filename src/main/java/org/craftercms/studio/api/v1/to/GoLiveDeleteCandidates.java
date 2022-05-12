@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -17,7 +17,9 @@ package org.craftercms.studio.api.v1.to;
 
 
 import org.craftercms.studio.api.v1.service.content.ContentService;
-import org.craftercms.studio.api.v1.service.objectstate.ObjectStateService;
+import org.craftercms.studio.api.v2.dal.Item;
+import org.craftercms.studio.api.v2.dal.ItemState;
+import org.craftercms.studio.api.v2.service.item.internal.ItemServiceInternal;
 
 import java.io.Serializable;
 import java.util.HashSet;
@@ -48,12 +50,11 @@ public class GoLiveDeleteCandidates implements Serializable {
 
     protected String site;
 
-    protected ObjectStateService objectStateService;
+    protected ItemServiceInternal itemServiceInternal;
 
-
-    public GoLiveDeleteCandidates(String site, ContentService contentService, ObjectStateService objectStateService){
+    public GoLiveDeleteCandidates(String site, ContentService contentService, ItemServiceInternal itemServiceInternal){
         this.contentService = contentService;
-        this.objectStateService = objectStateService;
+        this.itemServiceInternal = itemServiceInternal;
         this.site = site;
     }
 
@@ -76,12 +77,13 @@ public class GoLiveDeleteCandidates implements Serializable {
     /**
      * Update the dependency collection with the given dependency uri
      *
-     * @param uri
+     * @param uri path
      * @return true if dependency added
      */
     public boolean addDependency(String uri){
         if (contentService.contentExists(site, uri)){
-            if(!objectStateService.isNew(site, uri)){
+            Item item = itemServiceInternal.getItem(site, uri);
+            if(!ItemState.isNew(item.getState())){
                 liveDependencyItems.add(uri);
             }
             dependencies.add(uri);
@@ -93,11 +95,12 @@ public class GoLiveDeleteCandidates implements Serializable {
     /**
      * Add the folder path and remove all the child from the live dependency collection
      *
-     * @param uri
+     * @param uri path
      */
     public void addDependencyParentFolder(String uri){
         if (contentService.contentExists(site, uri)){
-            if(!objectStateService.isNew(site, uri)){
+            Item item = itemServiceInternal.getItem(site, uri);
+            if(!ItemState.isNew(item.getState())){
                 for (Iterator iterator = liveDependencyItems.iterator(); iterator.hasNext();) {
                     String liveItem = (String) iterator.next();
                     if(liveItem.startsWith(uri)){

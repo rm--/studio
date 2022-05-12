@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -20,14 +20,12 @@ import scripts.libs.Cookies
 import scripts.api.impl.content.SpringContentServices
 import scripts.api.impl.content.SpringContentTypeServices
 import scripts.api.impl.content.SpringPageNavigationOrderServices
-import scripts.api.impl.clipboard.SpringClipboardServices
 import scripts.api.impl.deployment.SpringDeploymentServices
 import scripts.api.impl.activity.SpringActivityServices
 import scripts.api.impl.workflow.SpringWorkflowServices
 import scripts.api.impl.security.SpringSecurityServices
 import scripts.api.impl.site.SpringSiteServices
 import scripts.api.impl.dependency.SpringDependencyServices
-import scripts.api.impl.objectstate.SpringObjectStateServices
 import scripts.api.impl.cmis.SpringCmisServices
 import scripts.api.impl.user.SpringUserServices
 
@@ -66,16 +64,6 @@ class ServiceFactory {
 	static getContentTypeServices(context) {
 		return new SpringContentTypeServices(context)
 	}
-
-    /**
-     * return the implementation for clipboard services
-     *
-     * @param context site context
-     * @return ClipboardServices
-     */
-    static getClipboardServices(context) {
-        return new SpringClipboardServices(context)
-    }
 
 	/**
 	 * return the implementation for deployment services
@@ -136,16 +124,6 @@ class ServiceFactory {
 	 */
     static getDependencyServices(context) {
         return new SpringDependencyServices(context)
-    }
-
-	/**
-	 * return the implementation for object state services
-	 *
-	 * @param context site context
-	 * @return Object State Services
-	 */
-    static getObjectStateServices(context) {
-        return new SpringObjectStateServices(context)
     }
 
 	/**

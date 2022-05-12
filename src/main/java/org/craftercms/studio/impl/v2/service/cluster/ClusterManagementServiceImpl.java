@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -49,14 +49,14 @@ public class ClusterManagementServiceImpl implements ClusterManagementService {
 
     @Override
     @HasPermission(type = DefaultPermission.class, action = "read_cluster")
-    public List<ClusterMember> getAllMemebers() {
+    public List<ClusterMember> getAllMembers() {
         return clusterManagementServiceInternal.getAllMembers();
     }
 
     @Override
     @HasPermission(type = DefaultPermission.class, action = "delete_cluster")
     public boolean removeMembers(List<Long> memberIds) throws SiteNotFoundException {
-        List<ClusterMember> members = getAllMemebers();
+        List<ClusterMember> members = getAllMembers();
         boolean toRet = clusterManagementServiceInternal.removeMembers(memberIds);
         if (toRet) {
             SiteFeed siteFeed = siteService.getSite(studioConfiguration.getProperty(CONFIGURATION_GLOBAL_SYSTEM_SITE));

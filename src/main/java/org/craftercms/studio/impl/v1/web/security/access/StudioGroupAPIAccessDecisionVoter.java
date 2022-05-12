@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -34,6 +34,7 @@ import org.springframework.security.web.FilterInvocation;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATION_GLOBAL_SYSTEM_SITE;
@@ -58,7 +59,7 @@ public class StudioGroupAPIAccessDecisionVoter extends StudioAbstractAccessDecis
     }
 
     @Override
-    public int vote(Authentication authentication, Object o, Collection collection) {
+    public int voteInternal(Authentication authentication, Object o, Collection collection) {
         int toRet = ACCESS_ABSTAIN;
         String requestUri = "";
         if (o instanceof FilterInvocation) {
@@ -67,29 +68,16 @@ public class StudioGroupAPIAccessDecisionVoter extends StudioAbstractAccessDecis
             requestUri = request.getRequestURI().replace(request.getContextPath(), "");
             String siteParam = request.getParameter("site_id");
             String userParam = request.getParameter("username");
-            User currentUser = null;
-            try {
-                String username = authentication.getPrincipal().toString();
-                currentUser = userServiceInternal.getUserByIdOrUsername(-1, username);
-            } catch (ClassCastException | UserNotFoundException | ServiceLayerException e) {
-                // anonymous user
-                if (!authentication.getPrincipal().toString().equals("anonymousUser")) {
-                    logger.error("Error getting current user", e);
-                    return ACCESS_ABSTAIN;
-                }
-            }
+            User currentUser = (User) authentication.getPrincipal();
             if (StringUtils.isEmpty(userParam)
                     && StringUtils.equalsIgnoreCase(request.getMethod(), HttpMethod.POST.name())
                     && !ServletFileUpload.isMultipartContent(request)) {
                 try {
                     InputStream is = request.getInputStream();
                     is.mark(0);
-                    String jsonString = IOUtils.toString(is);
+                    String jsonString = IOUtils.toString(is, StandardCharsets.UTF_8);
                     if (StringUtils.isNoneEmpty(jsonString)) {
                         JSONObject jsonObject = JSONObject.fromObject(jsonString);
-                        if (jsonObject.has("username")) {
-                            userParam = jsonObject.getString("username");
-                        }
                         if (jsonObject.has("site_id")) {
                             siteParam = jsonObject.getString("site_id");
                         }

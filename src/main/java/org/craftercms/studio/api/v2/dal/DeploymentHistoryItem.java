@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -13,6 +13,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 package org.craftercms.studio.api.v2.dal;
 
 import java.io.Serializable;
@@ -20,7 +21,7 @@ import java.time.ZonedDateTime;
 
 public class DeploymentHistoryItem implements Serializable {
 
-    private static final long serialVersionUID = 7504433128277533119L;
+    private static final long serialVersionUID = 8029357585496491162L;
 
     protected String id;
     protected ZonedDateTime deploymentDate;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -15,27 +15,23 @@
  */
 package org.craftercms.studio.impl.v2.deployment;
 
-import org.craftercms.commons.plugin.model.SearchEngines;
 import org.craftercms.commons.rest.RestServiceException;
-import org.craftercms.studio.api.v1.ebus.EventListener;
-import org.craftercms.studio.api.v1.ebus.PreviewEventContext;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
-import org.craftercms.studio.api.v1.service.event.EventService;
-import org.springframework.beans.factory.BeanNameAware;
-import org.springframework.beans.factory.annotation.Required;
+import org.craftercms.studio.api.v2.event.content.ContentEvent;
+import org.craftercms.studio.api.v2.event.repository.RepositoryEvent;
+import org.craftercms.studio.api.v2.event.site.SiteEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.MediaType;
 import org.springframework.http.RequestEntity;
 import org.springframework.web.client.RestClientException;
 
-import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.Collections;
 import java.util.Map;
 
 import static org.craftercms.studio.api.v1.constant.StudioConstants.CONFIG_SITEENV_VARIABLE;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.CONFIG_SITENAME_VARIABLE;
-import static org.craftercms.studio.api.v1.ebus.EBusConstants.EVENT_PREVIEW_SYNC;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.AUTHORING_DISABLE_DEPLOY_CRON;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.AUTHORING_REPLACE;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.AUTHORING_TEMPLATE_NAME;
@@ -54,52 +50,43 @@ import static org.craftercms.studio.api.v2.utils.StudioConfiguration.PREVIEW_TEM
  * <ul>
  *     <li>Creates both and authoring and preview target on create</li>
  *     <li>Deletes the authoring and preview target on delete</li>
- *     <li>Issues deployments to the authoirng and preview target on a preview sync event</li>
+ *     <li>Issues deployments to the authoring and preview target on a preview sync event</li>
  * </ul>
  *
  * @author avasquez
  */
-public class PreviewDeployer extends AbstractDeployer implements BeanNameAware {
+public class PreviewDeployer extends AbstractDeployer {
 
     private final static Logger logger = LoggerFactory.getLogger(PreviewDeployer.class);
 
-    private final static String METHOD_PREVIEW_SYNC_LISTENER = "onPreviewSync";
     private final static String ENV_PREVIEW = "preview";
     private final static String ENV_AUTHORING = "authoring";
 
-    protected EventService eventService;
-    protected String beanName;
 
-    @Required
-    public void setEventService(EventService eventService) {
-        this.eventService = eventService;
+    @EventListener
+    public void onSiteCreateComplete(SiteEvent event) {
+        doPreviewSync(event.getSiteId(), true);
+    }
+
+    @EventListener
+    public void onRepositorySyncComplete(RepositoryEvent event) {
+        doPreviewSync(event.getSiteId(), false);
+    }
+
+    @EventListener
+    public void onContentChange(ContentEvent event) {
+        doPreviewSync(event.getSiteId(), event.isWaitForCompletion());
+    }
+
+    protected void doPreviewSync(String siteId, boolean waitTillDone) {
+        doDeployment(siteId, ENV_AUTHORING, false);
+        doDeployment(siteId, ENV_PREVIEW, waitTillDone);
     }
 
     @Override
-    public void setBeanName(String beanName) {
-        this.beanName = beanName;
-    }
-
-    public void subscribeToPreviewSyncEvents() {
-        try {
-            Method subscribeMethod = PreviewDeployer.class.getMethod(METHOD_PREVIEW_SYNC_LISTENER,
-                                                                     PreviewEventContext.class);
-            eventService.subscribe(EVENT_PREVIEW_SYNC, beanName, subscribeMethod);
-        } catch (NoSuchMethodException e) {
-            logger.error("Could not subscribe to preview sync events", e);
-        }
-    }
-
-    @EventListener(EVENT_PREVIEW_SYNC)
-    public void onPreviewSync(PreviewEventContext context) {
-        doDeployment(context.getSite(), ENV_AUTHORING, false);
-        doDeployment(context.getSite(), ENV_PREVIEW, context.isWaitTillDeploymentIsDone());
-    }
-
-    @Override
-    public void createTargets(String site, String searchEngine) throws RestClientException {
+    public void createTargets(String site) throws RestClientException {
         doCreateAuthTarget(site);
-        doCreatePreviewTarget(site, searchEngine);
+        doCreatePreviewTarget(site);
     }
 
     @Override
@@ -133,18 +120,18 @@ public class PreviewDeployer extends AbstractDeployer implements BeanNameAware {
         boolean replace = studioConfiguration.getProperty(AUTHORING_REPLACE, Boolean.class, false);
         boolean disableCron = studioConfiguration.getProperty(AUTHORING_DISABLE_DEPLOY_CRON, Boolean.class, false);
 
-        doCreateTarget(site, ENV_AUTHORING, SearchEngines.ELASTICSEARCH, template, replace, disableCron,
+        doCreateTarget(site, ENV_AUTHORING, template, replace, disableCron,
                        null, repoUrl, null);
     }
 
-    protected void doCreatePreviewTarget(String site, String searchEngine) throws IllegalStateException,
+    protected void doCreatePreviewTarget(String site) throws IllegalStateException,
                                                                                      RestClientException  {
         String repoUrl = getRepoUrl(PREVIEW_REPO_URL, site);
         String template = studioConfiguration.getProperty(PREVIEW_TEMPLATE_NAME);
         boolean replace = studioConfiguration.getProperty(PREVIEW_REPLACE, Boolean.class, false);
         boolean disableCron = studioConfiguration.getProperty(PREVIEW_DISABLE_DEPLOY_CRON, Boolean.class, false);
 
-        doCreateTarget(site, ENV_PREVIEW, searchEngine, template, replace, disableCron, null, repoUrl, null);
+        doCreateTarget(site, ENV_PREVIEW, template, replace, disableCron, null, repoUrl, null);
     }
 
     protected String getDeployTargetUrl(String site, String environment) {

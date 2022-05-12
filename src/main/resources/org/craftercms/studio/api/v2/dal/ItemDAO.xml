@@ -1,0 +1,1461 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
+  ~
+  ~ This program is free software: you can redistribute it and/or modify
+  ~ it under the terms of the GNU General Public License version 3 as published by
+  ~ the Free Software Foundation.
+  ~
+  ~ This program is distributed in the hope that it will be useful,
+  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  ~ GNU General Public License for more details.
+  ~
+  ~ You should have received a copy of the GNU General Public License
+  ~ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  -->
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.craftercms.studio.api.v2.dal.ItemDAO">
+    <resultMap id="ItemMap" type="org.craftercms.studio.api.v2.dal.Item">
+        <id property="id" column="id" />
+        <result property="siteId" column="site_id" />
+        <result property="siteName" column="site_name" />
+        <result property="path" column="path" />
+        <result property="previewUrl" column="preview_url" />
+        <result property="state" column="state" />
+        <result property="lockedBy" column="locked_by" />
+        <result property="lockOwner" column="lock_owner" />
+        <result property="createdBy" column="created_by" />
+        <result property="creator" column="creator" />
+        <result property="createdOn" column="created_on" />
+        <result property="lastModifiedBy" column="last_modified_by" />
+        <result property="modifier" column="modifier" />
+        <result property="lastModifiedOn" column="last_modified_on" />
+        <result property="lastPublishedOn" column="last_published_on" />
+        <result property="label" column="label" />
+        <result property="contentTypeId" column="content_type_id" />
+        <result property="systemType" column="system_type" />
+        <result property="mimeType" column="mime_type" />
+        <result property="localeCode" column="locale_code" />
+        <result property="translationSourceId" column="translation_source_id" />
+        <result property="size" column="size" />
+        <result property="parentId" column="parent_id" />
+        <result property="commitId" column="commit_id" />
+        <result property="previousPath" column="previous_path" />
+        <result property="previewUrl" column="preview_url" />
+        <result property="ignoredAsInt" column="ignored" />
+        <result property="childrenCount" column="children_count" />
+    </resultMap>
+
+    <resultMap id="DetailedItemMap" type="org.craftercms.studio.api.v2.dal.DetailedItem">
+        <id property="id" column="id" />
+        <result property="siteId" column="site_id" />
+        <result property="siteName" column="site_name" />
+        <result property="path" column="path" />
+        <result property="previewUrl" column="preview_url" />
+        <result property="state" column="state" />
+        <result property="lockedBy" column="locked_by" />
+        <result property="lockOwner" column="lock_owner" />
+        <result property="createdBy" column="created_by" />
+        <result property="creator" column="creator" />
+        <result property="createdOn" column="created_on" />
+        <result property="lastModifiedBy" column="last_modified_by" />
+        <result property="modifier" column="modifier" />
+        <result property="lastModifiedOn" column="last_modified_on" />
+        <result property="lastPublishedOn" column="last_published_on" />
+        <result property="label" column="label" />
+        <result property="contentTypeId" column="content_type_id" />
+        <result property="systemType" column="system_type" />
+        <result property="mimeType" column="mime_type" />
+        <result property="localeCode" column="locale_code" />
+        <result property="translationSourceId" column="translation_source_id" />
+        <result property="size" column="size" />
+        <result property="parentId" column="parent_id" />
+        <result property="commitId" column="commit_id" />
+        <result property="previousPath" column="previous_path" />
+        <result property="previewUrl" column="preview_url" />
+        <result property="ignoredAsInt" column="ignored" />
+        <result property="stagingScheduledDate" column="staging_scheduleddate" />
+        <result property="stagingPublishedOn" column="staging_published_on" />
+        <result property="stagingUsername" column="staging_username" />
+        <result property="stagingCommitId" column="staging_commit_id" />
+        <result property="liveScheduledDate" column="live_scheduleddate" />
+        <result property="livePublishedOn" column="live_published_on" />
+        <result property="liveUsername" column="live_username" />
+        <result property="liveCommitId" column="live_commit_id" />
+        <result property="childrenCount" column="children_count" />
+    </resultMap>
+
+    <insert id="upsertEntry" parameterType="org.craftercms.studio.api.v2.dal.Item">
+        INSERT INTO item (site_id, path, preview_url, state, locked_by, created_by, created_on, last_modified_by,
+        last_modified_on, last_published_on, label, content_type_id, system_type, mime_type, locale_code,
+        translation_source_id, size, parent_id, commit_id, previous_path, ignored) VALUES
+        (#{siteId}, #{path}, #{previewUrl}, #{state}, #{lockedBy}, #{createdBy}, #{createdOn}, #{lastModifiedBy},
+         #{lastModifiedOn}, #{lastPublishedOn}, #{label}, #{contentTypeId}, #{systemType}, #{mimeType},
+         #{localeCode}, #{translationSourceId}, #{size}, #{parentId}, #{commitId}, #{previousPath}, #{ignoredAsInt})
+        ON DUPLICATE KEY
+        UPDATE
+        site_id = #{siteId},
+        path = #{path},
+        preview_url = #{previewUrl},
+        state = #{state},
+        locked_by = #{lockedBy},
+        last_modified_by = #{lastModifiedBy},
+        last_modified_on = #{lastModifiedOn},
+        last_published_on = #{lastPublishedOn},
+        label = #{label},
+        content_type_id = #{contentTypeId},
+        system_type = #{systemType},
+        mime_type = #{mimeType},
+        locale_code = #{localeCode},
+        translation_source_id = #{translationSourceId},
+        size = #{size},
+        parent_id = #{parentId},
+        commit_id = #{commitId},
+        previous_path = #{previousPath},
+        ignored = #{ignoredAsInt}
+    </insert>
+
+    <insert id="upsertEntries" parameterType="java.util.List">
+        INSERT INTO item (site_id, path, preview_url, state, locked_by, created_by, created_on, last_modified_by,
+        last_modified_on, last_published_on, label, content_type_id, system_type, mime_type, locale_code,
+        translation_source_id, size, parent_id, commit_id, previous_path, ignored) VALUES
+        <foreach collection="entries" item="entry" index="index" open="" separator=","  close="">
+            (#{entry.siteId}, #{entry.path}, #{entry.previewUrl}, #{entry.state}, #{entry.lockedBy},
+            #{entry.createdBy}, #{entry.createdOn}, #{entry.lastModifiedBy}, #{entry.lastModifiedOn},
+            #{entry.lastPublishedOn}, #{entry.label}, #{entry.contentTypeId}, #{entry.systemType}, #{entry.mimeType},
+            #{entry.localeCode}, #{entry.translationSourceId}, #{entry.size}, #{entry.parentId}, #{entry.commitId},
+            #{entry.previousPath}, #{entry.ignoredAsInt})
+        </foreach>
+        ON DUPLICATE KEY
+        UPDATE
+            site_id = VALUES(site_id),
+            path = VALUES(path),
+            preview_url = VALUES(preview_url),
+            state = VALUES(state),
+            locked_by = VALUES(locked_by),
+            last_modified_by = VALUES(last_modified_by),
+            last_modified_on = VALUES(last_modified_on),
+            last_published_on = VALUES(last_published_on),
+            label = VALUES(label),
+            content_type_id = VALUES(content_type_id),
+            system_type = VALUES(system_type),
+            mime_type = VALUES(mime_type),
+            locale_code = VALUES(locale_code),
+            translation_source_id = VALUES(translation_source_id),
+            size = VALUES(size),
+            parent_id = VALUES(parent_id),
+            commit_id = VALUES(commit_id),
+            previous_path = VALUES(previous_path),
+            ignored = VALUES(ignored)
+    </insert>
+
+    <select id="getChildrenByPath" resultMap="ItemMap">
+        SELECT i.*, u1.username AS lock_owner, u2.username AS creator, u3.username AS modifier, 0 as children_count
+        FROM item i
+        LEFT OUTER JOIN user u1 ON i.locked_by = u1.id
+        LEFT OUTER JOIN user u2 ON i.created_by = u2.id
+        LEFT OUTER JOIN user u3 ON i.last_modified_by = u3.id
+        WHERE i.site_id = #{siteId} AND i.path = #{ldPath}
+        UNION
+        (SELECT i1.*, u1.username AS lock_owner, u2.username AS creator, u3.username AS modifier, COUNT(DISTINCT i3.id)
+        as children_count
+        FROM item i1
+            left outer join item  i3 on i1.id = i3.parent_id
+        LEFT OUTER JOIN user u1 ON i1.locked_by = u1.id
+        LEFT OUTER JOIN user u2 ON i1.created_by = u2.id
+        LEFT OUTER JOIN user u3 ON i1.last_modified_by = u3.id
+        WHERE i1.site_id = #{siteId}
+        AND i1.path RLIKE('^${path}/[^/]+/index\.xml$|^${path}/(?!index\.xml)[^/]+$')
+        AND CONCAT(i1.path, '/index.xml') NOT IN
+        (SELECT i2.path FROM item i2 WHERE i2.site_id = #{siteId}
+        AND i2.path RLIKE('^${path}/[^/]+/index\.xml$'))
+        AND i1.path NOT LIKE '%/${ldName}'
+        <if test="localeCode != null">
+            AND i1.locale_code = #{localeCode}
+        </if>
+        <if test="keyword != null">
+            AND (i1.path LIKE '%${keyword}%' OR i1.label LIKE '%${keyword}%')
+        </if>
+        AND i1.ignored = 0
+        AND (i3.ignored = 0 or i3.ignored is null)
+        AND (i3.system_type &lt;&gt; #{systemTypeFolder} or not exists
+        (select * from item i10 where i10.site_id = i3.site_id and i10.path = concat(i3.path, '/index.xml')))
+        <if test="excludes != null" >
+            <foreach collection="excludes" item="exclude" index="index" >
+                AND i1.path NOT RLIKE('${exclude}')
+            </foreach>
+        </if>
+        GROUP BY i1.id
+        <choose>
+            <when test="sortStrategy == 'alphabetic'">
+                ORDER BY i1.label ${order}, i1.path ${order}
+            </when>
+            <when test="sortStrategy == 'foldersFirst'">
+                ORDER BY IF(FIELD(i1.system_type, 'folder')=0,1,0), FIELD(i1.system_type, 'folder'), i1.label ${order},
+                i1.path ${order}
+            </when>
+            <otherwise>
+                ORDER BY i1.label ${order}, i1.path ${order}
+            </otherwise>
+        </choose>
+        LIMIT #{offset},#{limit})
+    </select>
+
+    <select id="getAllChildrenByPath" resultMap="ItemMap">
+        SELECT i1.*, u1.username AS lock_owner, u2.username AS creator, u3.username AS modifier, COUNT(DISTINCT i3.id) as  children_count
+        FROM item i1
+            left outer join item i3 on i1.id = i3.parent_id
+            LEFT OUTER JOIN user u1 ON i1.locked_by = u1.id
+            LEFT OUTER JOIN user u2 ON i1.created_by = u2.id
+            LEFT OUTER JOIN user u3 ON i1.last_modified_by = u3.id
+        WHERE i1.site_id = #{siteId}
+        AND i1.path RLIKE('^${path}/[^/]+/index\.xml$|^${path}/(?!index\.xml)[^/]+$')
+        AND CONCAT(i1.path, '/index.xml') NOT IN
+        (SELECT i2.path FROM item i2 WHERE i2.site_id = #{siteId}
+        AND i2.path RLIKE('^${path}/[^/]+/index\.xml$'))
+        AND (i3.ignored = 0 or i3.ignored is null)
+        GROUP BY i1.id
+    </select>
+
+    <select id="getChildrenByPathTotal" resultType="Integer">
+        SELECT COUNT(1) FROM item WHERE site_id = #{siteId}
+        AND path RLIKE('^${path}/[^/]+/index\.xml$|^${path}/(?!index\.xml)[^/]+$')
+        AND CONCAT(path, '/index.xml') NOT IN
+        (SELECT i2.path FROM item i2 WHERE i2.site_id = #{siteId}
+        AND i2.path RLIKE('^${path}/[^/]+/index\.xml$'))
+        AND path NOT LIKE '%/${ldName}'
+        <if test="localeCode != null">
+            AND locale_code = #{localeCode}
+        </if>
+        <if test="keyword != null">
+            AND (path LIKE '%${keyword}%' OR label LIKE '%${keyword}%')
+        </if>
+        AND ignored = 0
+        <if test="excludes != null" >
+            <foreach collection="excludes" item="exclude" index="index" >
+                AND path NOT RLIKE('${exclude}')
+            </foreach>
+        </if>
+    </select>
+
+    <select id="getChildrenById" resultMap="ItemMap">
+        SELECT i.*, u1.username AS lock_owner, u2.username AS creator, u3.username AS modifier, 0 AS children_count
+        FROM item i
+        LEFT OUTER JOIN user u1 ON i.locked_by = u1.id
+        LEFT OUTER JOIN user u2 ON i.created_by = u2.id
+        LEFT OUTER JOIN user u3 ON i.last_modified_by = u3.id
+        WHERE i.site_id = #{siteId} AND i.parent_id = #{parentId} AND path LIKE '%/${ldName}'
+        UNION
+        ((SELECT i1.*, COUNT(DISTINCT i3.id) AS children_count FROM item i1
+        LEFT OUTER JOIN item i3 ON i1.id = i3.parent_id
+        LEFT OUTER JOIN user u1 ON i1.locked_by = u1.id
+        LEFT OUTER JOIN user u2 ON i1.created_by = u2.id
+        LEFT OUTER JOIN user u3 ON i1.last_modified_by = u3.id
+        WHERE i1.site_id = #{siteId} AND i1.parent_id = #{parentId} AND i1.path NOT LIKE '%/${ldName}'
+        <if test="localeCode != null">
+            AND i1.locale_code = #{localeCode}
+        </if>
+        <if test="keyword != null">
+            AND (i1.path LIKE '%${keyword}%' OR i1.label LIKE '%${keyword}%')
+        </if>
+        AND i1.ignored = 0
+        AND (i3.ignored = 0 OR i3.ignored IS NULL)
+        AND (i3.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+        (SELECT * FROM item i10 WHERE i10.site_id = i3.site_id AND i10.path = CONCAT(i3.path, '/index.xml')))
+        <if test="excludes != null">
+            <foreach collection="excludes" item="exclude" index="index">
+                AND i1.path NOT RLIKE('${exclude}')
+            </foreach>
+        </if>
+        GROUP BY i1.id
+        <choose>
+            <when test="sortStrategy == 'alphabetic'">
+                ORDER BY i1.label ${order}, i1.path ${order}
+            </when>
+            <when test="sortStrategy == 'foldersFirst'">
+                ORDER BY IF(FIELD(i1.system_type, 'folder')=0,1,0), FIELD(i1.system_type, 'folder'), i1.label ${order},
+                i1.path ${order}
+            </when>
+            <otherwise>
+                ORDER BY i1.label ${order}, i1.path ${order}
+            </otherwise>
+        </choose>
+        ) LIMIT #{offset},#{limit})
+    </select>
+
+    <select id="getChildrenByIdTotal" resultType="Integer">
+        SELECT COUNT(1) FROM item WHERE site_id = #{siteId} AND parent_id = #{parentId}
+        AND path NOT LIKE '%/${ldName}'
+        <if test="localeCode != null">
+            AND locale_code = #{localeCode}
+        </if>
+        <if test="keyword != null">
+            AND (path LIKE '%${keyword}%' OR label LIKE '%${keyword}%')
+        </if>
+        AND ignored = 0
+        <if test="excludes != null" >
+            <foreach collection="excludes" item="exclude" index="index" >
+                AND path NOT RLIKE('${exclude}')
+            </foreach>
+        </if>
+    </select>
+    
+    <select id="getItemById" resultMap="DetailedItemMap">
+            SELECT i.*, u1.username AS lock_owner, u2.username AS creator, u3.username AS modifier,
+                   w1.schedule AS staging_scheduleddate, staging1.published_on AS staging_published_on,
+                   staging1.username AS staging_username, staging1.commit_id AS staging_commit_id,
+                   w2.schedule AS live_scheduleddate, live1.published_on AS live_published_on,
+                   live1.username AS live_username, live1.commit_id AS live_commit_id,
+                   COUNT(DISTINCT i3.id) AS children_count
+            FROM item i INNER JOIN site s1 ON i.site_id = s1.id
+                LEFT OUTER JOIN item i3 ON i.id = i3.parent_id
+                LEFT OUTER JOIN user u1 ON i.locked_by = u1.id
+                LEFT OUTER JOIN user u2 ON i.created_by = u2.id
+                LEFT OUTER JOIN user u3 ON i.last_modified_by = u3.id
+                LEFT OUTER JOIN (
+                    SELECT pr1.*
+                    FROM publish_request pr1, item i11
+                    WHERE i11.id = #{id} AND pr1.site = #{siteId} AND pr1.path = i11.path
+                      AND pr1.environment = #{stagingEnvironment} AND pr1.state = #{completedState}
+                    ORDER BY pr1.published_on desc limit 0, 1) AS staging1
+                    ON s1.site_id = staging1.site AND i.path = staging1.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{stagingEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{stagingEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)) AS w1 ON i.id = w1.item_id
+                LEFT OUTER JOIN (
+                    SELECT pr2.*
+                    FROM publish_request pr2, item i12
+                    WHERE i12.id = #{id}
+                      AND pr2.site = #{siteId}
+                      AND pr2.path = i12.path
+                      AND pr2.environment = #{liveEnvironment}
+                      AND pr2.state = #{completedState}
+                    ORDER BY pr2.published_on DESC LIMIT 0, 1)
+                    AS live1 ON s1.site_id = live1.site AND i.path = live1.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{liveEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{liveEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)) AS w2 ON i.id = w2.item_id
+            WHERE i.id = #{id}
+              AND (i3.ignored = 0 OR i3.ignored IS NULL)
+              AND (i3.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+                (SELECT * FROM item i10 WHERE i10.site_id = i3.site_id AND i10.path = CONCAT(i3.path, '/index.xml')))
+            GROUP BY i.id
+            limit 0, 1
+    </select>
+
+    <select id="getItemByIdPreferContent" resultMap="DetailedItemMap">
+            (SELECT i1.*, u1.username AS lock_owner, u2.username AS creator, u3.username AS modifier,
+                    w1.schedule AS staging_scheduleddate, staging1.published_on AS staging_published_on,
+                    staging1.username AS staging_username, staging1.commit_id AS staging_commit_id,
+                    w2.schedule AS live_scheduleddate, live1.published_on AS live_published_on,
+                    live1.username AS live_username, live1.commit_id AS live_commit_id,
+                    COUNT(DISTINCT i5.id) AS children_count
+            FROM item i1 INNER JOIN site s1 ON i1.site_id = s1.id
+                LEFT OUTER JOIN item i5 ON i1.id = i5.parent_id
+                LEFT OUTER JOIN user u1 ON i1.locked_by = u1.id
+                LEFT OUTER JOIN user u2 ON i1.created_by = u2.id
+                LEFT OUTER JOIN user u3 ON i1.last_modified_by = u3.id
+                LEFT OUTER JOIN (
+                    SELECT pr1.*
+                    FROM publish_request pr1, item i11
+                    WHERE i11.id = #{id}
+                      AND pr1.site = #{siteId}
+                      AND pr1.path = i11.path
+                      AND pr1.environment = #{stagingEnvironment}
+                      AND pr1.state = #{completedState}
+                    ORDER BY pr1. published_on DESC LIMIT 0, 1
+                    ) AS staging1 ON s1.site_id = staging1.site AND i1.path = staging1.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{stagingEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{stagingEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                    ) AS w1 ON i1.id = w1.item_id
+                LEFT OUTER JOIN (
+                    SELECT pr2.*
+                    FROM publish_request pr2, item i12
+                    WHERE i12.id = #{id}
+                      AND pr2.site = #{siteId}
+                      AND pr2.path = i12.path
+                      AND pr2.environment = #{liveEnvironment}
+                      AND pr2.state = #{completedState}
+                    ORDER BY pr2.published_on DESC LIMIT 0, 1
+                    ) AS live1 ON s1.site_id = live1.site AND i1.path = live1.path
+                LEFT OUTER join (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{liveEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{liveEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                    ) AS w2 ON i1.id = w2.item_id, item i2
+            WHERE i2.id = #{id}
+            AND i1.site_id = i2.site_id
+            AND i1.path RLIKE(CONCAT('^', i2.path, '/index\.xml$'))
+            AND (i5.ignored = 0 OR i5.ignored IS NULL)
+            AND (i5.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+                (SELECT * FROM item i10 WHERE i10.site_id = i5.site_id AND i10.path = CONCAT(i5.path, '/index.xml')))
+            GROUP BY i1.id)
+            UNION
+            (SELECT i3.*, u4.username AS lock_owner, u5.username AS creator, u6.username AS modifier,
+                   w3.schedule AS staging_scheduleddate, staging2.published_on AS staging_published_on,
+                   staging2.username AS staging_username, staging2.commit_id AS staging_commit_id,
+                   w4.schedule AS live_scheduleddate, live2.published_on AS live_published_on,
+                   live2.username AS live_username, live2.commit_id AS live_commit_id,
+                   COUNT(DISTINCT i6.id) AS children_count
+            FROM item i3 INNER JOIN site s4 ON i3.site_id = s4.id
+                LEFT OUTER JOIN item i6 ON i3.id = i6.parent_id
+                LEFT OUTER JOIN user u4 ON i3.locked_by = u4.id
+                LEFT OUTER JOIN user u5 ON i3.created_by = u5.id
+                LEFT OUTER JOIN user u6 ON i3.last_modified_by = u6.id
+                LEFT OUTER JOIN (
+                    SELECT pr3.*
+                    FROM publish_request pr3, item i13
+                    WHERE i13.id = #{id}
+                    AND pr3.site = #{siteId}
+                    AND pr3.path = i13.path
+                    AND pr3.environment = #{stagingEnvironment}
+                    AND pr3.state = #{completedState}
+                    ORDER BY pr3. published_on DESC LIMIT 0, 1
+                ) AS staging2 ON s4.site_id = staging2.site AND i3.path = staging2.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{stagingEnvironment}
+                    AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{stagingEnvironment}
+                    AND w.state = 'APPROVED'
+                    AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                ) AS w3 ON i3.id = w3.item_id
+                LEFT OUTER JOIN (
+                    SELECT pr4.*
+                    FROM publish_request pr4, item i14
+                    WHERE i14.id = #{id}
+                    AND pr4.site = #{siteId}
+                    AND pr4.path = i14.path
+                    AND pr4.environment = #{liveEnvironment}
+                    AND pr4.state = #{completedState}
+                    ORDER BY pr4.published_on DESC LIMIT 0, 1
+                ) AS live2 ON s4.site_id = live2.site AND i3.path = live2.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{liveEnvironment}
+                    AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{liveEnvironment}
+                    AND w.state = 'APPROVED'
+                    AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                ) AS w4 ON i3.id = w4.item_id
+            WHERE i3.id = #{id}
+              AND (i6.ignored = 0 OR i6.ignored IS NULL)
+              AND (i6.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+                (SELECT * FROM item i11 WHERE i11.site_id = i6.site_id AND i11.path = CONCAT(i6.path, '/index.xml')))
+             GROUP BY i3.id)
+            LIMIT 0, 1
+    </select>
+
+    <select id="getItemByPath" resultMap="DetailedItemMap">
+            SELECT i.*, u1.username AS lock_owner, u2.username AS creator, u3.username AS modifier,
+                   w1.schedule AS staging_scheduleddate, staging1.published_on AS staging_published_on,
+                   staging1.username AS staging_username, staging1.commit_id AS staging_commit_id,
+                   w2.schedule AS live_scheduleddate, live1.published_on AS live_published_on,
+                   live1.username AS live_username, live1.commit_id AS live_commit_id,
+                   COUNT(DISTINCT i3.id) AS children_count
+            FROM item i INNER JOIN site s1 ON i.site_id = s1.id
+                LEFT OUTER JOIN item i3 ON i.id = i3.parent_id
+                LEFT OUTER JOIN user u1 ON i.locked_by = u1.id
+                LEFT OUTER JOIN user u2 ON i.created_by = u2.id
+                LEFT OUTER JOIN user u3 ON i.last_modified_by = u3.id
+                LEFT OUTER JOIN (
+                    SELECT pr1.*
+                    FROM publish_request pr1 INNER JOIN site s2 ON pr1.site = s2.site_id
+                    WHERE s2.id = #{siteId}
+                      AND pr1.path = #{path}
+                      AND pr1.environment = #{stagingEnvironment}
+                      AND pr1.state = #{completedState}
+                    ORDER BY pr1. published_on DESC LIMIT 0, 1
+                    ) AS staging1 ON s1.site_id = staging1.site AND i.path = staging1.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{stagingEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{stagingEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                    ) AS w1 ON i.id = w1.item_id
+                LEFT OUTER JOIN (
+                    SELECT pr2.*
+                    FROM publish_request pr2 INNER JOIN site s3 ON pr2.site = s3.site_id
+                    WHERE s3.id = #{siteId}
+                      AND pr2.path = #{path}
+                      AND pr2.environment = #{liveEnvironment}
+                      AND pr2.state = #{completedState}
+                    ORDER BY pr2.published_on DESC LIMIT 0, 1
+                    ) AS live1 ON s1.site_id = live1.site AND i.path = live1.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{liveEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{liveEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                    ) AS w2 ON i.id = w2.item_id
+            WHERE i.site_id = #{siteId}
+              AND i.path = #{path}
+              AND (i3.ignored = 0 OR i3.ignored IS NULL)
+              AND (i3.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+                  (SELECT * FROM item i10 WHERE i10.site_id = i3.site_id AND i10.path = CONCAT(i3.path, '/index.xml')))
+            GROUP BY i.id
+            LIMIT 0, 1
+    </select>
+
+    <select id="getItemByPathPreferContent" resultMap="DetailedItemMap">
+            (SELECT i1.*, u1.username AS lock_owner, u2.username AS creator, u3.username AS modifier,
+                    w1.schedule AS staging_scheduleddate, staging1.published_on AS staging_published_on,
+                    staging1.username AS staging_username, staging1.commit_id AS staging_commit_id,
+                    w2.schedule AS live_scheduleddate, live1.published_on AS live_published_on,
+                    live1.username AS live_username, live1.commit_id AS live_commit_id,
+                    COUNT(DISTINCT i5.id) AS children_count
+            FROM item i1 INNER join site s1 ON i1.site_id = s1.id
+                LEFT OUTER JOIN item i5 ON i1.id = i5.parent_id
+                LEFT OUTER JOIN user u1 ON i1.locked_by = u1.id
+                LEFT OUTER JOIN user u2 ON i1.created_by = u2.id
+                LEFT OUTER JOIN user u3 ON i1.last_modified_by = u3.id
+                LEFT OUTER JOIN (
+                    SELECT pr1.*
+                    FROM publish_request pr1 INNER JOIN site s2 ON pr1.site = s2.site_id
+                    WHERE s2.id = #{siteId}
+                      AND pr1.path = #{path}
+                      AND pr1.environment = #{stagingEnvironment}
+                      AND pr1.state = #{completedState}
+                    ORDER BY pr1. published_on DESC LIMIT 0, 1
+                    ) AS staging1 ON s1.site_id = staging1.site AND i1.path = staging1.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{stagingEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{stagingEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                    ) AS w1 ON i1.id = w1.item_id
+                LEFT OUTER JOIN (
+                    SELECT pr2.*
+                    FROM publish_request pr2 INNER JOIN site s3 ON pr2.site = s3.site_id
+                    WHERE s3.id = #{siteId}
+                      AND pr2.path = #{path}
+                      AND pr2.environment = #{liveEnvironment}
+                      AND pr2.state = #{completedState}
+                    ORDER BY pr2.published_on DESC LIMIT 0, 1
+                    ) AS live1 ON s1.site_id = live1.site AND i1.path = live1.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{liveEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{liveEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                    ) AS w2 ON i1.id = w2.item_id, item i2
+            WHERE i2.site_id = #{siteId}
+              AND i2.path = #{path}
+              AND i1.site_id = i2.site_id
+              AND i1.path RLIKE(CONCAT('^', i2.path, '/index\.xml$'))
+              AND (i5.ignored = 0 OR i5.ignored IS NULL)
+              AND (i5.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+                    (SELECT * FROM item i10 WHERE i10.site_id = i5.site_id AND i10.path = concat(i5.path, '/index.xml')))
+             GROUP BY i1.id)
+            UNION
+            (select i3.*, u4.username AS lock_owner, u5.username AS creator, u6.username AS modifier,
+                    w3.schedule AS staging_scheduleddate, staging2.published_on AS staging_published_on,
+                    staging2.username AS staging_username, staging2.commit_id AS staging_commit_id,
+                    w4.schedule AS live_scheduleddate, live2.published_on AS live_published_on,
+                    live2.username AS live_username, live2.commit_id AS live_commit_id,
+                    COUNT(DISTINCT i6.id) AS children_count
+            FROM item i3 INNER JOIN site s4 ON i3.site_id = s4.id
+                LEFT OUTER JOIN item i6 ON i3.id = i6.parent_id
+                LEFT OUTER JOIN user u4 ON i3.locked_by = u4.id
+                LEFT OUTER JOIN user u5 ON i3.created_by = u5.id
+                LEFT OUTER JOIN user u6 ON i3.last_modified_by = u6.id
+                LEFT OUTER JOIN (
+                    SELECT pr3.*
+                    FROM publish_request pr3 INNER JOIN site s5 ON pr3.site = s5.site_id
+                    WHERE s5.id = #{siteId}
+                      AND pr3.path = #{path}
+                      AND pr3.environment = #{stagingEnvironment}
+                      AND pr3.state = #{completedState}
+                    ORDER BY pr3. published_on DESC LIMIT 0, 1
+                    ) AS staging2 ON s4.site_id = staging2.site AND i3.path = staging2.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{stagingEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{stagingEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                    ) AS w3 ON i3.id = w3.item_id
+                LEFT OUTER JOIN (
+                    SELECT pr4.*
+                    FROM publish_request pr4 INNER JOIN site s6 ON pr4.site = s6.site_id
+                    WHERE s6.id = #{siteId}
+                      AND pr4.path = #{path}
+                      AND pr4.environment = #{liveEnvironment}
+                      AND pr4.state = #{completedState}
+                    ORDER BY pr4.published_on DESC LIMIT 0, 1
+                    ) AS live2 ON s4.site_id = live2.site AND i3.path = live2.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{liveEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{liveEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                    ) AS w4 ON i3.id = w4.item_id
+            WHERE i3.site_id = #{siteId}
+              AND i3.path = #{path}
+              AND (i6.ignored = 0 OR i6.ignored IS NULL)
+              AND (i6.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+                (SELECT * FROM item i11 WHERE i11.site_id = i6.site_id AND i11.path = CONCAT(i6.path, '/index.xml')))
+            GROUP BY i3.id)
+            LIMIT 0, 1
+    </select>
+
+    <select id="getSandboxItemsById" resultMap="ItemMap">
+        SELECT i.*, u1.username AS lock_owner, u2.username AS creator, u3.username AS modifier,
+               COUNT(DISTINCT i3.id) AS children_count
+        FROM item i
+            LEFT OUTER JOIN item i3 ON i.id = i3.parent_id
+            LEFT OUTER JOIN user u1 ON i.locked_by = u1.id
+            LEFT OUTER JOIN user u2 ON i.created_by = u2.id
+            LEFT OUTER JOIN user u3 ON i.last_modified_by = u3.id
+        WHERE i.id IN
+        <foreach collection="itemIds" item="id" index="index" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+        AND (i3.ignored = 0 OR i3.ignored IS NULL)
+        AND (i3.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+            (SELECT * from item i10 WHERE i10.site_id = i3.site_id AND i10.path = CONCAT(i3.path, '/index.xml')))
+        GROUP BY i.id
+    </select>
+
+    <select id="getSandboxItemsByIdPreferContent" resultMap="ItemMap">
+        (SELECT i1.*, u1.username AS lock_owner, u2.username AS creator, u3.username AS modifier,
+               COUNT(DISTINCT i5.id ) AS children_count
+        FROM item i1
+            LEFT OUTER JOIN item i5 ON i1.id = i5.parent_id
+            LEFT OUTER JOIN user u1 ON i1.locked_by = u1.id
+            LEFT OUTER JOIN user u2 ON i1.created_by = u2.id
+            LEFT OUTER JOIN user u3 ON i1.last_modified_by = u3.id, item i2
+        WHERE i2.id IN
+        <foreach collection="itemIds" item="id" index="index" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+        AND i1.site_id = i2.site_id
+        AND i1.path RLIKE(CONCAT('^', i2.path, '/index\.xml$'))
+        AND (i5.ignored = 0 OR i5.ignored IS NULL)
+        AND (i5.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+            (SELECT * FROM item i10 WHERE i10.site_id = i5.site_id AND i10.path = concat(i5.path, '/index.xml')))
+        GROUP BY i1.id)
+        UNION
+        (SELECT i3.*, u4.username AS lock_owner, u5.username AS creator, u6.username AS modifier,
+               COUNT(DISTINCT i6.id) AS children_count
+        FROM item i3
+            LEFT OUTER JOIN item i6 ON i3.id = i6.parent_id
+            LEFT OUTER JOIN user u4 ON i3.locked_by = u4.id
+            LEFT OUTER JOIN user u5 ON i3.created_by = u5.id
+            LEFT OUTER JOIN user u6 ON i3.last_modified_by = u6.id
+        WHERE i3.id IN
+        <foreach collection="itemIds" item="id" index="index" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+        AND CONCAT(i3.path, '/index.xml') NOT IN
+            (SELECT i4.path FROM item i4 WHERE i4.site_id = i3.site_id
+        AND i4.path RLIKE(CONCAT('^', i3.path, '/index\.xml$')))
+        AND (i6.ignored = 0 OR i6.ignored IS NULL)
+        AND (i6.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+            (SELECT * FROM item i11 WHERE i11.site_id = i6.site_id AND i11.path = CONCAT(i6.path, '/index.xml')))
+        GROUP BY i3.id)
+    </select>
+
+    <select id="getSandboxItemsByPath" resultMap="ItemMap">
+        SELECT i.*, u1.username AS lock_owner, u2.username AS creator, u3.username AS modifier,
+               COUNT(DISTINCT i3.id) AS children_count
+        FROM item i
+            LEFT OUTER JOIN item i3 ON i.id = i3.parent_id
+            LEFT OUTER JOIN user u1 ON i.locked_by = u1.id
+            LEFT OUTER JOIN user u2 ON i.created_by = u2.id
+            LEFT OUTER JOIN user u3 ON i.last_modified_by = u3.id
+        WHERE i.site_id = #{siteId}
+          AND i.ignored = 0 AND i.path IN
+        <foreach collection="paths" item="path" index="index" open="(" close=")" separator=",">
+            #{path}
+        </foreach>
+        AND (i3.ignored = 0 OR i3.ignored IS NULL)
+        AND (i3.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+            (SELECT * FROM item i10 WHERE i10.site_id = i3.site_id AND i10.path = CONCAT(i3.path, '/index.xml')))
+        GROUP BY i.id
+    </select>
+
+    <select id="getSandboxItemsByPathPreferContent" resultMap="ItemMap">
+        (SELECT i1.*, u1.username as lock_owner, u2.username AS creator, u3.username AS modifier,
+               COUNT(DISTINCT i5.id) AS children_count
+        FROM item i1
+            LEFT OUTER JOIN item i5 ON i1.id = i5.parent_id
+            LEFT OUTER JOIN user u1 ON i1.locked_by = u1.id
+            LEFT OUTER JOIN user u2 ON i1.created_by = u2.id
+            LEFT OUTER JOIN user u3 ON i1.last_modified_by = u3.id, item i2
+        WHERE i2.site_id = #{siteId}
+        AND i2.path in
+        <foreach collection="paths" item="path" index="index" open="(" close=")" separator=",">
+            #{path}
+        </foreach>
+        AND i1.ignored = 0
+        AND i1.site_id = i2.site_id
+        AND i1.path RLIKE(CONCAT('^', i2.path, '/index\.xml$'))
+        AND (i5.ignored = 0 OR i5.ignored IS NULL)
+        AND (i5.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+            (SELECT * FROM item i10 WHERE i10.site_id = i5.site_id AND i10.path = concat(i5.path, '/index.xml')))
+        GROUP BY i1.id)
+        UNION
+        (SELECT i3.*, u4.username AS lock_owner, u5.username AS creator, u6.username AS modifier,
+               COUNT(DISTINCT i6.id) AS children_count
+        FROM item i3
+            LEFT OUTER JOIN item i6 ON i3.id = i6.parent_id
+            LEFT OUTER JOIN user u4 ON i3.locked_by = u4.id
+            LEFT OUTER JOIN user u5 ON i3.created_by = u5.id
+            LEFT OUTER JOIN user u6 ON i3.last_modified_by = u6.id
+        WHERE i3.site_id = #{siteId}
+        AND i3.path IN
+        <foreach collection="paths" item="path" index="index" open="(" close=")" separator=",">
+            #{path}
+        </foreach>
+        AND i3.ignored = 0
+        AND CONCAT(i3.path, '/index.xml') NOT IN
+            (SELECT i4.path FROM item i4 WHERE i4.site_id = i3.site_id
+        AND i4.path RLIKE(CONCAT('^', i3.path, '/index\.xml$')))
+        AND (i6.ignored = 0 OR i6.ignored IS NULL)
+        AND (i6.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+            (SELECT * FROM item i11 WHERE i11.site_id = i6.site_id AND i11.path = concat(i6.path, '/index.xml')))
+        GROUP BY i3.id)
+    </select>
+
+    <select id="getItemBySiteIdAndPath" resultMap="DetailedItemMap">
+            SELECT i.*, u1.username AS lock_owner, u2.username AS creator, u3.username AS modifier,
+                   w1.schedule AS staging_scheduleddate, staging1.published_on AS staging_published_on,
+                   staging1.username AS staging_username, staging1.commit_id AS staging_commit_id,
+                   w2.schedule AS live_scheduleddate, live1.published_on AS live_published_on,
+                   live1.username AS live_username, live1.commit_id AS live_commit_id,
+                   COUNT(DISTINCT i3.id) AS children_count
+            FROM item i INNER JOIN site s1 ON i.site_id = s1.id
+                LEFT OUTER JOIN item i3 ON i.id = i3.parent_id
+                LEFT OUTER JOIN user u1 ON i.locked_by = u1.id
+                LEFT OUTER JOIN user u2 ON i.created_by = u2.id
+                LEFT OUTER JOIN user u3 ON i.last_modified_by = u3.id
+                LEFT OUTER JOIN (
+                    SELECT pr1.*
+                    FROM publish_request pr1 INNER JOIN site s2 ON pr1.site = s2.site_id
+                    WHERE s2.id = #{siteId}
+                      AND pr1.path = #{path}
+                      AND pr1.environment = #{stagingEnvironment}
+                      AND pr1.state = #{completedState}
+                    ORDER BY pr1. published_on DESC LIMIT 0, 1
+                    ) AS staging1 ON s1.site_id = staging1.site AND i.path = staging1.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{stagingEnvironment} AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr on w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{stagingEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                    ) AS w1 ON i.id = w1.item_id
+                LEFT OUTER JOIN (
+                    SELECT pr2.*
+                    FROM publish_request pr2 INNER JOIN site s3 ON pr2.site = s3.site_id
+                    WHERE s3.id = #{siteId}
+                      AND pr2.path = #{path}
+                      AND pr2.environment = #{liveEnvironment}
+                      AND pr2.state = #{completedState}
+                    ORDER BY pr2.published_on DESC LIMIT 0, 1
+                    ) AS live1 ON s1.site_id = live1.site AND i.path = live1.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{liveEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{liveEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                    ) AS w2 ON i.id = w2.item_id
+            WHERE i.site_id = #{siteId}
+              AND i.path = #{path}
+              AND (i3.ignored = 0 OR i3.ignored IS NULL)
+              AND (i3.system_type &lt;&gt; #{systemTypeFolder} OR NOT exists
+                (SELECT * FROM item i10 WHERE i10.site_id = i3.site_id AND i10.path = CONCAT(i3.path, '/index.xml')))
+            GROUP BY i.id
+            LIMIT 0, 1
+    </select>
+
+    <select id="getItemBySiteIdAndPathPreferContent" resultMap="DetailedItemMap">
+            (SELECT i1.*, u1.username AS lock_owner, u2.username AS creator, u3.username AS modifier,
+                    w1.schedule AS staging_scheduleddate, staging1.published_on AS staging_published_on,
+                    staging1.username AS staging_username, staging1.commit_id AS staging_commit_id,
+                    w2.schedule AS live_scheduleddate, live1.published_on AS live_published_on,
+                    live1.username AS live_username, live1.commit_id AS live_commit_id,
+                    COUNT(DISTINCT i5.id) AS children_count
+            FROM item i1 INNER JOIN site s1 ON i1.site_id = s1.id
+                LEFT OUTER JOIN item i5 ON i1.id = i5.parent_id
+                LEFT OUTER JOIN user u1 ON i1.locked_by = u1.id
+                LEFT OUTER JOIN user u2 ON i1.created_by = u2.id
+                LEFT OUTER JOIN user u3 ON i1.last_modified_by = u3.id
+                LEFT OUTER JOIN (
+                    SELECT pr1.*
+                    FROM publish_request pr1 INNER JOIN site s2 ON pr1.site = s2.site_id
+                    WHERE s2.id = #{siteId}
+                      AND pr1.path = #{path}
+                      AND pr1.environment = #{stagingEnvironment}
+                      AND pr1.state = #{completedState}
+                    ORDER BY pr1. published_on DESC LIMIT 0, 1
+                    ) AS staging1 ON s1.site_id = staging1.site AND i1.path = staging1.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{stagingEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{stagingEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                    ) AS w1 ON i1.id = w1.item_id
+                LEFT OUTER JOIN (
+                    SELECT pr2.*
+                    FROM publish_request pr2 INNER JOIN site s3 ON pr2.site = s3.site_id
+                    WHERE s3.id = #{siteId}
+                      AND pr2.path = #{path}
+                      AND pr2.environment = #{liveEnvironment}
+                      AND pr2.state = #{completedState}
+                    ORDER BY pr2.published_on DESC LIMIT 0, 1
+                    ) AS live1 ON s1.site_id = live1.site AND i1.path = live1.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{liveEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{liveEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                    ) AS w2 ON i1.id = w2.item_id, item i2
+            WHERE i2.site_id = #{siteId}
+              AND i2.path = #{path}
+              AND i1.ignored = 0
+              AND i1.site_id = i2.site_id
+              AND i1.path RLIKE(CONCAT('^', i2.path, '/index\.xml$'))
+              AND (i5.ignored = 0 OR i5.ignored IS NULL)
+              AND (i5.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+                (SELECT * FROM item i10 WHERE i10.site_id = i5.site_id AND i10.path = concat(i5.path, '/index.xml')))
+            GROUP BY i1.id)
+            UNION
+            (SELECT i3.*, u4.username AS lock_owner, u5.username AS creator, u6.username AS modifier,
+                    w3.schedule AS staging_scheduleddate, staging2.published_on AS staging_published_on,
+                    staging2.username AS staging_username, staging2.commit_id AS staging_commit_id,
+                    w4.schedule AS live_scheduleddate, live2.published_on AS live_published_on,
+                    live2.username AS live_username, live2.commit_id AS live_commit_id,
+                    COUNT(DISTINCT i6.id) AS children_count
+            FROM item i3 INNER JOIN site s4 ON i3.site_id = s4.id
+                LEFT OUTER JOIN item i6 ON i3.id = i6.parent_id
+                LEFT OUTER JOIN user u4 ON i3.locked_by = u4.id
+                LEFT OUTER JOIN user u5 ON i3.created_by = u5.id
+                LEFT OUTER JOIN user u6 ON i3.last_modified_by = u6.id
+                LEFT OUTER JOIN (
+                    SELECT pr3.*
+                    FROM publish_request pr3 INNER JOIN site s5 ON pr3.site = s5.site_id
+                    WHERE s5.id = #{siteId}
+                      AND pr3.path = #{path}
+                      AND pr3.environment = #{stagingEnvironment}
+                      AND pr3.state = #{completedState}
+                    ORDER BY pr3. published_on DESC LIMIT 0, 1
+                    ) AS staging2 ON s4.site_id = staging2.site AND i3.path = staging2.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{stagingEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{stagingEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                    ) AS w3 ON i3.id = w3.item_id
+                LEFT OUTER JOIN (
+                    SELECT pr4.*
+                    FROM publish_request pr4 INNER JOIN site s6 ON pr4.site = s6.site_id
+                    WHERE s6.id = #{siteId}
+                      AND pr4.path = #{path}
+                      AND pr4.environment = #{liveEnvironment}
+                      AND pr4.state = #{completedState}
+                    ORDER BY pr4.published_on DESC LIMIT 0, 1
+                    ) AS live2 ON s4.site_id = live2.site AND i3.path = live2.path
+                LEFT OUTER JOIN (
+                    (SELECT item_id, schedule
+                    FROM workflow
+                    WHERE target_environment = #{liveEnvironment}
+                      AND state = 'OPENED')
+                    UNION
+                    (SELECT w.item_id, pr.scheduleddate AS schedule
+                    FROM workflow w INNER JOIN publish_request pr ON w.publishing_package_id = pr.package_id
+                    WHERE w.target_environment = #{liveEnvironment}
+                      AND w.state = 'APPROVED'
+                      AND pr.state = 'READY_FOR_LIVE'
+                    ORDER BY scheduleddate DESC)
+                    ) AS w4 ON i3.id = w4.item_id
+            WHERE i3.site_id = #{siteId}
+              AND i3.path = #{path}
+              AND i3.ignored = 0
+              AND (i6.ignored = 0 OR i6.ignored IS NULL)
+              AND (i6.system_type &lt;&gt; #{systemTypeFolder} OR NOT EXISTS
+                (SELECT * FROM item i11 WHERE i11.site_id = i6.site_id AND i11.path = CONCAT(i6.path, '/index.xml')))
+             GROUP BY i3.id)
+            LIMIT 0, 1
+    </select>
+
+    <update id="updateItem" parameterType="org.craftercms.studio.api.v2.dal.Item">
+        UPDATE item SET
+            site_id = #{siteId},
+            path = #{path},
+            preview_url = #{previewUrl},
+            state = #{state},
+            locked_by = #{lockedBy},
+            last_modified_by = #{lastModifiedBy},
+            last_modified_on = #{lastModifiedOn},
+            last_published_on = #{lastPublishedOn},
+            label = #{label},
+            content_type_id = #{contentTypeId},
+            system_type = #{systemType},
+            mime_type = #{mimeType},
+            locale_code = #{localeCode},
+            translation_source_id = #{translationSourceId},
+            size = #{size},
+            parent_id = #{parentId},
+            commit_id = #{commitId}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="long">
+        DELETE FROM item WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteBySiteAndPath" >
+        DELETE FROM item WHERE site_id = #{siteId} and path = #{path}
+    </delete>
+
+    <update id="setStatesBySiteAndPathBulk" >
+        UPDATE item SET state = state | #{statesBitMap}
+        WHERE site_id = #{siteId} AND path IN
+        <foreach collection="paths" item="path" index="index" open="(" separator=","  close=")">
+            #{path}
+        </foreach>
+    </update>
+
+    <update id="setStatesByIdBulk" >
+        UPDATE item SET state = state | #{statesBitMap}
+        WHERE id IN
+        <foreach collection="itemIds" item="id" index="index" open="(" separator=","  close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <update id="resetStatesBySiteAndPathBulk" >
+        UPDATE item SET state = state &amp; ~#{statesBitMap}
+        WHERE site_id = #{siteId} AND path IN
+        <foreach collection="paths" item="path" index="index" open="(" separator=","  close=")">
+            #{path}
+        </foreach>
+    </update>
+
+    <update id="resetStatesByIdBulk" >
+        UPDATE item SET state = state &amp; ~#{statesBitMap}
+        WHERE id IN
+        <foreach collection="itemIds" item="id" index="index" open="(" separator=","  close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <update id="updateStatesBySiteAndPathBulk">
+        UPDATE item set state = (state | #{onStatesBitMap}) &amp; ~#{offStatesBitMap}
+        WHERE site_id = #{siteId} AND path IN
+        <foreach collection="paths" item="path" index="index" open="(" separator=","  close=")">
+            #{path}
+        </foreach>
+    </update>
+
+    <update id="updateStatesByIdBulk" >
+        UPDATE item set state = (state | #{onStatesBitMap}) &amp; ~#{offStatesBitMap}
+        WHERE id IN
+        <foreach collection="itemIds" item="id" index="index" open="(" separator=","  close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <update id="updateStatesForSite">
+        UPDATE item set state = (state | #{onStatesBitMap}) &amp; ~#{offStatesBitMap}
+        WHERE site_id = #{siteId}
+    </update>
+
+    <delete id="deleteItemsForSite">
+        DELETE FROM item WHERE site_id = #{siteId}
+    </delete>
+
+    <delete id="deleteItemsById">
+        DELETE FROM item WHERE id IN
+        <foreach collection="itemIds" item="id" index="index" open="(" separator=","  close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteItemsForSiteAndPath">
+        DELETE FROM item WHERE site_id = #{siteId} AND path IN
+        <foreach collection="paths" item="path" index="index" open="(" separator=","  close=")">
+            #{path}
+        </foreach>
+    </delete>
+
+    <delete id="deleteBySiteAndPathForFolder">
+        DELETE FROM item WHERE site_id = #{siteId} AND (path = #{folderPath} OR path LIKE '${folderPath}/%')
+    </delete>
+
+
+    <select id="getContentDashboardTotal" resultType="int">
+        SELECT count (1) FROM item i INNER JOIN site s ON i.site_id = s.id
+        WHERE s.site_id = #{siteId}
+        AND s.deleted = 0
+        AND i.ignored = 0
+        <if test="path != null">
+            AND i.path RLIKE #{path}
+        </if>
+        <if test="modifier != null">
+            AND i.last_modified_by IN (SELECT id FROM user WHERE username = #{modifier})
+        </if>
+        <choose>
+            <when test="dateFrom != null and dateTo != null ">
+                AND last_modified_on BETWEEN #{dateFrom} AND #{dateTo}
+            </when>
+            <when test="dateFrom != null and dateTo == null ">
+                AND last_modified_on >= #{dateFrom}
+            </when>
+            <when test="dateFrom == null and dateTo != null ">
+                AND #{dateTo} >= last_modified_on
+            </when>
+        </choose>
+    </select>
+
+
+    <select id="getContentDashboard" resultMap="ItemMap">
+        SELECT s.site_id AS site_name, u.username AS modifier, i.*
+        FROM item i INNER JOIN site s ON i.site_id = s.id
+            INNER JOIN user u ON i.last_modified_by = u.id
+        WHERE s.site_id = #{siteId}
+        AND s.deleted = 0
+        AND i.ignored = 0
+        <if test="path != null">
+            AND i.path RLIKE #{path}
+        </if>
+        <if test="modifier != null">
+            AND u.username = #{modifier}
+        </if>
+        <choose>
+            <when test="dateFrom != null and dateTo != null ">
+                AND last_modified_on BETWEEN #{dateFrom} AND #{dateTo}
+            </when>
+            <when test="dateFrom != null and dateTo == null ">
+                AND last_modified_on >= #{dateFrom}
+            </when>
+            <when test="dateFrom == null and dateTo != null ">
+                AND #{dateTo} >= last_modified_on
+            </when>
+        </choose>
+        <choose>
+            <when test="(sort != null and sort !=  '') and (order != null and order != '')">
+                ORDER BY ${sort} ${order}
+            </when>
+            <when test="(sort != null and sort !=  '') and (order == null or order == '')">
+                ORDER BY ${sort}
+            </when>
+            <when test="(sort == null or sort !=  '') and (order != null and order != '')">
+                ORDER BY last_modified_on ${order}
+            </when>
+            <otherwise>
+                ORDER BY last_modified_on DESC
+            </otherwise>
+        </choose>
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <update id="moveItem">
+        UPDATE item i INNER JOIN site s ON i.site_id = s.id
+        SET path = #{newPath}
+        WHERE s.site_id = #{siteId} AND s.deleted = 0 AND i.path = #{oldPath}
+    </update>
+
+    <update id="moveItems">
+        UPDATE item i INNER JOIN site s ON i.site_id = s.id
+        SET i.path = REPLACE(i.path, #{oldPath}, #{newPath}),
+            i.state = (i.state | #{onStatesBitMap}) &amp; ~#{offStatesBitMap},
+            i.preview_url = REPLACE(i.preview_url, #{oldPreviewUrl}, #{newPreviewUrl}),
+            i.previous_path = IFNULL(i.previous_path, i.path)
+        <if test="parentId != null">
+            , i.parent_id = #{parentId}
+        </if>
+        WHERE s.site_id = #{siteId} AND s.deleted = 0 AND (i.path = #{oldPath} OR i.path LIKE '${oldPath}/%')
+    </update>
+
+    <select id="getMandatoryParentsForPublishing" resultType="String">
+        SELECT i3.path AS path
+        FROM item i1 INNER JOIN site s ON i1.site_id = s.id INNER JOIN item i3 ON i1.parent_id = i3.id
+        WHERE s.site_id = #{siteId}
+        AND s.deleted = 0
+        AND i1.ignored = 0
+        AND i1.path IN
+        <foreach item="path" index="index" collection="possibleParents"
+                 open="(" separator="," close=")">
+            #{path}
+        </foreach>
+        AND (i1.state &amp; #{newMask}) > 0
+        UNION
+        SELECT i4.path AS path
+        FROM item i2 INNER JOIN site s2 ON i2.site_id = s2.id INNER JOIN item i4 ON i2.parent_id = i4.id
+        WHERE s2.site_id = #{siteId}
+        AND TRIM(IFNULL(i2.previous_path, '')) &lt;&gt; ''
+        AND i2.ignored = 0
+        AND i2.path IN
+        <foreach item="path" index="index" collection="possibleParents"
+                 open="(" separator="," close=")">
+            #{path}
+        </foreach>
+        AND (i2.state &amp; #{modifiedMask}) > 0
+    </select>
+
+    <select id="getExistingRenamedChildrenOfMandatoryParentsForPublishing" parameterType="java.util.Map" resultType="String">
+        SELECT i1.path as path
+        FROM item i1 INNER JOIN site s1 ON i1.site_id = s1.id
+        WHERE s1.site_id = #{siteId}
+        AND s1.deleted = 0
+        AND i1.ignored = 0
+        AND NULLIF(TRIM(i1.previous_path), '') IS NOT NULL
+        AND (i1.state &amp; #{modifiedMask}) > 0
+        AND (i1.state &amp; #{newMask}) = 0
+        AND i1.parent_id IN
+        (SELECT 12.id FROM item i2 INNER JOIN site s2 ON i2.site_id = s2.id
+        WHERE s2.site_id = #{siteId} AND s2.deleted = 0
+        AND i2.ignored = 0
+        AND i2.path IN
+        <foreach item="path" index="index" collection="parents" open="(" separator="," close=")">
+            #{path}
+        </foreach>)
+    </select>
+
+    <select id="countAllContentItems" resultType="java.lang.Integer">
+        SELECT count(1)
+        FROM item i INNER JOIN site s ON i.site_id = s.id
+        WHERE s.deleted = 0
+        AND i.system_type NOT IN
+        <foreach collection="nonContentItemTypes" separator="," index="index" item="type" open="(" close=")">
+            #{type}
+        </foreach>
+    </select>
+
+    <update id="clearPreviousPath">
+        UPDATE item i INNER JOIN site s ON i.site_id = s.id
+        SET i.previous_path = NULL
+        WHERE s.site_id = #{siteId}
+        AND s.deleted = 0
+        AND i.path = #{path}
+    </update>
+
+    <select id="getInProgressItems" resultMap="ItemMap">
+        SELECT i.*
+        FROM item i INNER JOIN site s ON i.site_id = s.id
+        WHERE s.site_id = #{siteId}
+        AND s.deleted = 0
+        AND i.ignored = 0
+        AND (i.state &amp; #{inProgressMask}) &gt; 0
+    </select>
+
+    <select id="getSubmittedItems" resultMap="ItemMap">
+        SELECT i.*
+        FROM item i INNER JOIN site s ON i.site_id = s.id
+        WHERE s.site_id = #{siteId}
+          AND s.deleted = 0
+          AND i.ignored = 0
+          AND (i.state &amp; #{submittedMask}) &gt; 0
+    </select>
+
+    <select id="countPreviousPaths" resultType="int">
+        SELECT count(1)
+        FROM item i INNER JOIN site s ON i.site_id = s.id
+        WHERE s.site_id = #{siteId}
+        AND s.deleted = 0
+        AND i.ignored = 0
+        AND i.previous_path = #{previousPath}
+    </select>
+
+    <update id="updateCommitId">
+        UPDATE item i INNER JOIN site s ON i.site_id = s.id
+        SET i.commit_id = #{commitId}
+        WHERE s.site_id = #{siteId}
+          AND s.deleted = 0
+          AND i.ignored = 0
+          AND i.path = #{path}
+    </update>
+
+    <select id="getChangeSetForSubtree" resultType="java.lang.String">
+        SELECT i.path
+        FROM item i INNER JOIN site s ON i.site_id = s.id
+        WHERE s.site_id = #{siteId}
+        AND s.deleted = 0
+        AND i.ignored = 0
+        AND i.system_type NOT IN
+        <foreach collection="nonContentItemTypes" separator="," index="index" item="type" open="(" close=")">
+            #{type}
+        </foreach>
+        AND (i.path = #{path} or i.path like #{likePath})
+        AND (i.state &amp; #{inProgressMask}) &gt; 0
+    </select>
+
+    <select id="getSameCommitItems" resultType="String">
+        SELECT i2.path
+        FROM site s INNER JOIN item i1 ON i1.site_id = s.id
+            INNER JOIN item i2 ON s.id = i2.site_id AND i1.commit_id = i2.commit_id
+        WHERE s.site_id = #{siteId}
+        AND s.deleted = 0
+        AND i1.ignored = 0
+        AND i1.path = #{path}
+    </select>
+
+    <update id="updateLastPublishedOn">
+        UPDATE item i INNER JOIN site s ON i.site_id = s.id
+        SET i.last_published_on = #{lastPublishedOn}
+        WHERE s.site_id = #{siteId}
+          AND s.deleted = 0
+          AND i.path = #{path}
+    </update>
+
+    <update id="updateLastPublishedOnBulk">
+        UPDATE item i INNER JOIN site s ON i.site_id = s.id
+        SET i.last_published_on = #{lastPublishedOn}
+        WHERE s.site_id = #{siteId}
+          AND s.deleted = 0
+          AND i.path IN
+        <foreach collection="paths" item="path" index="index" open="(" separator="," close=")">
+            #{path}
+        </foreach>
+    </update>
+
+    <select id="getContentTypeUsages" resultType="org.craftercms.studio.api.v2.dal.Item">
+        SELECT
+          I.path, I.system_type AS systemType
+        FROM
+          item I
+        INNER JOIN
+          site S
+        ON
+          I.site_id = S.id
+        WHERE
+          S.site_id = #{siteId}
+        AND
+          (
+            (I.system_type IN ('page', 'component') AND I.content_type_id = #{contentType})
+          OR
+            (I.system_type = 'script' AND I.path = #{scriptPath})
+          )
+    </select>
+
+    <update id="lockItemByPath">
+        UPDATE item i INNER JOIN site s ON i.site_id = s.id
+        SET i.locked_by = #{lockOwnerId}, i.state = i.state | #{lockedBitOn}
+        WHERE s.site_id = #{siteId}
+        AND s.deleted = 0
+        AND i.path =  #{path}
+        AND i.system_type &lt;&gt; #{systemTypeFolder}
+    </update>
+
+    <update id="lockItemsByPath">
+        UPDATE item i INNER JOIN site s ON i.site_id = s.id
+            SET i.locked_by = #{lockOwnerId}, i.state = i.state | #{lockedBitOn}
+        WHERE s.site_id = #{siteId}
+          AND s.deleted = 0
+          AND i.path IN
+        <foreach collection="paths" item="path" index="index" open="(" separator="," close=")">
+            #{path}
+        </foreach>
+          AND i.system_type &lt;&gt; #{systemTypeFolder}
+    </update>
+
+    <update id="unlockItemByPath">
+        UPDATE item i INNER JOIN site s ON i.site_id = s.id
+        SET i.locked_by = null, i.state = i.state &amp; #{lockedBitOff}
+        WHERE s.site_id = #{siteId}
+          AND s.deleted = 0
+          AND i.path =  #{path}
+    </update>
+
+    <update id="lockItemById">
+        UPDATE item i
+        SET i.locked_by = #{lockOwnerId}, i.state = i.state | #{lockedBitOn}
+        WHERE i.id =  #{id} AND i.system_type &lt;&gt; #{systemTypeFolder}
+    </update>
+
+    <update id="lockItemsById">
+        UPDATE item i
+        SET i.locked_by = #{lockOwnerId}, i.state = i.state | #{lockedBitOn}
+        WHERE i.id IN
+        <foreach collection="itemIds" item="id" index="index" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND i.system_type &lt;&gt; #{systemTypeFolder}
+    </update>
+
+    <update id="unlockItemById">
+        UPDATE item i
+        SET i.locked_by = null, i.state = i.state &amp; #{lockedBitOff}
+        WHERE i.id =  #{id}
+    </update>
+
+    <select id="getItemStatesTotal" resultType="Integer">
+        SELECT count(1)
+        FROM item i INNER JOIN site s ON i.site_id = s.id
+        WHERE s.site_id = #{siteId}
+        AND s.deleted = 0
+        AND i.ignored = 0
+        AND i.system_type != 'folder'
+        <if test="path != null">
+        AND i.path RLIKE(#{path})
+        </if>
+        <if test="statesBitMap != null">
+        AND (i.state &amp; #{statesBitMap}) &gt; 0
+        </if>
+    </select>
+
+    <select id="getItemStates" resultMap="ItemMap">
+        SELECT i.*
+        FROM item i INNER JOIN site s ON i.site_id = s.id
+        WHERE s.site_id = #{siteId}
+        AND s.deleted = 0
+        AND i.ignored = 0
+        AND i.system_type != 'folder'
+        <if test="path != null">
+        AND i.path RLIKE(#{path})
+        </if>
+        <if test="statesBitMap != null">
+        AND (i.state &amp; #{statesBitMap}) > 0
+        </if>
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <update id="updateStatesByQuery" >
+        UPDATE item i INNER JOIN site s ON i.site_id = s.id
+        SET i.state = (i.state | #{onStatesBitMap}) &amp; ~#{offStatesBitMap}
+        WHERE s.site_id = #{siteId}
+        AND s.deleted = 0
+        AND i.ignored = 0
+        <if test="path != null">
+            AND i.path RLIKE(#{path})
+        </if>
+        <if test="statesBitMap != null">
+            AND (i.state &amp; #{statesBitMap}) &gt; 0
+        </if>
+    </update>
+
+    <select id="getSubtreeForDelete" resultType="java.lang.String">
+        SELECT i.path
+        FROM item i INNER JOIN site s ON i.site_id = s.id
+        WHERE s.site_id = #{siteId}
+        AND s.deleted = 0
+        AND i.path LIKE #{likePath}
+    </select>
+</mapper>

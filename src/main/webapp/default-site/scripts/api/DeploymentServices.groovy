@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -32,31 +32,9 @@ class DeploymentServices {
         return ServiceFactory.createContext(applicationContext, request)
     }
 
-    /** 
-     * Return deployment history for a give nsite
-     * @param site - the project ID
-     * @param daysFromToday - number of days back to get
-     * @param numberOfItems - number of items to get 
-     * @param sort - field to sort on
-     * @param ascending - true or false
-     * @param filterType - pages/components/all 
-     * @paran context - container for passing request, token and other values that may be needed by the implementation
-     */
-    static getDeploymentHistory(site, daysFromToday, numberOfItems, sort, ascending, filterType, context) {
-        def deploymentServicesImpl = ServiceFactory.getDeploymentServices(context)
-        return deploymentServicesImpl.getDeploymentHistory(site, daysFromToday, numberOfItems, sort, ascending,
-                filterType)
-    }
-
-
     static getScheduledItems(context, site, sort, ascending, subSort, subAscending, filterType) {
         def deploymentServicesImpl = ServiceFactory.getDeploymentServices(context)
         deploymentServicesImpl.getScheduledItems(site, sort, ascending, subSort, subAscending, filterType)
-    }
-
-    static getAvailablePublishingChannelGroups(context, site, path) {
-        def deploymentServicesImpl = ServiceFactory.getDeploymentServices(context)
-        return deploymentServicesImpl.getAvailablePublishingChannelGroups(site, path)
     }
 
     static bulkGoLive(context, site, environment, path, comment) {

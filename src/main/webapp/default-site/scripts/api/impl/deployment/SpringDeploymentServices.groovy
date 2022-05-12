@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -31,30 +31,10 @@ class SpringDeploymentServices {
         this.context = context
     }
 
-    /** 
-     * Return deployment history for a given site
-     * @param site - the project ID
-     * @param daysFromToday - number of days back to get
-     * @param numberOfItems - number of items to get 
-     * @param sort - field to sort on
-     * @param ascending - true or false
-     * @param filterType - pages/components/all 
-     * @oaran context - container for passing request and other values that may be needed by the implementation
-     */
-    def getDeploymentHistory(site, daysFromToday, numberOfItems, sort, ascending, filterType) {
-        def springBackedService = this.context.applicationContext.get(DEPLOYMENT_SERVICES_BEAN)
-        return springBackedService.getDeploymentHistory(site, daysFromToday, numberOfItems, sort, ascending, filterType)
-    }
-
     def getScheduledItems(site, sort, ascending, subSort, subAscending, filterType) {
 
         def springBackedService = this.context.applicationContext.get(DEPLOYMENT_SERVICES_BEAN)
         return springBackedService.getScheduledItems(site, sort, ascending, subSort, subAscending, filterType)
-    }
-
-    def getAvailablePublishingChannelGroups(site, path) {
-        def springBackedService = this.context.applicationContext.get(DEPLOYMENT_SERVICES_BEAN)
-        return springBackedService.getAvailablePublishingChannelGroups(site, path)
     }
 
     def syncAllContentToPreview(site) {

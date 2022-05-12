@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -19,6 +19,7 @@ package org.craftercms.studio.impl.v2.service.cluster.internal;
 import org.apache.commons.collections4.CollectionUtils;
 import org.craftercms.studio.api.v2.dal.ClusterDAO;
 import org.craftercms.studio.api.v2.dal.ClusterMember;
+import org.craftercms.studio.api.v2.dal.RetryingDatabaseOperationFacade;
 import org.craftercms.studio.api.v2.service.cluster.internal.ClusterManagementServiceInternal;
 import org.craftercms.studio.api.v2.utils.StudioConfiguration;
 
@@ -34,6 +35,7 @@ public class ClusterManagementServiceInternalImpl implements ClusterManagementSe
 
     private ClusterDAO clusterDao;
     private StudioConfiguration studioConfiguration;
+    private RetryingDatabaseOperationFacade retryingDatabaseOperationFacade;
 
     @Override
     public List<ClusterMember> getAllMembers() {
@@ -46,7 +48,7 @@ public class ClusterManagementServiceInternalImpl implements ClusterManagementSe
             Map<String, Object> params = new HashMap<String, Object>();
             params.put(CLUSTER_MEMBER_IDS, memberIds);
             params.put(CLUSTER_INACTIVE_STATE, INACTIVE);
-            int result = clusterDao.removeMembers(params);
+            int result = retryingDatabaseOperationFacade.removeClusterMembers(params);
             return result > 0;
         } else {
             return true;
@@ -67,5 +69,13 @@ public class ClusterManagementServiceInternalImpl implements ClusterManagementSe
 
     public void setStudioConfiguration(StudioConfiguration studioConfiguration) {
         this.studioConfiguration = studioConfiguration;
+    }
+
+    public RetryingDatabaseOperationFacade getRetryingDatabaseOperationFacade() {
+        return retryingDatabaseOperationFacade;
+    }
+
+    public void setRetryingDatabaseOperationFacade(RetryingDatabaseOperationFacade retryingDatabaseOperationFacade) {
+        this.retryingDatabaseOperationFacade = retryingDatabaseOperationFacade;
     }
 }

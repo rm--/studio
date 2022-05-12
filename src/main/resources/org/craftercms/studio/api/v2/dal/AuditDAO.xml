@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+  ~ Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
   ~
   ~ This program is free software: you can redistribute it and/or modify
   ~ it under the terms of the GNU General Public License version 3 as published by
@@ -114,7 +114,7 @@
 
     <select id="getAuditLog" parameterType="java.util.Map" resultMap="AuditLogMap">
         <bind name="sortBy" value="'a.' + sort"/>
-        SELECT a.*, s.site_id as site_name
+        SELECT a.*, s.name as site_name
         <if test="includeParameters">
             , ap.*
         </if>
@@ -124,10 +124,10 @@
         </if>
         WHERE s.deleted = 0
         <if test="siteId != null and siteId !=  '' ">
-            AND a.site_id = #{siteId}
+            AND s.site_id = #{siteId}
         </if>
         <if test="siteName != null and siteName !=  '' ">
-            AND s.name = #{siteName}
+            AND s.name= #{siteName}
         </if>
         <if test="username != null and username !=  '' ">
             AND a.actor_id = #{username}
@@ -178,7 +178,7 @@
         FROM audit a INNER JOIN site s on a.site_id = s.id
         WHERE s.deleted = 0
         <if test="siteId != null and siteId !=  '' ">
-            AND a.site_id = #{siteId}
+            AND s.site_id = #{siteId}
         </if>
         <if test="siteName != null and siteName !=  '' ">
             AND s.name = #{siteName}
@@ -289,7 +289,7 @@
             and cs1.primary_target_subtype = #{contentType}
         </if>
         ) act
-        inner join item_state os on act.site_id=os.site and act.primary_target_value=os.path, site s3
+        inner join item i on act.site_id=i.site_id and act.primary_target_value=i.path, site s3
         where act.site_id = s3.id
         and act.actor_id = #{userId}
         and s3.site_id = #{siteId}
@@ -299,15 +299,11 @@
                  open="(" separator="," close=")">
             #{operation}
         </foreach>
-        and primary_target_type = #{targetType}
+        and act.primary_target_type = #{targetType}
         <if test="contentType != null and contentType != 'all' ">
-            and act.primary_target_value = #{contentType}
+            and act.primary_target_subtype = #{contentType}
         </if>
-        and os.state NOT IN
-        <foreach item="state" index="index" collection="states"
-                 open="(" separator="," close=")">
-            #{state}
-        </foreach>
+        and (i.state &amp; #{liveStateBitMap}) = 0
         order by act.operation_timestamp desc limit #{offset},#{limit}
     </select>
 

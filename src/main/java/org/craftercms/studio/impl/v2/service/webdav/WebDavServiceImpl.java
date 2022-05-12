@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.RegExUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.craftercms.commons.config.ConfigurationException;
 import org.craftercms.commons.config.profiles.webdav.WebDavProfile;
@@ -68,11 +69,6 @@ public class WebDavServiceImpl implements WebDavService {
      * Charset used to encode paths in URLs.
      */
     protected Charset charset = Charset.defaultCharset();
-
-    public WebDavServiceImpl(final String urlPattern, final SiteAwareConfigProfileLoader<WebDavProfile> profileLoader) {
-        this.urlPattern = urlPattern;
-        this.profileLoader = profileLoader;
-    }
 
     protected WebDavProfile getProfile(String site, String profileId) throws WebDavException  {
         try {
@@ -131,7 +127,7 @@ public class WebDavServiceImpl implements WebDavService {
     }
 
     protected String getUrl(DavResource resource, String profileId, WebDavProfile profile) {
-        String relativePath = StringUtils.removeFirst(resource.getPath(), URI.create(profile.getBaseUrl()).getPath());
+        String relativePath = RegExUtils.removeFirst(resource.getPath(), URI.create(profile.getBaseUrl()).getPath());
         if(resource.isDirectory()) {
             return relativePath;
         } else {
@@ -210,4 +206,19 @@ public class WebDavServiceImpl implements WebDavService {
         }
     }
 
+    public String getUrlPattern() {
+        return urlPattern;
+    }
+
+    public void setUrlPattern(String urlPattern) {
+        this.urlPattern = urlPattern;
+    }
+
+    public SiteAwareConfigProfileLoader<WebDavProfile> getProfileLoader() {
+        return profileLoader;
+    }
+
+    public void setProfileLoader(SiteAwareConfigProfileLoader<WebDavProfile> profileLoader) {
+        this.profileLoader = profileLoader;
+    }
 }

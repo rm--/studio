@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -19,6 +19,7 @@ package org.craftercms.studio;
 import org.craftercms.engine.service.impl.SiteItemServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.testng.annotations.*;
@@ -27,8 +28,9 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.AssertJUnit.assertTrue;
 
 @Test
-@ContextConfiguration(locations = {"classpath:crafter/engine/services/main-services-context.xml"})
 @WebAppConfiguration
+@ContextConfiguration(locations = {"classpath*:crafter/engine/services/main-services-context.xml"})
+@TestPropertySource(locations = "classpath:crafter/studio/test-application.yaml")
 public class SpringContextTest extends AbstractTestNGSpringContextTests{
 
     @AfterTest

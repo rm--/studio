@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -14,7 +14,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.craftercms.studio.api.v1.service.configuration;
-
 
 import org.craftercms.studio.api.v1.to.ContentTypeConfigTO;
 import org.craftercms.studio.api.v1.to.CopyDependencyConfigTO;
@@ -167,8 +166,6 @@ public interface ServicesConfig {
 	 */
 	String getPluginFolderPattern(String site);
 
-    void reloadConfiguration(String site);
-
     /**
      * Get sandbox branch name for given site
      *
@@ -182,6 +179,13 @@ public interface ServicesConfig {
     String getLiveEnvironment(String site);
 
     boolean isStagingEnvironmentEnabled(String site);
+
+	/**
+	 * Returns the search field configuration for the given site
+	 * @param site the site
+	 * @return the search fields
+	 */
+	Map<String, Float> getSearchFields(String site);
 
 	/**
 	 * Returns the search facets configuration for the given site
@@ -217,4 +221,18 @@ public interface ServicesConfig {
 	 * @return admin email address
 	 */
 	String getAdminEmailAddress(String siteId);
+
+	/**
+	 * Check if it is configured to require peer review
+	 * @param siteId site identifier
+	 * @return true if require peer review is configured for site
+	 */
+	boolean isRequirePeerReview(String siteId);
+
+	/**
+	 * Get configured protected folder patterns for site
+	 * @param siteId site identifier
+	 * @return list of configured protected folders patterns
+	 */
+    List<String> getProtectedFolderPatterns(String siteId);
 }

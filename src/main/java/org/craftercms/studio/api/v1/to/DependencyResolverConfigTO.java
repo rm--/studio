@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -35,6 +35,7 @@ public class DependencyResolverConfigTO {
 
         private String name;
         private List<String> includes;
+        private List<String> excludes;
         private Map<String, DependencyType> dependencyTypes;
 
         public String getName() { return name; }
@@ -42,6 +43,14 @@ public class DependencyResolverConfigTO {
 
         public List<String> getIncludes() { return includes; }
         public void setIncludes(List<String> includes) { this.includes = includes; }
+
+        public List<String> getExcludes() {
+            return excludes;
+        }
+
+        public void setExcludes(List<String> excludes) {
+            this.excludes = excludes;
+        }
 
         public Map<String, DependencyType> getDependencyTypes() { return dependencyTypes; }
         public void setDependencyTypes(Map<String, DependencyType> dependencyTypes) { this.dependencyTypes = dependencyTypes; }
@@ -75,11 +84,30 @@ public class DependencyResolverConfigTO {
 
         private String match;
         private String replace;
+        private boolean split;
+        private String delimiter;
 
         public String getMatch() { return match; }
         public void setMatch(String match) { this.match = match; }
 
         public String getReplace() { return replace; }
         public void setReplace(String replace) { this.replace = replace; }
+
+        public boolean isSplit() {
+            return split;
+        }
+
+        public void setSplit(boolean split) {
+            this.split = split;
+        }
+
+        public String getDelimiter() {
+            return delimiter;
+        }
+
+        public void setDelimiter(String delimiter) {
+            this.delimiter = delimiter;
+        }
+        
     }
 }

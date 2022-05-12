@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -19,12 +19,12 @@ import com.amazonaws.services.s3.model.*;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.craftercms.commons.file.blob.Blob;
-import org.craftercms.commons.file.blob.BlobStoreException;
+import org.craftercms.commons.file.blob.exception.BlobStoreException;
 import org.craftercms.commons.file.blob.impl.s3.AwsS3BlobStore;
-import org.craftercms.studio.api.v1.exception.ServiceLayerException;
+import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
-import org.craftercms.studio.api.v1.repository.RepositoryItem;
+import org.craftercms.studio.api.v1.service.configuration.ServicesConfig;
 import org.craftercms.studio.api.v1.to.DeploymentItemTO;
 import org.craftercms.studio.api.v2.repository.blob.StudioBlobStoreAdapter;
 import org.craftercms.studio.api.v2.repository.blob.StudioBlobStore;
@@ -42,6 +42,7 @@ import static org.apache.commons.lang3.StringUtils.*;
 import static org.craftercms.studio.impl.v1.service.aws.AwsUtils.COPY_PART_SIZE;
 import static org.craftercms.studio.impl.v1.service.aws.AwsUtils.MIN_PART_SIZE;
 import static org.craftercms.studio.impl.v1.service.aws.AwsUtils.copyFile;
+import static org.craftercms.studio.impl.v1.service.aws.AwsUtils.copyFolder;
 import static org.craftercms.studio.impl.v1.service.aws.AwsUtils.uploadStream;
 
 /**
@@ -55,6 +56,12 @@ public class StudioAwsS3BlobStore extends AwsS3BlobStore implements StudioBlobSt
     private static final Logger logger = LoggerFactory.getLogger(StudioAwsS3BlobStore.class);
 
     public static final String OK = "OK";
+
+    protected ServicesConfig servicesConfig;
+
+    public StudioAwsS3BlobStore(ServicesConfig servicesConfig) {
+        this.servicesConfig = servicesConfig;
+    }
 
     protected boolean isFolder(String path) {
         return isEmpty(getExtension(path));
@@ -88,6 +95,11 @@ public class StudioAwsS3BlobStore extends AwsS3BlobStore implements StudioBlobSt
         }
     }
 
+    @Override
+    public boolean shallowContentExists(String site, String path) {
+        return false;
+    }
+
 	@Override
 	public boolean contentExistsShallow(String site, String path) {
 		return false;
@@ -119,7 +131,7 @@ public class StudioAwsS3BlobStore extends AwsS3BlobStore implements StudioBlobSt
     }
 
     @Override
-    public String writeContent(String site, String path, InputStream content) throws ServiceLayerException {
+    public String writeContent(String site, String path, InputStream content) {
         Mapping previewMapping = getMapping(publishingTargetResolver.getPublishingTarget());
         logger.debug("Uploading content to {0}", getFullKey(previewMapping, path));
         try {
@@ -331,21 +343,32 @@ public class StudioAwsS3BlobStore extends AwsS3BlobStore implements StudioBlobSt
                 try {
                     copyFile(previewMapping.target, getKey(previewMapping, item.getPath()), envMapping.target,
                             getKey(envMapping, item.getPath()), COPY_PART_SIZE, getClient());
-                } catch (AmazonS3Exception s3e) {
-                    if (StringUtils.startsWith(s3e.getMessage(), "The specified key does not exist.")) {
-                        logger.error("Content " + item.getPath() + " does not exist in the S3 bucket at location "
-                                + getFullKey(previewMapping, item.getPath()));
-                    } else {
-                        throw new BlobStoreException("Error copying content from " +
-                                getFullKey(previewMapping, item.getPath()) + " to " +
-                                getFullKey(envMapping, item.getPath()), s3e);
-                    }
                 } catch (Exception e) {
                     throw new BlobStoreException("Error copying content from " +
                             getFullKey(previewMapping, item.getPath()) + " to " +
                             getFullKey(envMapping, item.getPath()), e);
                 }
             }
+        }
+    }
+
+    @Override
+    public void initialPublish(String siteId) throws SiteNotFoundException {
+        Mapping previewMapping = getMapping(publishingTargetResolver.getPublishingTarget());
+        Mapping liveMapping = getMapping(servicesConfig.getLiveEnvironment(siteId));
+
+        logger.debug("Performing initial publish for site {0}", siteId);
+
+        logger.debug("Performing initial publish for site {0} to live", siteId);
+        copyFolder(previewMapping.target, previewMapping.prefix, liveMapping.target, liveMapping.prefix,
+                MIN_PART_SIZE, getClient());
+
+        if (servicesConfig.isStagingEnvironmentEnabled(siteId)) {
+            Mapping statingMapping = getMapping(servicesConfig.getStagingEnvironment(siteId));
+
+            logger.debug("Performing initial publish for site {0} to staging", siteId);
+            copyFolder(previewMapping.target, previewMapping.prefix, statingMapping.target, statingMapping.prefix,
+                    MIN_PART_SIZE, getClient());
         }
     }
 

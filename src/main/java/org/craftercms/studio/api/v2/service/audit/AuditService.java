@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -115,7 +115,8 @@ public interface AuditService {
      * @param excludeLive exclude live items
      * @param filterType filter type
      * @return list of content items
-     * @throws ServiceLayerException
+     *
+     * @throws ServiceLayerException general service error
      */
     List<ContentItemTO> getUserActivities(String site, int limit, String sort, boolean ascending,
                                       boolean excludeLive, String filterType) throws ServiceLayerException;

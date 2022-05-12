@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+  ~ Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
   ~
   ~ This program is free software: you can redistribute it and/or modify
   ~ it under the terms of the GNU General Public License version 3 as published by
@@ -56,6 +56,10 @@
         <listener-class>org.springframework.web.context.request.RequestContextListener</listener-class>
     </listener>
 
+    <listener>
+        <listener-class>org.springframework.security.web.session.HttpSessionEventPublisher</listener-class>
+    </listener>
+
     <filter>
         <filter-name>log4jServletFilter</filter-name>
         <filter-class>org.apache.logging.log4j.web.Log4jServletFilter</filter-class>
@@ -73,11 +77,6 @@
 
     <filter>
         <filter-name>forwardedHeaderFilter</filter-name>
-        <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
-    </filter>
-
-    <filter>
-        <filter-name>crafter.secureHeaderWriterFilter</filter-name>
         <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
     </filter>
 
@@ -102,17 +101,12 @@
     </filter>
 
     <filter>
-        <filter-name>crafter.csrfFilter</filter-name>
-        <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
-    </filter>
-
-    <filter>
         <filter-name>crafter.urlRewriteFilter</filter-name>
         <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
     </filter>
 
     <filter>
-        <filter-name>crafter.corsFilter</filter-name>
+        <filter-name>crafter.etagFilter</filter-name>
         <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
     </filter>
 
@@ -176,11 +170,6 @@
     </filter-mapping>
 
     <filter-mapping>
-        <filter-name>crafter.csrfFilter</filter-name>
-        <url-pattern>/*</url-pattern>
-    </filter-mapping>
-
-    <filter-mapping>
         <filter-name>crafter.urlRewriteFilter</filter-name>
         <url-pattern>/*</url-pattern>
         <dispatcher>REQUEST</dispatcher>
@@ -188,7 +177,7 @@
     </filter-mapping>
 
     <filter-mapping>
-        <filter-name>crafter.corsFilter</filter-name>
+        <filter-name>crafter.etagFilter</filter-name>
         <url-pattern>/*</url-pattern>
     </filter-mapping>
 
@@ -208,7 +197,7 @@
 	</servlet-mapping>
 
 	<session-config>
-		<session-timeout>75</session-timeout>
+        <session-timeout>30</session-timeout>
         <tracking-mode>COOKIE</tracking-mode>
 	</session-config>
 

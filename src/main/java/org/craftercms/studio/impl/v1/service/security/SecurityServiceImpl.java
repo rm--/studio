@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -16,37 +16,16 @@
 
 package org.craftercms.studio.impl.v1.service.security;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.StringTokenizer;
-import java.util.stream.Collectors;
-
+import com.google.common.cache.Cache;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.craftercms.commons.http.RequestContext;
 import org.craftercms.commons.validation.annotations.param.ValidateParams;
 import org.craftercms.commons.validation.annotations.param.ValidateSecurePathParam;
 import org.craftercms.commons.validation.annotations.param.ValidateStringParam;
 import org.craftercms.studio.api.v1.constant.StudioConstants;
 import org.craftercms.studio.api.v1.constant.StudioXmlConstants;
-import org.craftercms.studio.api.v1.dal.SiteFeed;
-import org.craftercms.studio.api.v1.ebus.RepositoryEventContext;
 import org.craftercms.studio.api.v1.exception.ServiceLayerException;
-import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
 import org.craftercms.studio.api.v1.exception.security.PasswordDoesNotMatchException;
 import org.craftercms.studio.api.v1.exception.security.UserExternallyManagedException;
 import org.craftercms.studio.api.v1.exception.security.UserNotFoundException;
@@ -57,39 +36,35 @@ import org.craftercms.studio.api.v1.service.GeneralLockService;
 import org.craftercms.studio.api.v1.service.content.ContentService;
 import org.craftercms.studio.api.v1.service.content.ContentTypeService;
 import org.craftercms.studio.api.v1.service.security.SecurityService;
-import org.craftercms.studio.api.v1.service.security.UserDetailsManager;
 import org.craftercms.studio.api.v1.service.site.SiteService;
 import org.craftercms.studio.api.v1.to.ContentTypeConfigTO;
 import org.craftercms.studio.api.v1.to.PermissionsConfigTO;
-import org.craftercms.studio.api.v2.dal.AuditLog;
 import org.craftercms.studio.api.v2.dal.Group;
 import org.craftercms.studio.api.v2.dal.User;
 import org.craftercms.studio.api.v2.service.audit.internal.AuditServiceInternal;
 import org.craftercms.studio.api.v2.service.config.ConfigurationService;
-import org.craftercms.studio.api.v2.service.security.AuthenticationChain;
 import org.craftercms.studio.api.v2.service.security.GroupService;
 import org.craftercms.studio.api.v2.service.security.internal.UserServiceInternal;
 import org.craftercms.studio.api.v2.utils.StudioConfiguration;
-import org.craftercms.studio.impl.v1.util.SessionTokenUtils;
-import org.craftercms.studio.impl.v2.service.security.Authentication;
+import org.craftercms.studio.impl.v2.utils.DateUtils;
 import org.dom4j.Document;
-import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.Node;
 import org.springframework.beans.factory.ObjectFactory;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.servlet.view.freemarker.FreeMarkerConfig;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.craftercms.studio.api.v1.constant.SecurityConstants.KEY_EMAIL;
 import static org.craftercms.studio.api.v1.constant.SecurityConstants.KEY_EXTERNALLY_MANAGED;
@@ -98,12 +73,8 @@ import static org.craftercms.studio.api.v1.constant.SecurityConstants.KEY_LASTNA
 import static org.craftercms.studio.api.v1.constant.SecurityConstants.KEY_USERNAME;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.ADMIN_ROLE;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.FILE_SEPARATOR;
-import static org.craftercms.studio.api.v1.constant.StudioConstants.HTTP_SESSION_ATTRIBUTE_AUTHENTICATION;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.MODULE_STUDIO;
-import static org.craftercms.studio.api.v1.constant.StudioConstants.SECURITY_AUTHENTICATION_TYPE;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.SYSTEM_ADMIN_GROUP;
-import static org.craftercms.studio.api.v2.dal.AuditLogConstants.OPERATION_LOGOUT;
-import static org.craftercms.studio.api.v2.dal.AuditLogConstants.TARGET_TYPE_USER;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATION_ENVIRONMENT_ACTIVE;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATION_GLOBAL_CONFIG_BASE_PATH;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATION_GLOBAL_PERMISSION_MAPPINGS_FILE_NAME;
@@ -113,11 +84,8 @@ import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATI
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATION_SITE_ROLE_MAPPINGS_FILE_NAME;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.MAIL_FROM_DEFAULT;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.MAIL_SMTP_AUTH;
-import static org.craftercms.studio.api.v2.utils.StudioConfiguration.SECURITY_CIPHER_ALGORITHM;
-import static org.craftercms.studio.api.v2.utils.StudioConfiguration.SECURITY_CIPHER_KEY;
-import static org.craftercms.studio.api.v2.utils.StudioConfiguration.SECURITY_CIPHER_TYPE;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.SECURITY_SESSION_TIMEOUT;
-import static org.craftercms.studio.api.v2.utils.StudioConfiguration.SECURITY_TYPE;
+import static org.craftercms.studio.permissions.StudioPermissionsConstants.PERMISSION_CONTENT_READ;
 
 /**
  * @author Dejan Brkic
@@ -132,86 +100,35 @@ public class SecurityServiceImpl implements SecurityService {
     protected StudioConfiguration studioConfiguration;
     protected JavaMailSender emailService;
     protected JavaMailSender emailServiceNoAuth;
-    protected UserDetailsManager userDetailsManager;
     protected ObjectFactory<FreeMarkerConfig> freeMarkerConfig;
     protected GroupService groupService;
     protected UserServiceInternal userServiceInternal;
-    protected AuthenticationChain authenticationChain;
     protected ConfigurationService configurationService;
     protected AuditServiceInternal auditServiceInternal;
     protected SiteService siteService;
 
-    @Override
-    @ValidateParams
-    public String authenticate(@ValidateStringParam(name = "username") String username,
-                               @ValidateStringParam(name = "password") String password) throws Exception {
-        RequestContext requestContext = RequestContext.getCurrent();
-        HttpServletRequest request = requestContext.getRequest();
-        HttpServletResponse response = requestContext.getResponse();
-        authenticationChain.doAuthenticate(request, response, username, password);
-        return getCurrentToken();
-    }
-
-    @Override
-    @ValidateParams
-    public boolean validateTicket(@ValidateStringParam(name = "ticket") String ticket) {
-        if (ticket == null) {
-            ticket = getCurrentToken();
-        }
-        boolean valid = false;
-        if (StringUtils.isNotEmpty(ticket)) valid = true;
-        return valid;
-    }
+    protected Cache<String, PermissionsConfigTO> cache;
 
     @Override
     public String getCurrentUser() {
         String username = null;
-        RequestContext context = RequestContext.getCurrent();
+        var context = SecurityContextHolder.getContext();
 
         if(context != null) {
-            HttpSession httpSession = context.getRequest().getSession();
-            Authentication auth = (Authentication) httpSession.getAttribute(HTTP_SESSION_ATTRIBUTE_AUTHENTICATION);
+            var auth = context.getAuthentication();
 
-            if (auth != null) {
-                username = auth.getUsername();
+            if (auth != null && !(auth instanceof AnonymousAuthenticationToken)) {
+                username = auth.getName();
             }
         } else {
             CronJobContext cronJobContext = CronJobContext.getCurrent();
 
             if (cronJobContext != null) {
                 username = cronJobContext.getCurrentUser();
-            } else {
-                RepositoryEventContext repositoryEventContext = RepositoryEventContext.getCurrent();
-                if (repositoryEventContext != null) {
-                    username = repositoryEventContext.getCurrentUser();
-                }
             }
         }
 
         return username;
-    }
-
-    @Override
-    public String getCurrentToken() {
-        String ticket = null;
-        RequestContext context = RequestContext.getCurrent();
-
-        if (context != null) {
-            HttpSession httpSession = context.getRequest().getSession();
-            Authentication auth = (Authentication) httpSession.getAttribute(HTTP_SESSION_ATTRIBUTE_AUTHENTICATION);
-
-            if (auth != null) {
-                ticket = auth.getToken();
-            }
-        } else {
-            ticket = getJobOrEventTicket();
-        }
-
-        if (ticket == null) {
-            ticket = "NOTICKET";
-        }
-
-        return ticket;
     }
 
     @Override
@@ -226,8 +143,6 @@ public class SecurityServiceImpl implements SecurityService {
             toRet.put(KEY_LASTNAME, u.getLastName());
             toRet.put(KEY_EMAIL, u.getEmail());
             toRet.put(KEY_EXTERNALLY_MANAGED, u.isExternallyManaged());
-            String authenticationType = studioConfiguration.getProperty(SECURITY_TYPE);
-            toRet.put(SECURITY_AUTHENTICATION_TYPE, authenticationType);
         }
         return toRet;
     }
@@ -244,8 +159,6 @@ public class SecurityServiceImpl implements SecurityService {
             toRet.put(KEY_LASTNAME, u.getLastName());
             toRet.put(KEY_EMAIL, u.getEmail());
             toRet.put(KEY_EXTERNALLY_MANAGED, u.isExternallyManaged());
-            String authenticationType = studioConfiguration.getProperty(SECURITY_TYPE);
-            toRet.put(SECURITY_AUTHENTICATION_TYPE, authenticationType);
         } else {
             throw new UserNotFoundException("User " + gitName + " not found");
         }
@@ -334,7 +247,6 @@ public class SecurityServiceImpl implements SecurityService {
         }
     }
 
-    @SuppressWarnings("unchecked")
     protected Set<String> populateUserGlobalPermissions(String path, Set<String> roles,
                                                   PermissionsConfigTO permissionsConfig) {
         Set<String> permissions = new HashSet<String>();
@@ -500,7 +412,6 @@ public class SecurityServiceImpl implements SecurityService {
      * @param roles
      * @param permissionsConfig
      */
-    @SuppressWarnings("unchecked")
     protected Set<String> populateUserPermissions(String site, String path, Set<String> roles,
                                                   PermissionsConfigTO permissionsConfig) {
         Set<String> permissions = new HashSet<String>();
@@ -535,56 +446,57 @@ public class SecurityServiceImpl implements SecurityService {
                         }
                     } else {
                         logger.debug("No default role is set. adding default permission: "
-                                + StudioConstants.PERMISSION_VALUE_READ);
+                                + PERMISSION_CONTENT_READ);
                         // If no default role is set
-                        permissions.add(StudioConstants.PERMISSION_VALUE_READ);
+                        permissions.add(PERMISSION_CONTENT_READ);
                     }
                 } else {
                     logger.debug("No default site is set. adding default permission: "
-                            + StudioConstants.PERMISSION_VALUE_READ);
+                            + PERMISSION_CONTENT_READ);
                     // If no default site is set
-                    permissions.add(StudioConstants.PERMISSION_VALUE_READ);
+                    permissions.add(PERMISSION_CONTENT_READ);
                 }
             }
         } else {
             logger.debug("No user or group matching found. adding default permission: "
-                    + StudioConstants.PERMISSION_VALUE_READ);
+                    + PERMISSION_CONTENT_READ);
             // If user or group did not match the roles-mapping file
-            permissions.add(StudioConstants.PERMISSION_VALUE_READ);
+            permissions.add(PERMISSION_CONTENT_READ);
         }
         return permissions;
     }
 
     protected PermissionsConfigTO loadConfiguration(String site, String filename) {
-        Document document = null;
-        PermissionsConfigTO config = null;
-        try {
-            document = configurationService.getConfigurationAsDocument(site, MODULE_STUDIO, filename,
-                    studioConfiguration.getProperty(CONFIGURATION_ENVIRONMENT_ACTIVE));
-        } catch (DocumentException | IOException e) {
-            logger.error("Permission mapping not found for " + site + ":" + filename);
-        }
-        if (document != null) {
-            config = new PermissionsConfigTO();
-            config.setMapping(document);
-            Element root = document.getRootElement();
+        var environment = studioConfiguration.getProperty(CONFIGURATION_ENVIRONMENT_ACTIVE);
+        var cacheKey = configurationService.getCacheKey(site, MODULE_STUDIO, filename, environment, "object");
+        PermissionsConfigTO config = cache.getIfPresent(cacheKey);
+        if (config == null) {
+            try {
+                Document document =
+                        configurationService.getConfigurationAsDocument(site, MODULE_STUDIO, filename, environment);
+                if (document != null) {
+                    config = new PermissionsConfigTO();
+                    config.setMapping(document);
+                    Element root = document.getRootElement();
 
-            // roles file
-            loadRoles(root, config);
+                    // roles file
+                    loadRoles(root, config);
 
-            // permissions file
-            loadPermissions(site, root, config);
+                    // permissions file
+                    loadPermissions(site, root, config);
 
-            config.setKey(site + ":" + filename);
-            config.setLastUpdated(ZonedDateTime.now(ZoneOffset.UTC));
+                    config.setKey(site + ":" + filename);
+                    config.setLastUpdated(DateUtils.getCurrentTime());
 
-        } else {
-            logger.error("Permission mapping not found for " + site + ":" + filename);
+                    cache.put(cacheKey, config);
+                }
+            } catch (ServiceLayerException e) {
+                logger.error("Permission mapping not found for " + site + ":" + filename);
+            }
         }
         return config;
     }
 
-    @SuppressWarnings("unchecked")
     protected void loadRoles(Element root, PermissionsConfigTO config) {
         if (root.getName().equals(StudioXmlConstants.DOCUMENT_ROLE_MAPPINGS)) {
             Map<String, List<String>> rolesMap = new HashMap<String, List<String>>();
@@ -599,7 +511,6 @@ public class SecurityServiceImpl implements SecurityService {
         }
     }
 
-    @SuppressWarnings("unchecked")
     protected Map<String, List<String>> getRoles(List<Node> nodes, Map<String, List<String>> rolesMap) {
         for (Node node : nodes) {
             String name = node.valueOf(StudioXmlConstants.DOCUMENT_ATTR_PERMISSIONS_NAME);
@@ -615,7 +526,6 @@ public class SecurityServiceImpl implements SecurityService {
         return rolesMap;
     }
 
-    @SuppressWarnings("unchecked")
     protected void loadPermissions(String siteId, Element root, PermissionsConfigTO config) {
         if (root.getName().equals(StudioXmlConstants.DOCUMENT_PERMISSIONS)) {
             Map<String, Map<String, List<Node>>> permissionsMap = new HashMap<String, Map<String, List<Node>>>();
@@ -643,27 +553,28 @@ public class SecurityServiceImpl implements SecurityService {
 
     protected PermissionsConfigTO loadGlobalPermissionsConfiguration() {
         String globalPermissionsConfigPath = getGlobalConfigPath() + FILE_SEPARATOR + getGlobalPermissionsFileName();
-        Document document = null;
-        PermissionsConfigTO config = null;
-        try {
-            document = contentService.getContentAsDocument(StringUtils.EMPTY, globalPermissionsConfigPath);
-        } catch (DocumentException e) {
-            logger.error("Global permission mapping not found (path: {0})", globalPermissionsConfigPath);
-        }
-        if (document != null) {
-            config = new PermissionsConfigTO();
-            config.setMapping(document);
-            Element root = document.getRootElement();
+        String cacheKey = configurationService.getCacheKey(null, null, globalPermissionsConfigPath, null, "object");
+        PermissionsConfigTO config = cache.getIfPresent(cacheKey);
+        if (config == null) {
+            try {
+                Document document = configurationService.getGlobalConfigurationAsDocument(globalPermissionsConfigPath);
+                if (document != null) {
+                    config = new PermissionsConfigTO();
+                    config.setMapping(document);
+                    Element root = document.getRootElement();
 
-            // permissions file
-            loadPermissions("###GLOBAL###", root, config);
+                    // permissions file
+                    loadPermissions("###GLOBAL###", root, config);
 
-            String globalPermissionsKey = "###GLOBAL###:" + getGlobalPermissionsFileName();
-            config.setKey(globalPermissionsKey);
-            config.setLastUpdated(ZonedDateTime.now(ZoneOffset.UTC));
+                    String globalPermissionsKey = "###GLOBAL###:" + getGlobalPermissionsFileName();
+                    config.setKey(globalPermissionsKey);
+                    config.setLastUpdated(DateUtils.getCurrentTime());
 
-        } else {
-            logger.error("Global permission mapping not found (path: {0})", globalPermissionsConfigPath);
+                    cache.put(cacheKey, config);
+                }
+            } catch (ServiceLayerException e) {
+                logger.error("Global permission mapping not found (path: {0})", globalPermissionsConfigPath);
+            }
         }
         return config;
     }
@@ -673,8 +584,8 @@ public class SecurityServiceImpl implements SecurityService {
         Document document = null;
         PermissionsConfigTO config = null;
         try {
-            document = contentService.getContentAsDocument(StringUtils.EMPTY, globalRolesConfigPath);
-        } catch (DocumentException e) {
+            document = configurationService.getGlobalConfigurationAsDocument(globalRolesConfigPath);
+        } catch (ServiceLayerException e) {
             logger.error("Global roles mapping not found (path: {0})", globalRolesConfigPath);
         }
         if (document != null) {
@@ -687,7 +598,7 @@ public class SecurityServiceImpl implements SecurityService {
 
             String globalRolesKey = "###GLOBAL###:" + getGlobalRoleMappingsFileName();
             config.setKey(globalRolesKey);
-            config.setLastUpdated(ZonedDateTime.now(ZoneOffset.UTC));
+            config.setLastUpdated(DateUtils.getCurrentTime());
 
         } else {
             logger.error("Global roles mapping not found (path: {0})", globalRolesConfigPath);
@@ -695,95 +606,9 @@ public class SecurityServiceImpl implements SecurityService {
         return config;
     }
 
-
-    @Override
-    @ValidateParams
-    public void reloadConfiguration(@ValidateStringParam(name = "site") String site) {
-        PermissionsConfigTO permissionsConfigTO = loadConfiguration(site, getPermissionsFileName());
-        PermissionsConfigTO rolesConfigTO = loadConfiguration(site, getRoleMappingsFileName());
-    }
-
-    @Override
-    public void reloadGlobalConfiguration() {
-        PermissionsConfigTO permissionsConfigTO = loadGlobalPermissionsConfiguration();
-        PermissionsConfigTO rolesConfigTO = loadGlobalRolesConfiguration();
-    }
-
-    @Override
-    public boolean logout() throws SiteNotFoundException {
-        String username = getCurrentUser();
-        RequestContext context = RequestContext.getCurrent();
-        if (username != null && context != null) {
-            HttpServletRequest httpServletRequest = context.getRequest();
-            String ipAddress = httpServletRequest.getRemoteAddr();
-
-            SiteFeed siteFeed = siteService.getSite(studioConfiguration.getProperty(CONFIGURATION_GLOBAL_SYSTEM_SITE));
-            AuditLog auditLog = auditServiceInternal.createAuditLogEntry();
-            auditLog.setOperation(OPERATION_LOGOUT);
-            auditLog.setActorId(username);
-            auditLog.setSiteId(siteFeed.getId());
-            auditLog.setPrimaryTargetId(username);
-            auditLog.setPrimaryTargetType(TARGET_TYPE_USER);
-            auditLog.setPrimaryTargetValue(username);
-            auditServiceInternal.insertAuditLog(auditLog);
-
-            logger.info("User " + username + " logged out from IP: " + ipAddress);
-        }
-        return true;
-    }
-
-
     @Override
     public int getAllUsersTotal() throws ServiceLayerException {
-        return userServiceInternal.getAllUsersTotal();
-    }
-
-
-    @Override
-    @ValidateParams
-    public boolean validateToken(@ValidateStringParam(name = "token") String token) throws UserNotFoundException,
-        UserExternallyManagedException, ServiceLayerException {
-        boolean toRet = false;
-        String decryptedToken = decryptToken(token);
-        if (StringUtils.isNotEmpty(decryptedToken)) {
-            StringTokenizer tokenElements = new StringTokenizer(decryptedToken, "|");
-            if (tokenElements.countTokens() == 3) {
-                String username = tokenElements.nextToken();
-                User userProfile = userServiceInternal.getUserByIdOrUsername(-1, username);
-                if (userProfile == null) {
-                    logger.info("User profile not found for " + username);
-                    throw new UserNotFoundException();
-                } else {
-                    if (userProfile.isExternallyManaged()) {
-                        throw new UserExternallyManagedException();
-                    } else {
-                        long tokenTimestamp = Long.parseLong(tokenElements.nextToken());
-                        if (tokenTimestamp < System.currentTimeMillis()) {
-                            toRet = false;
-                        } else {
-                            toRet = true;
-                        }
-                    }
-                }
-            }
-        }
-        return toRet;
-    }
-
-    private String decryptToken(String token) {
-        try {
-            SecretKeySpec key = new SecretKeySpec(studioConfiguration.getProperty(SECURITY_CIPHER_KEY).getBytes(),
-                    studioConfiguration.getProperty(SECURITY_CIPHER_TYPE));
-            Cipher cipher = Cipher.getInstance(studioConfiguration.getProperty(SECURITY_CIPHER_ALGORITHM));
-            byte[] tokenBytes = Base64.getDecoder().decode(token.getBytes(StandardCharsets.UTF_8));
-            cipher.init(Cipher.DECRYPT_MODE, key, new IvParameterSpec(key.getEncoded()));
-            byte[] decrypted = cipher.doFinal(tokenBytes);
-            return new String(decrypted, StandardCharsets.UTF_8);
-        } catch (IllegalArgumentException | NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException |
-                BadPaddingException | IllegalBlockSizeException | InvalidAlgorithmParameterException e) {
-            logger.error("Error while decrypting forgot password token", e);
-            return null;
-        }
+        return userServiceInternal.getAllUsersTotal(null);
     }
 
     @Override
@@ -793,45 +618,6 @@ public class SecurityServiceImpl implements SecurityService {
                                   @ValidateStringParam(name = "newPassword") String newPassword)
         throws PasswordDoesNotMatchException, UserExternallyManagedException, ServiceLayerException {
         return userServiceInternal.changePassword(username, current, newPassword);
-    }
-
-    @Override
-    @ValidateParams
-    public Map<String, Object> setUserPassword(@ValidateStringParam(name = "token") String token,
-                                               @ValidateStringParam(name = "newPassword") String newPassword)
-        throws UserNotFoundException, UserExternallyManagedException, ServiceLayerException {
-        Map<String, Object> toRet = new HashMap<String, Object>();
-        toRet.put("username", StringUtils.EMPTY);
-        toRet.put("success", false);
-        if (validateToken(token)) {
-            String username = getUsernameFromToken(token);
-            if (StringUtils.isNotEmpty(username)) {
-                toRet.put("username", username);
-                User user = userServiceInternal.getUserByIdOrUsername(-1, username);
-                if (user != null ) {
-                    if (user.isEnabled()) {
-                        toRet.put("success", userServiceInternal.setUserPassword(username, newPassword));
-                    }
-                } else {
-                    throw new UserNotFoundException("User not found");
-                }
-            } else {
-                throw new UserNotFoundException("User not found");
-            }
-        }
-        return toRet;
-    }
-
-    private String getUsernameFromToken(String token) {
-        String toRet = StringUtils.EMPTY;
-        String decryptedToken = decryptToken(token);
-        if (StringUtils.isNotEmpty(decryptedToken)) {
-            StringTokenizer tokenElements = new StringTokenizer(decryptedToken, "|");
-            if (tokenElements.countTokens() == 3) {
-                toRet = tokenElements.nextToken();
-            }
-        }
-        return toRet;
     }
 
     @Override
@@ -874,7 +660,7 @@ public class SecurityServiceImpl implements SecurityService {
             List<Group> groups = userServiceInternal.getUserGroups(-1, username);
 
             if (CollectionUtils.isNotEmpty(groups)) {
-                Map<String, List<String>> roleMappings = configurationService.geRoleMappings(site);
+                Map<String, List<String>> roleMappings = configurationService.getRoleMappings(site);
 
                 if (MapUtils.isNotEmpty(roleMappings)) {
                     for (Group group : groups) {
@@ -900,54 +686,12 @@ public class SecurityServiceImpl implements SecurityService {
     }
 
     @Override
-    public boolean validateSession(HttpServletRequest request) throws ServiceLayerException {
-        HttpSession httpSession = request.getSession();
-        String authToken = getCurrentToken();
-        String userName = getCurrentUser();
-
-        if (userName != null) {
-
-            UserDetails userDetails = this.userDetailsManager.loadUserByUsername(userName);
-
-            if (SessionTokenUtils.validateToken(authToken, userDetails.getUsername())) {
-                return true;
-            }
-
-        }
-
-        httpSession.removeAttribute(HTTP_SESSION_ATTRIBUTE_AUTHENTICATION);
-        httpSession.invalidate();
-        return false;
-    }
-
-    @Override
     public Authentication getAuthentication() {
-        Authentication auth = null;
-        RequestContext context = RequestContext.getCurrent();
-
+        var context = SecurityContextHolder.getContext();
         if (context != null) {
-            HttpSession httpSession = context.getRequest().getSession();
-            auth = (Authentication) httpSession.getAttribute(HTTP_SESSION_ATTRIBUTE_AUTHENTICATION);
+            return context.getAuthentication();
         }
-
-        return auth;
-    }
-
-
-    protected String getJobOrEventTicket() {
-        String ticket = null;
-        CronJobContext cronJobContext = CronJobContext.getCurrent();
-
-        if (cronJobContext != null) {
-            ticket = cronJobContext.getAuthenticationToken();
-        } else {
-            RepositoryEventContext repositoryEventContext = RepositoryEventContext.getCurrent();
-            if (repositoryEventContext != null) {
-                ticket = repositoryEventContext.getAuthenticationToken();
-            }
-        }
-
-        return ticket;
+        return null;
     }
 
     public String getRoleMappingsFileName() {
@@ -1036,14 +780,6 @@ public class SecurityServiceImpl implements SecurityService {
         this.emailServiceNoAuth = emailServiceNoAuth;
     }
 
-    public UserDetailsManager getUserDetailsManager() {
-        return userDetailsManager;
-    }
-
-    public void setUserDetailsManager(UserDetailsManager userDetailsManager) {
-        this.userDetailsManager = userDetailsManager;
-    }
-
     public ObjectFactory<FreeMarkerConfig> getFreeMarkerConfig() {
         return freeMarkerConfig;
     }
@@ -1066,14 +802,6 @@ public class SecurityServiceImpl implements SecurityService {
 
     public void setUserServiceInternal(UserServiceInternal userServiceInternal) {
         this.userServiceInternal = userServiceInternal;
-    }
-
-    public AuthenticationChain getAuthenticationChain() {
-        return authenticationChain;
-    }
-
-    public void setAuthenticationChain(AuthenticationChain authenticationChain) {
-        this.authenticationChain = authenticationChain;
     }
 
     public ConfigurationService getConfigurationService() {
@@ -1099,4 +827,9 @@ public class SecurityServiceImpl implements SecurityService {
     public void setSiteService(SiteService siteService) {
         this.siteService = siteService;
     }
+
+    public void setCache(Cache<String, PermissionsConfigTO> cache) {
+        this.cache = cache;
+    }
+
 }

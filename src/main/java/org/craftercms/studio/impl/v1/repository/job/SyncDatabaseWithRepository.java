@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -16,7 +16,9 @@
 
 package org.craftercms.studio.impl.v1.repository.job;
 
+import org.craftercms.studio.api.v1.exception.ServiceLayerException;
 import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
+import org.craftercms.studio.api.v1.exception.security.UserNotFoundException;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
 import org.craftercms.studio.api.v1.service.security.SecurityService;
@@ -58,7 +60,7 @@ public class SyncDatabaseWithRepository {
             logger.debug("Start synchronizing database with repository  for site " + site);
             try {
                 siteService.syncDatabaseWithRepo(site, lastDbCommitId);
-            } catch (SiteNotFoundException e) {
+            } catch (ServiceLayerException | UserNotFoundException e) {
                 logger.error("Error while syncing database with repository", e);
             }
         }

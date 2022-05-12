@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -17,17 +17,21 @@
 package org.craftercms.studio.impl.v2.service.publish.internal;
 
 import org.apache.commons.collections.CollectionUtils;
+import org.craftercms.commons.security.permissions.annotations.ProtectedResourceId;
+import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
 import org.craftercms.studio.api.v1.util.filter.DmFilterWrapper;
-import org.craftercms.studio.api.v2.annotation.RetryingOperation;
 import org.craftercms.studio.api.v2.dal.DeploymentHistoryItem;
 import org.craftercms.studio.api.v2.dal.PublishRequest;
 import org.craftercms.studio.api.v2.dal.PublishRequestDAO;
 import org.craftercms.studio.api.v2.dal.PublishingHistoryItem;
 import org.craftercms.studio.api.v2.dal.PublishingPackage;
 import org.craftercms.studio.api.v2.dal.PublishingPackageDetails;
+import org.craftercms.studio.api.v2.dal.RetryingDatabaseOperationFacade;
 import org.craftercms.studio.api.v2.repository.ContentRepository;
 import org.craftercms.studio.api.v2.service.publish.internal.PublishServiceInternal;
-;
+import org.craftercms.studio.impl.v2.utils.DateUtils;
+import org.craftercms.studio.model.rest.dashboard.DashboardPublishingPackage;
+
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,12 +41,15 @@ import static org.craftercms.studio.api.v1.constant.StudioConstants.CONTENT_TYPE
 import static org.craftercms.studio.api.v1.constant.StudioConstants.CONTENT_TYPE_PAGE;
 import static org.craftercms.studio.api.v2.dal.PublishRequest.State.CANCELLED;
 import static org.craftercms.studio.api.v2.dal.PublishRequest.State.COMPLETED;
+import static org.craftercms.studio.api.v2.dal.PublishRequest.State.READY_FOR_LIVE;
+import static org.craftercms.studio.permissions.PermissionResolverImpl.SITE_ID_RESOURCE_ID;
 
 public class PublishServiceInternalImpl implements PublishServiceInternal {
 
     private PublishRequestDAO publishRequestDao;
     private ContentRepository contentRepository;
     private DmFilterWrapper dmFilterWrapper;
+    private RetryingDatabaseOperationFacade retryingDatabaseOperationFacade;
 
     @Override
     public int getPublishingPackagesTotal(String siteId, String environment, String path, List<String> states) {
@@ -59,8 +66,7 @@ public class PublishServiceInternalImpl implements PublishServiceInternal {
     public PublishingPackageDetails getPublishingPackageDetails(String siteId, String packageId) {
         List<PublishRequest> publishingRequests = publishRequestDao.getPublishingPackageDetails(siteId, packageId);
         PublishingPackageDetails publishingPackageDetails = new PublishingPackageDetails();
-        List<PublishingPackageDetails.PublishingPackageItem> packageItems =
-                new ArrayList<PublishingPackageDetails.PublishingPackageItem>();
+        List<PublishingPackageDetails.PublishingPackageItem> packageItems = new ArrayList<>();
         if (CollectionUtils.isNotEmpty(publishingRequests)) {
             PublishRequest pr = publishingRequests.get(0);
             publishingPackageDetails.setSiteId(pr.getSite());
@@ -84,7 +90,7 @@ public class PublishServiceInternalImpl implements PublishServiceInternal {
     @RetryingOperation
     @Override
     public void cancelPublishingPackages(String siteId, List<String> packageIds) {
-        publishRequestDao.cancelPackages(siteId, packageIds, CANCELLED);
+        retryingDatabaseOperationFacade.cancelPackages(siteId, packageIds, CANCELLED);
     }
 
     @Override
@@ -107,7 +113,8 @@ public class PublishServiceInternalImpl implements PublishServiceInternal {
                                                             String filterType, int numberOfItems) {
         int offset = 0;
         int counter = 0;
-        List<DeploymentHistoryItem> toRet = new ArrayList<DeploymentHistoryItem>();
+        List<DeploymentHistoryItem> toRet = new ArrayList<>();
+
         String contentTypeClass = null;
         switch (filterType) {
             case CONTENT_TYPE_PAGE:
@@ -119,20 +126,21 @@ public class PublishServiceInternalImpl implements PublishServiceInternal {
                 contentTypeClass = null;
                 break;
         }
-        List<PublishRequest> deploymentHistory = publishRequestDao.getDeploymentHistory(siteId, environments,
-                COMPLETED, contentTypeClass, fromDate, toDate, offset, numberOfItems);
-        if (CollectionUtils.isNotEmpty(deploymentHistory)) {
-            for (PublishRequest publishRequest : deploymentHistory) {
-                    DeploymentHistoryItem dhi = new DeploymentHistoryItem();
-                    dhi.setSite(siteId);
-                    dhi.setPath(publishRequest.getPath());
-                    dhi.setDeploymentDate(publishRequest.getCompletedDate());
-                    dhi.setUser(publishRequest.getUser());
-                    dhi.setEnvironment(publishRequest.getEnvironment());
-                    toRet.add(dhi);
-                    if (!(++counter < numberOfItems)) {
-                        break;
-                    }
+        List<PublishRequest> deploymentHistory = publishRequestDao.getDeploymentHistory(siteId, environments, COMPLETED,
+                    contentTypeClass, fromDate, toDate, offset, numberOfItems);
+            if (CollectionUtils.isNotEmpty(deploymentHistory)) {
+                for (PublishRequest publishRequest : deploymentHistory) {
+                        DeploymentHistoryItem dhi = new DeploymentHistoryItem();
+                        dhi.setSite(siteId);
+                        dhi.setPath(publishRequest.getPath());
+                        dhi.setDeploymentDate(publishRequest.getPublishedOn());
+                        dhi.setUser(publishRequest.getUser());
+                        dhi.setEnvironment(publishRequest.getEnvironment());
+                        toRet.add(dhi);
+                        if (++counter >= numberOfItems) {
+                            break;
+                        }
+
             }
 
         }
@@ -140,27 +148,81 @@ public class PublishServiceInternalImpl implements PublishServiceInternal {
         return toRet;
     }
 
-    public PublishRequestDAO getPublishRequestDao() {
-        return publishRequestDao;
+    @Override
+    public void cancelScheduledQueueItems(String siteId, List<String> paths) {
+        retryingDatabaseOperationFacade.cancelScheduledQueueItems(siteId, paths, DateUtils.getCurrentTime(), CANCELLED,
+                READY_FOR_LIVE);
+    }
+
+    @Override
+    public boolean isSitePublished(@ProtectedResourceId(SITE_ID_RESOURCE_ID) String siteId) {
+        // Site is published if PUBLISHED repo exists
+        return contentRepository.publishedRepositoryExists(siteId);
+    }
+
+    @Override
+    public void initialPublish(String siteId) throws SiteNotFoundException {
+        contentRepository.initialPublish(siteId);
+    }
+
+    @Override
+    public int getPublishingPackagesScheduledTotal(String siteId, String publishingTarget, ZonedDateTime dateFrom,
+                                                   ZonedDateTime dateTo) {
+        return publishRequestDao
+                .getPublishingPackagesScheduledTotal(siteId, publishingTarget, READY_FOR_LIVE, dateFrom, dateTo)
+                .orElse(0);
+    }
+
+    @Override
+    public List<DashboardPublishingPackage> getPublishingPackagesScheduled(String siteId, String publishingTarget,
+                                                                           ZonedDateTime dateFrom,
+                                                                           ZonedDateTime dateTo, int offset, int limit) {
+        return publishRequestDao.getPublishingPackagesScheduled(siteId, publishingTarget, READY_FOR_LIVE, dateFrom,
+                dateTo, offset, limit);
+    }
+
+    @Override
+    public int getPublishingPackagesHistoryTotal(String siteId, String publishingTarget, String approver,
+                                                 ZonedDateTime dateFrom, ZonedDateTime dateTo) {
+        // Need to check if null because of COUNT + GROUP BY
+        return publishRequestDao
+                .getPublishingPackagesHistoryTotal(siteId, publishingTarget, approver, COMPLETED, dateFrom, dateTo)
+                .orElse(0);
+    }
+
+    @Override
+    public List<DashboardPublishingPackage> getPublishingPackagesHistory(String siteId, String publishingTarget,
+                                                                         String approver, ZonedDateTime dateFrom,
+                                                                         ZonedDateTime dateTo, int offset, int limit) {
+        return publishRequestDao.getPublishingPackagesHistory(siteId, publishingTarget, approver, COMPLETED, dateFrom,
+                dateTo, offset, limit);
+    }
+
+    @Override
+    public int getNumberOfPublishes(String siteId, int days) {
+        return publishRequestDao.getNumberOfPublishes(siteId, days);
+    }
+
+    @Override
+    public int getNumberOfPublishedItemsByState(String siteId, int days, String activityAction, String publishState,
+                                                String publishAction) {
+        return publishRequestDao.getNumberOfPublishedItemsByState(siteId, days, activityAction, publishState,
+                                                                    publishAction);
     }
 
     public void setPublishRequestDao(PublishRequestDAO publishRequestDao) {
         this.publishRequestDao = publishRequestDao;
     }
 
-    public ContentRepository getContentRepository() {
-        return contentRepository;
-    }
-
     public void setContentRepository(ContentRepository contentRepository) {
         this.contentRepository = contentRepository;
     }
 
-    public DmFilterWrapper getDmFilterWrapper() {
-        return dmFilterWrapper;
-    }
-
     public void setDmFilterWrapper(DmFilterWrapper dmFilterWrapper) {
         this.dmFilterWrapper = dmFilterWrapper;
+    }
+
+    public void setRetryingDatabaseOperationFacade(RetryingDatabaseOperationFacade retryingDatabaseOperationFacade) {
+        this.retryingDatabaseOperationFacade = retryingDatabaseOperationFacade;
     }
 }

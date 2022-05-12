@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -57,6 +57,20 @@ public class LoggerImpl extends AbstractLogger {
 			String message = expandMessage(msg, args);
 			_logger.debug(message);
 		}		
+	}
+
+	/**
+	 * log debug message
+	 * @param msg the message or message format to log
+	 * @param t the error to include
+	 * @param args argument for the log
+	 */
+	@Override
+	public void debug(String msg, Throwable t, Object... args) {
+		if(_logger.isDebugEnabled()) {
+			String message = expandMessage(msg, args);
+			_logger.debug(message, t);
+		}
 	}
 
 	/**

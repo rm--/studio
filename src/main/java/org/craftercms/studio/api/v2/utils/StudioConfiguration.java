@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -49,6 +49,7 @@ public interface StudioConfiguration {
     String REPO_CREATE_REPOSITORY_COMMIT_MESSAGE = "studio.repo.createRepository.commitMessage";
     String REPO_CREATE_SANDBOX_BRANCH_COMMIT_MESSAGE = "studio.repo.createSandboxBranch.commitMessage";
     String REPO_INITIAL_COMMIT_COMMIT_MESSAGE = "studio.repo.initialCommit.commitMessage";
+    String REPO_INITIAL_PUBLISH_COMMIT_MESSAGE = "studio.repo.initialPublish.commitMessage";
     String REPO_CREATE_AS_ORPHAN_COMMIT_MESSAGE = "studio.repo.createAsOrphan.commitMessage";
     String REPO_BLUEPRINTS_UPDATED_COMMIT_MESSAGE = "studio.repo.blueprintsUpdated.commitMessage";
     String REPO_CREATE_FOLDER_COMMIT_MESSAGE = "studio.repo.createFolder.commitMessage";
@@ -57,14 +58,15 @@ public interface StudioConfiguration {
     String REPO_COPY_CONTENT_COMMIT_MESSAGE = "studio.repo.copyContent.commitMessage";
     String REPO_PULL_FROM_REMOTE_CONFLICT_NOTIFICATION_ENABLED =
             "studio.repo.pullFromRemote.conflict.notificationEnabled";
-    String REPO_DEFAULT_IGNORE_FILE = "studio.repo.defaultIgnoreFile";
+    String REPO_IGNORE_FILES = "studio.repo.ignoreFiles";
     String REPO_RETRYING_OPERATION_MAX_ATTEMPTS = "studio.repo.retryingOperation.maxAttempts";
     String REPO_RETRYING_OPERATION_MAX_SLEEP = "studio.repo.retryingOperation.maxSleep";
-    String REPO_GIT_CLI_ENABLED = "studio.repo.git.cli.enabled";
 
     /** Database */
     String DB_DRIVER = "studio.db.driver";
     String DB_SCHEMA = "studio.db.schema";
+    String DB_USER = "studio.db.user";
+    String DB_PASSWORD = "studio.db.password";
     String DB_URL = "studio.db.url";
     String DB_POOL_INITIAL_CONNECTIONS = "studio.db.pool.initialConnections";
     String DB_POOL_MAX_ACTIVE_CONNECTIONS = "studio.db.pool.maxActiveConnections";
@@ -135,7 +137,6 @@ public interface StudioConfiguration {
     String CONFIGURATION_SITE_ASSET_PROCESSING_CONFIGURATION_PATH =
             "studio.configuration.site.asset.processing.configurationPath";
 
-    String CONFIGURATION_AUTHENTICATION_CHAIN_CONFIG = "studio.authentication.chain";
     String CONFIGURATION_ENVIRONMENT_ACTIVE = "studio.configuration.environment.active";
     String CONFIGURATION_SITE_DEFAULT_PREVIEW_URL = "studio.configuration.site.defaultPreviewUrl";
     String CONFIGURATION_SITE_DEFAULT_AUTHORING_URL = "studio.configuration.site.defaultAuthoringUrl";
@@ -146,6 +147,7 @@ public interface StudioConfiguration {
     String CONFIGURATION_MANAGEMENT_PREVIEW_PROTECTED_URLS =
             "studio.configuration.management.previewProtectedUrls";
     String CONFIGURATION_PUBLISHING_BLACKLIST_REGEX = "studio.configuration.publishing.blacklist.regex";
+    String CONFIGURATION_DEFAULT_TIME_ZONE = "studio.configuration.defaultTimeZone";
 
     /** Import Service */
     String IMPORT_ASSIGNEE = "studio.import.assignee";
@@ -168,8 +170,6 @@ public interface StudioConfiguration {
     /** Security Service */
     String SECURITY_SESSION_TIMEOUT = "studio.security.sessionTimeout";
     String SECURITY_PUBLIC_URLS = "studio.security.publicUrls";
-    String SECURITY_IGNORE_RENEW_TOKEN_URLS = "studio.security.ignoreRenewTokenUrls";
-    String SECURITY_TYPE = "studio.security.type";
     String SECURITY_CIPHER_SALT = "studio.security.cipher.salt";
     String SECURITY_CIPHER_KEY = "studio.security.cipher.key";
     String SECURITY_CIPHER_TYPE = "studio.security.cipher.type";
@@ -180,9 +180,6 @@ public interface StudioConfiguration {
     String SECURITY_RESET_PASSWORD_SERVICE_URL = "studio.security.resetPassword.serviceUrl";
     String SECURITY_PASSWORD_REQUIREMENTS_VALIDATION_REGEX = "studio.security.passwordRequirements.validationRegex";
     String SECURITY_SET_PASSWORD_DELAY = "studio.security.setPasswordDelay";
-
-    /** Authentication headers **/
-    String AUTHENTICATION_HEADERS_LOGOUT_ENABLED = "studio.authentication.headers.logout.enabled";
 
     /** Page Navigation Order Service */
     String PAGE_NAVIGATION_ORDER_INCREMENT = "studio.pageNavigationOrder.increment";
@@ -205,18 +202,6 @@ public interface StudioConfiguration {
     /** Jobs */
     String JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_MANDATORY_DEPENDENCIES_CHECK_ENABLED =
             "studio.job.deployContentToEnvironment.mandatoryDependenciesCheckEnabled";
-    String JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_DEFAULT =
-            "studio.job.deployContentToEnvironment.status.message.default";
-    String JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_READY =
-            "studio.job.deployContentToEnvironment.status.message.ready";
-    String JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_PUBLISHING =
-            "studio.job.deployContentToEnvironment.status.message.publishing";
-    String JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_QUEUED =
-            "studio.job.deployContentToEnvironment.status.message.queued";
-    String JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_ERROR =
-            "studio.job.deployContentToEnvironment.status.message.error";
-    String JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_STOPPED =
-            "studio.job.deployContentToEnvironment.status.message.stopped";
     String JOB_DEPLOYMENT_MASTER_PUBLISHING_NODE = "studio.job.deployment.masterPublishingNode";
 
     /** Content Types Filter Patterns */
@@ -239,44 +224,12 @@ public interface StudioConfiguration {
     String AUTHORING_TEMPLATE_NAME = "studio.authoring.templateName";
 
     /** Preview Search **/
-    String PREVIEW_SEARCH_CREATE_URL = "studio.preview.search.createUrl";
-    String PREVIEW_SEARCH_DELETE_URL = "studio.preview.search.deleteUrl";
     String PREVIEW_SEARCH_ENGINE = "studio.preview.search.engine";
 
     /** Publishing Manager */
     String PUBLISHING_MANAGER_INDEX_FILE = "studio.publishingManager.indexFile";
     String PUBLISHING_MANAGER_PUBLISHING_WITHOUT_DEPENDENCIES_ENABLED =
             "studio.publishingManager.publishingWithoutDependencies.enabled";
-
-    /** Authentication Chain properties **/
-    String AUTHENTICATION_CHAIN_PROVIDER_TYPE = "provider";
-    String AUTHENTICATION_CHAIN_PROVIDER_ENABLED = "enabled";
-    /** DB **/
-    String AUTHENTICATION_CHAIN_PROVIDER_TYPE_DB = "DB";
-    /** LDAP **/
-    String AUTHENTICATION_CHAIN_PROVIDER_TYPE_LDAP = "LDAP";
-    String AUTHENTICATION_CHAIN_PROVIDER_LDAP_URL = "ldapUrl";
-    String AUTHENTICATION_CHAIN_PROVIDER_LDAP_USERNAME = "ldapUsername";
-    String AUTHENTICATION_CHAIN_PROVIDER_LDAP_PASSWORD = "ldapPassword";
-    String AUTHENTICATION_CHAIN_PROVIDER_LDAP_BASE_CONTEXT = "ldapBaseContext";
-    String AUTHENTICATION_CHAIN_PROVIDER_USERNAME_LDAP_ATTIBUTE = "usernameLdapAttribute";
-    String AUTHENTICATION_CHAIN_PROVIDER_FIRST_NAME_LDAP_ATTRIBUTE = "firstNameLdapAttribute";
-    String AUTHENTICATION_CHAIN_PROVIDER_LAST_NAME_LDAP_ATTRIBUTE = "lastNameLdapAttribute";
-    String AUTHENTICATION_CHAIN_PROVIDER_EMAIL_LDAP_ATTRIBUTE = "emailLdapAttribute";
-    String AUTHENTICATION_CHAIN_PROVIDER_GROUP_NAME_LDAP_ATTRIBUTE = "groupNameLdapAttribute";
-    String AUTHENTICATION_CHAIN_PROVIDER_GROUP_NAME_REGEX_LDAP_ATTRIBUTE = "groupNameLdapAttributeRegex";
-    String AUTHENTICATION_CHAIN_PROVIDER_GROUP_NAME_MATCH_INDEX_LDAP_ATTRIBUTE = "groupNameLdapAttributeMatchIndex";
-    /** HEADERS **/
-    String AUTHENTICATION_CHAIN_PROVIDER_TYPE_HEADERS = "HEADERS";
-    String AUTHENTICATION_CHAIN_PROVIDER_SECURE_KEY_HEADER = "secureKeyHeader";
-    String AUTHENTICATION_CHAIN_PROVIDER_SECURE_KEY_HEADER_VALUE = "secureKeyHeaderValue";
-    String AUTHENTICATION_CHAIN_PROVIDER_USERNAME_HEADER = "usernameHeader";
-    String AUTHENTICATION_CHAIN_PROVIDER_FIRST_NAME_HEADER = "firstNameHeader";
-    String AUTHENTICATION_CHAIN_PROVIDER_LAST_NAME_HEADER = "lastNameHeader";
-    String AUTHENTICATION_CHAIN_PROVIDER_EMAIL_HEADER = "emailHeader";
-    String AUTHENTICATION_CHAIN_PROVIDER_GROUPS_HEADER = "groupsHeader";
-    String AUTHENTICATION_CHAIN_PROVIDER_LOGOUT_ENABLED = "logoutEnabled";
-    String AUTHENTICATION_CHAIN_PROVIDER_LOGOUT_URL = "logoutUrl";
 
     /** Publishing Thread Pool **/
     String PUBLISHING_SITE_LOCK_TTL = "studio.publishing.siteLock.ttl";
@@ -326,6 +279,10 @@ public interface StudioConfiguration {
     /** Cache Configuration  **/
     String CACHE_TEMPLATES = "studio.cache.templates";
 
+    /* Content validation */
+    String CONTENT_FILENAME_MAX_SIZE = "studio.content.filename.maxSize";
+    String CONTENT_FULLPATH_MAX_SIZE = "studio.content.fullPath.maxSize";
+
     /** Studio Clock Tasks **/
     String CLOCK_JOB_FREQUENCY = "studio.clockJob.frequency";
     String CLOCK_JOB_TASK_EXECUTOR_CORE_POOL_SIZE = "studio.clockJob.taskExecutor.corePoolSize";
@@ -352,6 +309,20 @@ public interface StudioConfiguration {
     String CLOCK_JOB_TASK_AUDIT_LOG_PROCESSING_BATCH_SIZE_AUDITED =
             "studio.clockJob.task.auditLogProcessing.batchSizeAudited";
 
+    String PLUGIN_BASE_PATTERN = "studio.configuration.plugin.base.pattern";
+
+    // Content Service
+    String CONTENT_ITEM_EDITABLE_TYPES = "studio.content.item.editableTypes";
+
+    // Dashboard Service
+    String CONFIGURATION_DASHBOARD_CONTENT_EXPIRING_QUERY = "studio.configuration.dashboard.contentExpiringQuery";
+    String CONFIGURATION_DASHBOARD_CONTENT_EXPIRED_QUERY = "studio.configuration.dashboard.contentExpiredQuery";
+    String CONFIGURATION_DASHBOARD_CONTENT_EXPIRED_SORT_BY =
+            "studio.configuration.dashboard.contentExpiredQuery.sortBy";
+
+    // CORS
+    String CONFIGURATION_CORS_ALLOWED_ORIGINS = "studio.cors.origins";
+
     void loadConfig();
 
     String getProperty(String key);
@@ -361,6 +332,8 @@ public interface StudioConfiguration {
     <T> T getProperty(String key, Class<T> clazz, T defaultVal);
 
     <T> T[] getArray(String key, Class<T> clazz);
+
+    <T> List<T> getList(String key, Class<T> clazz);
 
     HierarchicalConfiguration<ImmutableNode> getSubConfig(String key);
 

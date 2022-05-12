@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -17,29 +17,23 @@
 package org.craftercms.studio.api.v2.dal;
 
 import org.apache.ibatis.annotations.Param;
-import org.craftercms.studio.api.v1.service.objectstate.State;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static org.craftercms.studio.api.v2.dal.QueryParameterNames.MODIFIED_MASK;
+import static org.craftercms.studio.api.v2.dal.QueryParameterNames.NEW_MASK;
+import static org.craftercms.studio.api.v2.dal.QueryParameterNames.SITE_ID;
+import static org.craftercms.studio.api.v2.dal.QueryParameterNames.SOURCE_PATH;
+import static org.craftercms.studio.api.v2.dal.QueryParameterNames.TYPE;
 
 /**
  * @author Dejan Brkic
  */
 public interface DependencyDAO {
 
-    String SITE_PARAM = "site";
-    String SITE_ID_PARAM = "siteId";
-    String PATH_PARAM = "path";
-    String PATHS_PARAM = "paths";
-    String OLD_PATH_PARAM = "oldPath";
-    String NEW_PATH_PARAM = "newPath";
-    String REGEX_PARAM = "regex";
-    String EDITED_STATES_PARAM = "editedStates";
-    String NEW_STATES_PARAM = "newStates";
-
-    String SORUCE_PATH_COLUMN_NAME = "source_path";
+    String SOURCE_PATH_COLUMN_NAME = "source_path";
     String TARGET_PATH_COLUMN_NAME = "target_path";
 
     /**
@@ -48,13 +42,14 @@ public interface DependencyDAO {
      * @param site site identifier
      * @param paths list of content paths
      * @param itemSpecificDependenciesPatterns list of patterns that define item specific dependencies
-     * @param editedStates list of edited states
-     *
+     * @param modifiedMask state bit mask for modified item
+     * @param newMask state bit mask for new item
      * @return List of soft dependencies
      */
     List<Map<String, String>> getSoftDependenciesForList(@Param("site") String site, @Param("paths") Set<String> paths,
                                                          @Param("regex") List<String> itemSpecificDependenciesPatterns,
-                                                         @Param("editedStates") Collection<State> editedStates);
+                                                         @Param(MODIFIED_MASK) long modifiedMask,
+                                                         @Param(NEW_MASK) long newMask);
 
     /**
      * Get hard dependencies from DB for list of content paths
@@ -62,15 +57,15 @@ public interface DependencyDAO {
      * @param site site identifier
      * @param paths list of content paths
      * @param itemSpecificDependenciesPatterns list of patterns that define item specific dependencies
-     * @param editedStates list of edited states
-     * @param newStates list of new states
+     * @param modifiedMask state bit map for modified item
+     * @param newMask state bit map for new item
      *
      * @return List of hard dependencies
      */
     List<Map<String, String>> getHardDependenciesForList(@Param("site") String site, @Param("paths") Set<String> paths,
                                                          @Param("regex") List<String> itemSpecificDependenciesPatterns,
-                                                         @Param("editedStates") Collection<State> editedStates,
-                                                         @Param("newStates") List<State> newStates);
+                                                         @Param(MODIFIED_MASK) long modifiedMask,
+                                                         @Param(NEW_MASK) long newMask);
 
     /**
      * Get items depending on given paths
@@ -93,4 +88,13 @@ public interface DependencyDAO {
     List<String> getItemSpecificDependencies(@Param("siteId") String siteId, @Param("paths") List<String> paths,
                                              @Param("regex") List<String> regex);
 
+    /**
+     * Get dependencies for content path by type
+     * @param siteId site identifier
+     * @param sourcePath content path
+     * @param dependencyType dependency type
+     * @return list of dependencies
+     */
+    List<Dependency> getDependenciesByType(@Param(SITE_ID) String siteId, @Param(SOURCE_PATH) String sourcePath,
+                                           @Param(TYPE) String dependencyType);
 }

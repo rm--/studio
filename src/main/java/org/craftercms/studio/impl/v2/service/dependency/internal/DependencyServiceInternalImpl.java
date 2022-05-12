@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -19,33 +19,35 @@ package org.craftercms.studio.impl.v2.service.dependency.internal;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.craftercms.studio.api.v1.constant.DmConstants;
-import org.craftercms.studio.api.v1.dal.ItemStateMapper;
 import org.craftercms.studio.api.v1.exception.ServiceLayerException;
 import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
 import org.craftercms.studio.api.v1.service.configuration.ServicesConfig;
 import org.craftercms.studio.api.v1.service.dependency.DependencyResolver;
-import org.craftercms.studio.api.v1.service.objectstate.State;
 import org.craftercms.studio.api.v1.service.site.SiteService;
+import org.craftercms.studio.api.v2.dal.Dependency;
 import org.craftercms.studio.api.v2.dal.DependencyDAO;
 import org.craftercms.studio.api.v2.service.dependency.internal.DependencyServiceInternal;
+import org.craftercms.studio.api.v2.service.item.internal.ItemServiceInternal;
 import org.craftercms.studio.api.v2.utils.StudioConfiguration;
 import org.craftercms.studio.impl.v1.util.ContentUtils;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.stream.Collectors;
 
 import static org.craftercms.studio.api.v1.constant.StudioConstants.FILE_SEPARATOR;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.INDEX_FILE;
-import static org.craftercms.studio.api.v2.dal.DependencyDAO.SORUCE_PATH_COLUMN_NAME;
+import static org.craftercms.studio.api.v2.dal.DependencyDAO.SOURCE_PATH_COLUMN_NAME;
 import static org.craftercms.studio.api.v2.dal.DependencyDAO.TARGET_PATH_COLUMN_NAME;
+import static org.craftercms.studio.api.v2.dal.ItemState.MODIFIED_MASK;
+import static org.craftercms.studio.api.v2.dal.ItemState.NEW_MASK;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATION_DEPENDENCY_ITEM_SPECIFIC_PATTERNS;
 
 public class DependencyServiceInternalImpl implements DependencyServiceInternal {
@@ -55,7 +57,7 @@ public class DependencyServiceInternalImpl implements DependencyServiceInternal 
     private SiteService siteService;
     private StudioConfiguration studioConfiguration;
     private DependencyDAO dependencyDao;
-    private ItemStateMapper itemStateMapper;
+    private ItemServiceInternal itemServiceInternal;
     private DependencyResolver dependencyResolver;
     private ServicesConfig servicesConfig;
 
@@ -71,7 +73,8 @@ public class DependencyServiceInternalImpl implements DependencyServiceInternal 
     }
 
     @Override
-    public List<String> getSoftDependencies(String site, List<String> paths) throws ServiceLayerException {
+    public List<String> getSoftDependencies(String site, List<String> paths)
+            throws ServiceLayerException {
         if (!siteService.exists(site)) {
             throw new SiteNotFoundException(site);
         }
@@ -95,7 +98,7 @@ public class DependencyServiceInternalImpl implements DependencyServiceInternal 
             List<Map<String, String>> deps = getSoftDependenciesForListFromDB(site, pathsParams);
             List<String> targetPaths = new ArrayList<String>();
             for (Map<String, String> d : deps) {
-                String srcPath = d.get(SORUCE_PATH_COLUMN_NAME);
+                String srcPath = d.get(SOURCE_PATH_COLUMN_NAME);
                 String targetPath = d.get(TARGET_PATH_COLUMN_NAME);
                 if (!softDeps.keySet().contains(targetPath) && !StringUtils.equals(targetPath, softDeps.get(srcPath))) {
                     softDeps.put(targetPath, softDeps.get(srcPath));
@@ -111,9 +114,8 @@ public class DependencyServiceInternalImpl implements DependencyServiceInternal 
     }
 
     private List<Map<String, String>> getSoftDependenciesForListFromDB(String site, Set<String> paths) {
-        Collection<State> onlyEditStates = CollectionUtils.removeAll(State.CHANGE_SET_STATES, State.NEW_STATES);
         return dependencyDao.getSoftDependenciesForList(site, paths, getItemSpecificDependenciesPatterns(),
-                onlyEditStates);
+                MODIFIED_MASK, NEW_MASK);
     }
 
     protected List<String> getItemSpecificDependenciesPatterns() {
@@ -138,7 +140,8 @@ public class DependencyServiceInternalImpl implements DependencyServiceInternal 
     }
 
     @Override
-    public List<String> getHardDependencies(String site, List<String> paths) throws ServiceLayerException {
+    public List<String> getHardDependencies(String site, List<String> paths)
+            throws ServiceLayerException {
         if (!siteService.exists(site)) {
             throw new SiteNotFoundException(site);
         }
@@ -152,7 +155,7 @@ public class DependencyServiceInternalImpl implements DependencyServiceInternal 
 
         logger.debug("Get all hard dependencies");
         pathsParams.addAll(paths);
-        Set<String> mandatoryParents = getMandatoryParents(site, paths);
+        List<String> mandatoryParents = itemServiceInternal.getMandatoryParentsForPublishing(site, paths);
         List<String> mpAsList = new ArrayList<>(mandatoryParents);
         Map<String, String> ancestors = new HashMap<String, String>();
         if (CollectionUtils.isNotEmpty(mandatoryParents)) {
@@ -180,7 +183,7 @@ public class DependencyServiceInternalImpl implements DependencyServiceInternal 
             List<Map<String, String>> deps = calculateHardDependenciesForListFromDB(site, pathsParams);
             List<String> targetPaths = new ArrayList<String>();
             for (Map<String, String> d : deps) {
-                String srcPath = d.get(SORUCE_PATH_COLUMN_NAME);
+                String srcPath = d.get(SOURCE_PATH_COLUMN_NAME);
                 String targetPath = d.get(TARGET_PATH_COLUMN_NAME);
                 if (!ancestors.keySet().contains(targetPath) &&
                         !StringUtils.equals(targetPath, ancestors.get(srcPath))) {
@@ -196,19 +199,9 @@ public class DependencyServiceInternalImpl implements DependencyServiceInternal 
         return ancestors;
     }
 
-    private Set<String> getMandatoryParents(String site, List<String> paths) {
+    private Set<String> getExistingRenamedChildrenOfMandatoryParents(String site, List<String> paths) {
         Set<String> toRet = new HashSet<String>();
-        Set<String> possibleParents = calculatePossibleParents(paths);
-        if (!possibleParents.isEmpty()) {
-            Map<String, Object> params = new HashMap<String, Object>();
-            params.put(ItemStateMapper.SITE_PARAM, site);
-            params.put(ItemStateMapper.POSSIBLE_PARENTS_PARAM, possibleParents);
-            Collection<State> onlyEditStates = CollectionUtils.removeAll(State.CHANGE_SET_STATES, State.NEW_STATES);
-            params.put(ItemStateMapper.EDITED_STATES_PARAM, onlyEditStates);
-            params.put(ItemStateMapper.NEW_STATES_PARAM, State.NEW_STATES);
-            List<String> result = itemStateMapper.getMandatoryParentsForPublishing(params);
-            toRet.addAll(result);
-        }
+        toRet.addAll(itemServiceInternal.getExistingRenamedChildrenOfMandatoryParentsForPublishing(site, paths));
         return toRet;
     }
 
@@ -247,9 +240,8 @@ public class DependencyServiceInternalImpl implements DependencyServiceInternal 
     }
 
     private List<Map<String, String>> calculateHardDependenciesForListFromDB(String site, Set<String> paths) {
-        Collection<State> onlyEditStates = CollectionUtils.removeAll(State.CHANGE_SET_STATES, State.NEW_STATES);
         return dependencyDao.getHardDependenciesForList(site, paths, getItemSpecificDependenciesPatterns(),
-                onlyEditStates, State.NEW_STATES);
+                MODIFIED_MASK, NEW_MASK);
     }
 
     @Override
@@ -264,7 +256,8 @@ public class DependencyServiceInternalImpl implements DependencyServiceInternal 
         if (CollectionUtils.isEmpty(paths)) {
             return new ArrayList<String>();
         }
-        return dependencyDao.getDependentItems(siteId, paths);
+        List<String> result = dependencyDao.getDependentItems(siteId, paths);
+        return result.stream().distinct().collect(Collectors.toList());
     }
 
     @Override
@@ -296,6 +289,11 @@ public class DependencyServiceInternalImpl implements DependencyServiceInternal 
         return dependencies;
     }
 
+    @Override
+    public List<Dependency> getDependenciesByType(String siteId, String path, String dependencyType) {
+        return dependencyDao.getDependenciesByType(siteId, path, dependencyType);
+    }
+
     public SiteService getSiteService() {
         return siteService;
     }
@@ -320,12 +318,28 @@ public class DependencyServiceInternalImpl implements DependencyServiceInternal 
         this.dependencyDao = dependencyDao;
     }
 
-    public ItemStateMapper getItemStateMapper() {
-        return itemStateMapper;
+    public ItemServiceInternal getItemServiceInternal() {
+        return itemServiceInternal;
     }
 
-    public void setItemStateMapper(ItemStateMapper itemStateMapper) {
-        this.itemStateMapper = itemStateMapper;
+    public void setItemServiceInternal(ItemServiceInternal itemServiceInternal) {
+        this.itemServiceInternal = itemServiceInternal;
+    }
+
+    public DependencyResolver getDependencyResolver() {
+        return dependencyResolver;
+    }
+
+    public void setDependencyResolver(DependencyResolver dependencyResolver) {
+        this.dependencyResolver = dependencyResolver;
+    }
+
+    public ServicesConfig getServicesConfig() {
+        return servicesConfig;
+    }
+
+    public void setServicesConfig(ServicesConfig servicesConfig) {
+        this.servicesConfig = servicesConfig;
     }
 
     public DependencyResolver getDependencyResolver() {

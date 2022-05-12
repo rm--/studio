@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -21,14 +21,12 @@ import org.craftercms.studio.api.v1.exception.EnvironmentNotFoundException;
 import org.craftercms.studio.api.v1.exception.ServiceLayerException;
 import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
 import org.craftercms.studio.api.v1.exception.security.AuthenticationException;
+import org.craftercms.studio.api.v1.exception.security.UserNotFoundException;
 import org.craftercms.studio.api.v1.to.ContentItemTO;
-import org.craftercms.studio.api.v1.to.DmDeploymentTaskTO;
-import org.craftercms.studio.api.v1.to.PublishingChannelTO;
 import org.craftercms.studio.api.v2.dal.PublishRequest;
 
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -38,7 +36,8 @@ public interface DeploymentService {
 
     // document
     void deploy(String site, String environment, List<String> paths, ZonedDateTime scheduledDate, String approver,
-                String submissionComment, final boolean scheduleDateNow) throws DeploymentException;
+                String submissionComment, final boolean scheduleDateNow)
+            throws DeploymentException, ServiceLayerException, UserNotFoundException;
 
     /**
      * Delete content
@@ -51,7 +50,7 @@ public interface DeploymentService {
      * @throws SiteNotFoundException if site does not exist
      */
     void delete(String site, List<String> paths, String approver, ZonedDateTime scheduledDate, String submissionComment)
-            throws DeploymentException, SiteNotFoundException;
+            throws DeploymentException, ServiceLayerException, UserNotFoundException;
 
     List<PublishRequest> getScheduledItems(String site, String filterType);
 
@@ -61,30 +60,8 @@ public interface DeploymentService {
 
     void deleteDeploymentDataForSite(String site);
 
-    /**
-     * get deployment history given a specified date range
-     *
-     * @param site
-     * @param days
-     * @param number
-     * @param sort
-     *            the sort key to sort items within each deployed date
-     * @param ascending
-     * @param filterType
-     *
-     * @return list of deployment items
-     */
-
-    public List<DmDeploymentTaskTO> getDeploymentHistory(
-            String site, int days, int number, String sort, boolean ascending,
-            String filterType) throws SiteNotFoundException;
-
     List<ContentItemTO> getScheduledItems(String site, String sort, boolean ascending, String subSort,
                                           boolean subAscending, String filterType) throws ServiceLayerException;
-
-    Map<String, List<PublishingChannelTO>> getAvailablePublishingChannelGroups(String site, String path);
-
-    void syncAllContentToPreview(String site, boolean waitTillDone) throws ServiceLayerException;
 
     /**
      * Start executing bulk publish for given site, path on given environment
@@ -124,7 +101,8 @@ public interface DeploymentService {
      * @throws EnvironmentNotFoundException
      */
     void publishItems(String site, String environment, ZonedDateTime schedule, List<String> paths,
-                      String submissionComment) throws ServiceLayerException, DeploymentException;
+                      String submissionComment)
+            throws ServiceLayerException, DeploymentException, UserNotFoundException;
 
     /**
      * Reset staging environment to live for given site

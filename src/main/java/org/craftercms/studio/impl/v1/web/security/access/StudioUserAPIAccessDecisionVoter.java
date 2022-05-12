@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -18,6 +18,7 @@ package org.craftercms.studio.impl.v1.web.security.access;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import javax.servlet.http.HttpServletRequest;
 
@@ -63,7 +64,7 @@ public class StudioUserAPIAccessDecisionVoter extends StudioAbstractAccessDecisi
     }
 
     @Override
-    public int vote(Authentication authentication, Object o, Collection collection) {
+    public int voteInternal(Authentication authentication, Object o, Collection collection) {
         int toRet = ACCESS_ABSTAIN;
         String requestUri = "";
         if (o instanceof FilterInvocation) {
@@ -71,21 +72,17 @@ public class StudioUserAPIAccessDecisionVoter extends StudioAbstractAccessDecisi
             HttpServletRequest  request = filterInvocation.getRequest();
             requestUri = request.getRequestURI().replace(request.getContextPath(), "");
             String userParam = request.getParameter("username");
-            String siteParam = request.getParameter("site_id");
             if (StringUtils.isEmpty(userParam)
                 && StringUtils.equalsIgnoreCase(request.getMethod(), HttpMethod.POST.name())
                 && !ServletFileUpload.isMultipartContent(request)) {
                 try {
                     InputStream is = request.getInputStream();
                     is.mark(0);
-                    String jsonString = IOUtils.toString(is);
+                    String jsonString = IOUtils.toString(is, StandardCharsets.UTF_8);
                     if (StringUtils.isNoneEmpty(jsonString)) {
                         JSONObject jsonObject = JSONObject.fromObject(jsonString);
                         if (jsonObject.has("username")) {
                             userParam = jsonObject.getString("username");
-                        }
-                        if (jsonObject.has("site_id")) {
-                            siteParam = jsonObject.getString("site_id");
                         }
                     }
                     is.reset();
@@ -94,68 +91,32 @@ public class StudioUserAPIAccessDecisionVoter extends StudioAbstractAccessDecisi
                     logger.debug("Failed to extract username from POST request");
                 }
             }
-            User currentUser = null;
-            try {
-                String username = authentication.getPrincipal().toString();
-                currentUser = userServiceInternal.getUserByIdOrUsername(-1, username);
-            } catch (ClassCastException | UserNotFoundException | ServiceLayerException e) {
-                // anonymous user
-                if (!authentication.getPrincipal().toString().equals("anonymousUser")) {
-                    logger.info("Error getting current user", e);
-                    return ACCESS_ABSTAIN;
-                }
-            }
+            User currentUser = (User) authentication.getPrincipal();
             switch (requestUri) {
-                case FORGOT_PASSWORD:
-                case LOGIN:
-                case LOGOUT:
-                case SET_PASSWORD:
-                case VALIDATE_TOKEN:
-                    toRet = ACCESS_GRANTED;
-                    break;
                 case CHANGE_PASSWORD:
-                    if (currentUser != null && isSelf(currentUser, userParam)) {
-                        toRet = ACCESS_GRANTED;
-                    } else {
-                        toRet = ACCESS_DENIED;
-                    }
-                    break;
-                case CREATE:
-                case DELETE:
-                case DISABLE:
-                case ENABLE:
-                case RESET_PASSWORD:
-                case STATUS:
-                    if (currentUser != null && isAdmin(currentUser)) {
-                        toRet = ACCESS_GRANTED;
-                    } else {
-                        toRet = ACCESS_DENIED;
-                    }
-                    break;
-                case GET_ALL:
-                    if (currentUser != null) {
+                    if (isSelf(currentUser, userParam)) {
                         toRet = ACCESS_GRANTED;
                     } else {
                         toRet = ACCESS_DENIED;
                     }
                     break;
                 case GET:
-                    if (currentUser != null && (isAdmin(currentUser) || isSelf(currentUser, userParam) ||
-                            isSiteMember(currentUser, userParam))) {
+                    if (isAdmin(currentUser) || isSelf(currentUser, userParam) ||
+                            isSiteMember(currentUser, userParam)) {
                         toRet = ACCESS_GRANTED;
                     } else {
                         toRet = ACCESS_DENIED;
                     }
                     break;
                 case GET_PER_SITE:
-                    if (currentUser != null && (isAdmin(currentUser)  || isSiteMember(currentUser, userParam))) {
+                    if (isAdmin(currentUser)  || isSiteMember(currentUser, userParam)) {
                         toRet = ACCESS_GRANTED;
                     } else {
                         toRet = ACCESS_DENIED;
                     }
                     break;
                 case UPDATE:
-                    if (currentUser != null && (isAdmin(currentUser) || isSelf(currentUser, userParam))) {
+                    if (isAdmin(currentUser) || isSelf(currentUser, userParam)) {
                         toRet = ACCESS_GRANTED;
                     } else {
                         toRet = ACCESS_DENIED;

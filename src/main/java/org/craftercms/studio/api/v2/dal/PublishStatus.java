@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -22,6 +22,7 @@ public class PublishStatus {
 
     public static final String READY = "ready";
     public static final String QUEUED = "queued";
+    public static final String PROCESSING = "processing";
     public static final String PUBLISHING = "publishing";
     public static final String STOPPED = "stopped";
     public static final String ERROR = "error";
@@ -32,9 +33,15 @@ public class PublishStatus {
     @JsonIgnore
     private int enabledAsInt;
     private String status;
-    private String message;
     private String lockOwner;
     private String lockTTL;
+
+    private String publishingTarget;
+    private String submissionId;
+    private int numberOfItems;
+    private int totalItems;
+
+    private boolean published;
 
     @JsonIgnore
     public long getId() {
@@ -46,20 +53,32 @@ public class PublishStatus {
         this.id = id;
     }
 
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+        this.enabledAsInt = this.enabled? 1 : 0;
+    }
+
+    @JsonIgnore
+    public int getEnabledAsInt() {
+        return enabledAsInt;
+    }
+
+    @JsonIgnore
+    public void setEnabledAsInt(int enabledAsInt) {
+        this.enabledAsInt = enabledAsInt;
+        this.enabled = enabledAsInt > 0;
+    }
+
     public String getStatus() {
         return status;
     }
 
     public void setStatus(String status) {
         this.status = status;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
     }
 
     public String getLockOwner() {
@@ -78,23 +97,43 @@ public class PublishStatus {
         this.lockTTL = lockTTL;
     }
 
-    public boolean isEnabled() {
-        return enabled;
+    public String getPublishingTarget() {
+        return publishingTarget;
     }
 
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-        this.enabledAsInt = enabled ? 1 : 0;
+    public void setPublishingTarget(String publishingTarget) {
+        this.publishingTarget = publishingTarget;
     }
 
-    @JsonIgnore
-    public int getEnabledAsInt() {
-        return enabledAsInt;
+    public String getSubmissionId() {
+        return submissionId;
     }
 
-    @JsonIgnore
-    public void setEnabledAsInt(int enabledAsInt) {
-        this.enabledAsInt = enabledAsInt;
-        this.enabled = (enabledAsInt == 0) ? false : true;
+    public void setSubmissionId(String submissionId) {
+        this.submissionId = submissionId;
+    }
+
+    public int getNumberOfItems() {
+        return numberOfItems;
+    }
+
+    public void setNumberOfItems(int numberOfItems) {
+        this.numberOfItems = numberOfItems;
+    }
+
+    public int getTotalItems() {
+        return totalItems;
+    }
+
+    public void setTotalItems(int totalItems) {
+        this.totalItems = totalItems;
+    }
+
+    public boolean isPublished() {
+        return published;
+    }
+
+    public void setPublished(boolean published) {
+        this.published = published;
     }
 }

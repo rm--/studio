@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -45,8 +45,6 @@ public interface DependencyMapper {
 
     void insertList(Map params);
 
-    List<DependencyEntity> getDependenciesByType(Map params);
-
     void deleteDependenciesForSite(Map params);
 
     void deleteDependenciesForSiteAndPath(Map params);
@@ -56,8 +54,6 @@ public interface DependencyMapper {
     List<String> getItemSpecificDependenciesForList(Map params);
 
     List<String> getItemsDependingOn(Map params);
-
-    List<String> getPublishingDependenciesForList(Map params);
 
     List<Map<String, String>> calculatePublishingDependenciesForList(Map params);
 

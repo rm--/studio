@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -41,6 +41,7 @@ try {
     def siteId = parsedReq.site_id
     def sandboxBranch = parsedReq.sandbox_branch
     def description = parsedReq.description
+    def siteName = parsedReq.name
     /** Remote options */
     def useRemote = parsedReq.use_remote
     if (useRemote != null) {
@@ -70,18 +71,26 @@ try {
     def invalidParams = false;
     def paramsList = []
 
+    if (StringUtils.equalsIgnoreCase(REMOTE_REPOSITORY_CREATE_OPTION_PUSH, createOption)) {
+        response.setStatus(400)
+        result.message = "The create and push option has been deprecated"
+        return result
+    }
+
 // blueprint
     try {
-        if (!useRemote || (useRemote && StringUtils.equalsIgnoreCase(REMOTE_REPOSITORY_CREATE_OPTION_PUSH,
-                createOption))) {
-            if (StringUtils.isEmpty(blueprint)) {
-                invalidParams = true
-                paramsList.add("blueprint")
-            }
+        if (!useRemote && StringUtils.isEmpty(blueprint)) {
+            invalidParams = true
+            paramsList.add("blueprint")
         }
     } catch (Exception exc) {
         invalidParams = true
         paramsList.add("blueprint")
+    }
+
+    if (!siteName || siteName.length() > 255) {
+        invalidParams = true
+        paramsList.add("name")
     }
 
 // site_id
@@ -199,7 +208,7 @@ try {
         def context = SiteServices.createContext(applicationContext, request)
         try {
             if (!useRemote) {
-                SiteServices.createSiteFromBlueprint(context, blueprint, siteId, siteId, sandboxBranch, description,
+                SiteServices.createSiteFromBlueprint(context, blueprint, siteId, siteName, sandboxBranch, description,
                         siteParams, createAsOrphan)
                 result.message = "OK"
                 def locationHeader = request.getRequestURL().toString().replace(request.getPathInfo().toString(), "") +
@@ -207,9 +216,10 @@ try {
                 response.addHeader("Location", locationHeader)
                 response.setStatus(201)
             } else {
-                SiteServices.createSiteWithRemoteOption(context, siteId, sandboxBranch, description, blueprint,
-                        remoteName, remoteUrl, remoteBranch, singleBranch, authenticationType, remoteUsername,
-                        remotePassword, remoteToken, remotePrivateKey, createOption, siteParams, createAsOrphan)
+                SiteServices.createSiteWithRemoteOption(context, siteId, siteName,  sandboxBranch, description,
+                        blueprint, remoteName, remoteUrl, remoteBranch, singleBranch, authenticationType,
+                        remoteUsername, remotePassword, remoteToken, remotePrivateKey, createOption, siteParams,
+                        createAsOrphan)
                 result.message = "OK"
                 def locationHeader = request.getRequestURL().toString().replace(request.getPathInfo().toString(), "") +
                         "/api/1/services/api/1/site/get.json?site_id=" + siteId

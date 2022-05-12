@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -17,7 +17,6 @@
 package org.craftercms.studio.impl.v2.service.security;
 
 import freemarker.template.Template;
-import freemarker.template.TemplateException;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -60,28 +59,30 @@ import org.craftercms.studio.model.Site;
 import org.springframework.beans.factory.ObjectFactory;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.security.core.session.SessionInformation;
+import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.web.servlet.view.freemarker.FreeMarkerConfig;
 
-import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
 import javax.servlet.http.HttpServletRequest;
-import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
+import static java.util.stream.Collectors.toSet;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.REMOVE_SYSTEM_ADMIN_MEMBER_LOCK;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.SYSTEM_ADMIN_GROUP;
 import static org.craftercms.studio.api.v2.dal.AuditLogConstants.OPERATION_CREATE;
@@ -93,10 +94,16 @@ import static org.craftercms.studio.api.v2.dal.AuditLogConstants.TARGET_TYPE_USE
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.CONFIGURATION_GLOBAL_SYSTEM_SITE;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.MAIL_FROM_DEFAULT;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.MAIL_SMTP_AUTH;
+import static org.craftercms.studio.api.v2.utils.StudioConfiguration.SECURITY_CIPHER_SALT;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.SECURITY_FORGOT_PASSWORD_EMAIL_TEMPLATE;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.SECURITY_FORGOT_PASSWORD_MESSAGE_SUBJECT;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.SECURITY_FORGOT_PASSWORD_TOKEN_TIMEOUT;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.SECURITY_RESET_PASSWORD_SERVICE_URL;
+import static org.craftercms.studio.impl.v1.repository.git.GitContentRepositoryConstants.GIT_REPO_USER_USERNAME;
+import static org.craftercms.studio.permissions.StudioPermissionsConstants.PERMISSION_CREATE_USERS;
+import static org.craftercms.studio.permissions.StudioPermissionsConstants.PERMISSION_DELETE_USERS;
+import static org.craftercms.studio.permissions.StudioPermissionsConstants.PERMISSION_READ_USERS;
+import static org.craftercms.studio.permissions.StudioPermissionsConstants.PERMISSION_UPDATE_USERS;
 
 public class UserServiceImpl implements UserService {
 
@@ -116,65 +123,37 @@ public class UserServiceImpl implements UserService {
     private JavaMailSender emailServiceNoAuth;
     private InstanceService instanceService;
     private TextEncryptor encryptor;
-
-    public UserServiceImpl(UserServiceInternal userServiceInternal,
-                           ConfigurationService configurationService,
-                           GroupServiceInternal groupServiceInternal,
-                           SiteService siteService,
-                           EntitlementValidator entitlementValidator,
-                           GeneralLockService generalLockService,
-                           SecurityService securityService,
-                           StudioConfiguration studioConfiguration,
-                           AuditServiceInternal auditServiceInternal,
-                           ObjectFactory<FreeMarkerConfig> freeMarkerConfig,
-                           JavaMailSender emailService,
-                           JavaMailSender emailServiceNoAuth,
-                           InstanceService instanceService,
-                           TextEncryptor encryptor) {
-        this.userServiceInternal = userServiceInternal;
-        this.configurationService = configurationService;
-        this.groupServiceInternal = groupServiceInternal;
-        this.siteService = siteService;
-        this.entitlementValidator = entitlementValidator;
-        this.generalLockService = generalLockService;
-        this.securityService = securityService;
-        this.studioConfiguration = studioConfiguration;
-        this.auditServiceInternal = auditServiceInternal;
-        this.freeMarkerConfig = freeMarkerConfig;
-        this.emailService = emailService;
-        this.emailServiceNoAuth = emailServiceNoAuth;
-        this.instanceService = instanceService;
-        this.encryptor = encryptor;
-    }
+    private org.craftercms.studio.api.v2.service.security.SecurityService securityServiceV2;
+    private SessionRegistry sessionRegistry;
 
     @Override
-    @HasPermission(type = DefaultPermission.class, action = "read_users")
-    public List<User> getAllUsersForSite(long orgId, String siteId, int offset, int limit, String sort)
+    @HasPermission(type = DefaultPermission.class, action = PERMISSION_READ_USERS)
+    public List<User> getAllUsersForSite(long orgId, String siteId, String keyword, int offset, int limit, String sort)
             throws ServiceLayerException {
         List<String> groupNames = groupServiceInternal.getSiteGroups(siteId);
-        return userServiceInternal.getAllUsersForSite(orgId, groupNames, offset, limit, sort);
+        return userServiceInternal.getAllUsersForSite(orgId, groupNames, keyword, offset, limit, sort);
     }
 
     @Override
-    @HasPermission(type = DefaultPermission.class, action = "read_users")
-    public List<User> getAllUsers(int offset, int limit, String sort) throws ServiceLayerException {
-        return userServiceInternal.getAllUsers(offset, limit, sort);
+    @HasPermission(type = DefaultPermission.class, action = PERMISSION_READ_USERS)
+    public List<User> getAllUsers(String keyword, int offset, int limit, String sort) throws ServiceLayerException {
+        return userServiceInternal.getAllUsers(keyword, offset, limit, sort);
     }
 
     @Override
-    @HasPermission(type = DefaultPermission.class, action = "read_users")
-    public int getAllUsersForSiteTotal(long orgId, String siteId) throws ServiceLayerException {
-        return userServiceInternal.getAllUsersForSiteTotal(orgId, siteId);
+    @HasPermission(type = DefaultPermission.class, action = PERMISSION_READ_USERS)
+    public int getAllUsersForSiteTotal(long orgId, String siteId, String keyword) throws ServiceLayerException {
+        return userServiceInternal.getAllUsersForSiteTotal(orgId, siteId, keyword);
     }
 
     @Override
-    @HasPermission(type = DefaultPermission.class, action = "read_users")
-    public int getAllUsersTotal() throws ServiceLayerException {
-        return userServiceInternal.getAllUsersTotal();
+    @HasPermission(type = DefaultPermission.class, action = PERMISSION_READ_USERS)
+    public int getAllUsersTotal(String keyword) throws ServiceLayerException {
+        return userServiceInternal.getAllUsersTotal(keyword);
     }
 
     @Override
-    @HasPermission(type = DefaultPermission.class, action = "create_users")
+    @HasPermission(type = DefaultPermission.class, action = PERMISSION_CREATE_USERS)
     public User createUser(User user) throws UserAlreadyExistsException, ServiceLayerException, AuthenticationException {
         try {
             entitlementValidator.validateEntitlement(EntitlementType.USER, 1);
@@ -196,7 +175,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @HasPermission(type = DefaultPermission.class, action = "update_users")
+    @HasPermission(type = DefaultPermission.class, action = PERMISSION_UPDATE_USERS)
     public void updateUser(User user) throws ServiceLayerException, UserNotFoundException, AuthenticationException {
         userServiceInternal.updateUser(user);
         SiteFeed siteFeed = siteService.getSite(studioConfiguration.getProperty(CONFIGURATION_GLOBAL_SYSTEM_SITE));
@@ -211,14 +190,20 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @HasPermission(type = DefaultPermission.class, action = "delete_users")
+    @HasPermission(type = DefaultPermission.class, action = PERMISSION_DELETE_USERS)
     public void deleteUsers(List<Long> userIds, List<String> usernames)
             throws ServiceLayerException, AuthenticationException, UserNotFoundException {
         User currentUser = getCurrentUser();
 
-        if (CollectionUtils.containsAny(userIds, Arrays.asList(currentUser.getId())) ||
-                CollectionUtils.containsAny(usernames, Arrays.asList(currentUser.getUsername()))) {
+        if (CollectionUtils.containsAny(userIds, List.of(currentUser.getId())) ||
+                CollectionUtils.containsAny(usernames, List.of(currentUser.getUsername()))) {
             throw new ServiceLayerException("Cannot delete self.");
+        }
+
+        User gitRepoUser = userServiceInternal.getUserByIdOrUsername(-1, GIT_REPO_USER_USERNAME);
+        if (CollectionUtils.containsAny(userIds, List.of(gitRepoUser.getId())) ||
+                CollectionUtils.containsAny(usernames, List.of(gitRepoUser.getUsername()))) {
+            throw new ServiceLayerException("Cannot delete generic Git Repo User.");
         }
 
         generalLockService.lock(REMOVE_SYSTEM_ADMIN_MEMBER_LOCK);
@@ -228,8 +213,7 @@ public class UserServiceImpl implements UserService {
                 List<User> members =
                         groupServiceInternal.getGroupMembers(g.getId(), 0, Integer.MAX_VALUE, StringUtils.EMPTY);
                 if (CollectionUtils.isNotEmpty(members)) {
-                    List<User> membersAfterRemove = new ArrayList<User>();
-                    membersAfterRemove.addAll(members);
+                    List<User> membersAfterRemove = new LinkedList<>(members);
                     members.forEach(m -> {
                         if (CollectionUtils.isNotEmpty(userIds)) {
                             if (userIds.contains(m.getId())) {
@@ -253,22 +237,40 @@ public class UserServiceImpl implements UserService {
 
             List<User> toDelete = userServiceInternal.getUsersByIdOrUsername(userIds, usernames);
             userServiceInternal.deleteUsers(userIds, usernames);
+
+            logger.debug("Searching for current sessions for users: {0}", toDelete);
+            Set<AuthenticatedUser> principals = sessionRegistry.getAllPrincipals().stream()
+                    .map(principal -> (AuthenticatedUser) principal)
+                    .filter(authenticatedUser -> toDelete.stream()
+                                                    .anyMatch(user -> authenticatedUser.getId() == user.getId()))
+                    .collect(toSet());
+            principals.forEach(principal -> {
+                // Invalidate any open session
+                List<SessionInformation> sessions = sessionRegistry.getAllSessions(principal, false);
+                sessions.forEach(session -> {
+                    logger.debug("Invalidating session {0} for user {1}",
+                                    session.getSessionId(), principal.getUsername());
+                    session.expireNow();
+                });
+            });
+
             SiteFeed siteFeed = siteService.getSite(studioConfiguration.getProperty(CONFIGURATION_GLOBAL_SYSTEM_SITE));
             AuditLog auditLog = auditServiceInternal.createAuditLogEntry();
             auditLog.setOperation(OPERATION_DELETE);
+            auditLog.setSiteId(siteFeed.getId());
             auditLog.setActorId(getCurrentUser().getUsername());
             auditLog.setPrimaryTargetId(siteFeed.getSiteId());
             auditLog.setPrimaryTargetType(TARGET_TYPE_USER);
             auditLog.setPrimaryTargetValue(siteFeed.getName());
-            List<AuditLogParameter> paramters = new ArrayList<AuditLogParameter>();
+            List<AuditLogParameter> parameters = new ArrayList<>();
             for (User deletedUser : toDelete) {
-                AuditLogParameter paramter = new AuditLogParameter();
-                paramter.setTargetId(Long.toString(deletedUser.getId()));
-                paramter.setTargetType(TARGET_TYPE_USER);
-                paramter.setTargetValue(deletedUser.getUsername());
-                paramters.add(paramter);
+                AuditLogParameter parameter = new AuditLogParameter();
+                parameter.setTargetId(Long.toString(deletedUser.getId()));
+                parameter.setTargetType(TARGET_TYPE_USER);
+                parameter.setTargetValue(deletedUser.getUsername());
+                parameters.add(parameter);
             }
-            auditLog.setParameters(paramters);
+            auditLog.setParameters(parameters);
             auditServiceInternal.insertAuditLog(auditLog);
         } finally {
             generalLockService.unlock(REMOVE_SYSTEM_ADMIN_MEMBER_LOCK);
@@ -276,14 +278,14 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @HasPermission(type = DefaultPermission.class, action = "read_users")
+    @HasPermission(type = DefaultPermission.class, action = PERMISSION_READ_USERS)
     public User getUserByIdOrUsername(long userId, String username)
             throws ServiceLayerException, UserNotFoundException {
         return userServiceInternal.getUserByIdOrUsername(userId, username);
     }
 
     @Override
-    @HasPermission(type = DefaultPermission.class, action = "update_users")
+    @HasPermission(type = DefaultPermission.class, action = PERMISSION_UPDATE_USERS)
     public List<User> enableUsers(List<Long> userIds, List<String> usernames,
                                   boolean enabled) throws ServiceLayerException, UserNotFoundException, AuthenticationException {
         List<User> users = userServiceInternal.enableUsers(userIds, usernames, enabled);
@@ -299,21 +301,21 @@ public class UserServiceImpl implements UserService {
         auditLog.setPrimaryTargetId(siteFeed.getSiteId());
         auditLog.setPrimaryTargetType(TARGET_TYPE_USER);
         auditLog.setPrimaryTargetValue(siteFeed.getName());
-        List<AuditLogParameter> paramters = new ArrayList<AuditLogParameter>();
+        List<AuditLogParameter> parameters = new ArrayList<>();
         for (User u : users) {
-            AuditLogParameter paramter = new AuditLogParameter();
-            paramter.setTargetId(Long.toString(u.getId()));
-            paramter.setTargetType(TARGET_TYPE_USER);
-            paramter.setTargetValue(u.getUsername());
-            paramters.add(paramter);
+            AuditLogParameter parameter = new AuditLogParameter();
+            parameter.setTargetId(Long.toString(u.getId()));
+            parameter.setTargetType(TARGET_TYPE_USER);
+            parameter.setTargetValue(u.getUsername());
+            parameters.add(parameter);
         }
-        auditLog.setParameters(paramters);
+        auditLog.setParameters(parameters);
         auditServiceInternal.insertAuditLog(auditLog);
         return users;
     }
 
     @Override
-    @HasPermission(type = DefaultPermission.class, action = "read_users")
+    @HasPermission(type = DefaultPermission.class, action = PERMISSION_READ_USERS)
     public List<Site> getUserSites(long userId, String username) throws ServiceLayerException, UserNotFoundException {
         List<Site> sites = new ArrayList<>();
         Set<String> allSites = siteService.getAllAvailableSites();
@@ -328,6 +330,8 @@ public class UserServiceImpl implements UserService {
                     SiteFeed siteFeed = siteService.getSite(siteId);
                     Site site = new Site();
                     site.setSiteId(siteFeed.getSiteId());
+                    site.setUuid(siteFeed.getSiteUuid());
+                    site.setName(siteFeed.getName());
                     site.setDesc(siteFeed.getDescription());
 
                     sites.add(site);
@@ -341,13 +345,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @HasPermission(type = DefaultPermission.class, action = "read_users")
+    @HasPermission(type = DefaultPermission.class, action = PERMISSION_READ_USERS)
     public List<String> getUserSiteRoles(long userId, String username, String site)
             throws ServiceLayerException, UserNotFoundException {
         List<Group> groups = userServiceInternal.getUserGroups(userId, username);
 
         if (CollectionUtils.isNotEmpty(groups)) {
-            Map<String, List<String>> roleMappings = configurationService.geRoleMappings(site);
+            Map<String, List<String>> roleMappings = configurationService.getRoleMappings(site);
             Set<String> userRoles = new LinkedHashSet<>();
 
             if (MapUtils.isNotEmpty(roleMappings)) {
@@ -378,38 +382,16 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public AuthenticatedUser getCurrentUser() throws AuthenticationException, ServiceLayerException {
-        Authentication authentication = securityService.getAuthentication();
-        if (authentication != null) {
-            String username = authentication.getUsername();
-            User user;
-            try {
-                user = userServiceInternal.getUserByIdOrUsername(0, username);
-            } catch (UserNotFoundException e) {
-                throw new ServiceLayerException("Current authenticated user '" + username +
-                    "' wasn't found in repository", e);
-            }
-
-            if (user != null) {
-                AuthenticatedUser authUser = new AuthenticatedUser(user);
-                authUser.setAuthenticationType(authentication.getAuthenticationType());
-
-                return authUser;
-            } else {
-                throw new ServiceLayerException("Current authenticated user '" + username +
-                                                "' wasn't found in repository");
-            }
-        } else {
-            throw new AuthenticationException("User should be authenticated");
-        }
+    public AuthenticatedUser getCurrentUser() throws AuthenticationException {
+        return userServiceInternal.getCurrentUser();
     }
 
     @Override
     public List<Site> getCurrentUserSites() throws AuthenticationException, ServiceLayerException {
-        Authentication authentication = securityService.getAuthentication();
+        var authentication = securityService.getAuthentication();
         if (authentication != null) {
             try {
-                return getUserSites(-1, authentication.getUsername());
+                return getUserSites(-1, authentication.getName());
             } catch (UserNotFoundException e) {
                 // Shouldn't happen
                 throw new IllegalStateException(e);
@@ -421,10 +403,10 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public List<String> getCurrentUserSiteRoles(String site) throws AuthenticationException, ServiceLayerException {
-        Authentication authentication = securityService.getAuthentication();
+        var authentication = securityService.getAuthentication();
         if (authentication != null) {
             try {
-                return getUserSiteRoles(-1, authentication.getUsername(), site);
+                return getUserSiteRoles(-1, authentication.getName(), site);
             } catch (UserNotFoundException e) {
                 // Shouldn't happen
                 throw new IllegalStateException(e);
@@ -435,21 +417,11 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public String getCurrentUserSsoLogoutUrl() throws AuthenticationException, ServiceLayerException {
-        Authentication authentication = securityService.getAuthentication();
-        if (authentication != null) {
-            return authentication.getSsoLogoutUrl();
-        } else {
-            throw new AuthenticationException("User should be authenticated");
-        }
-    }
-
-    @Override
     public boolean forgotPassword(String username) throws ServiceLayerException, UserNotFoundException,
             UserExternallyManagedException {
         logger.debug("Getting user profile for " + username);
         User user = userServiceInternal.getUserByIdOrUsername(-1, username);
-        boolean success = false;
+        boolean success;
         if (user == null) {
             logger.info("User profile not found for " + username);
             throw new UserNotFoundException();
@@ -464,9 +436,9 @@ public class UserServiceImpl implements UserService {
                     ZonedDateTime now = ZonedDateTime.now();
                     ZonedDateTime ttl = now.plusMinutes(
                             Long.parseLong(studioConfiguration .getProperty(SECURITY_FORGOT_PASSWORD_TOKEN_TIMEOUT)));
-                    long timestamp = ttl.toInstant().toEpochMilli();
+                    String salt = studioConfiguration.getProperty(SECURITY_CIPHER_SALT);
                     String studioId = instanceService.getInstanceId();
-                    String token = username + "|" + studioId + "|" + timestamp;
+                    String token = username + "|" + studioId + "|" + timestamp + "|" + salt;
                     String hashedToken = encryptToken(token);
                     logger.debug("Sending forgot password email to " + email);
                     sendForgotPasswordEmail(email, hashedToken);
@@ -506,7 +478,7 @@ public class UserServiceImpl implements UserService {
                     studioConfiguration.getProperty(SECURITY_FORGOT_PASSWORD_EMAIL_TEMPLATE));
 
             Writer out = new StringWriter();
-            Map<String, Object> model = new HashMap<String, Object>();
+            Map<String, Object> model = new HashMap<>();
             RequestContext context = RequestContext.getCurrent();
             HttpServletRequest request = context.getRequest();
             String authoringUrl = request.getRequestURL().toString().replace(request.getPathInfo(), "");
@@ -555,7 +527,8 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User setPassword(String token, String newPassword) throws UserNotFoundException, UserExternallyManagedException, ServiceLayerException {
+    public User setPassword(String token, String newPassword) throws UserNotFoundException,
+            UserExternallyManagedException, ServiceLayerException {
         if (validateToken(token)) {
             String username = getUsernameFromToken(token);
             if (StringUtils.isNotEmpty(username)) {
@@ -584,7 +557,7 @@ public class UserServiceImpl implements UserService {
         String decryptedToken = decryptToken(token);
         if (StringUtils.isNotEmpty(decryptedToken)) {
             StringTokenizer tokenElements = new StringTokenizer(decryptedToken, "|");
-            if (tokenElements.countTokens() == 3) {
+            if (tokenElements.countTokens() == 4) {
                 String username = tokenElements.nextToken();
                 User userProfile = userServiceInternal.getUserByIdOrUsername(-1, username);
                 if (userProfile == null) {
@@ -597,8 +570,7 @@ public class UserServiceImpl implements UserService {
                         String studioId = tokenElements.nextToken();
                         if (StringUtils.equals(studioId, instanceService.getInstanceId())) {
                             long tokenTimestamp = Long.parseLong(tokenElements.nextToken());
-                            ZonedDateTime now = ZonedDateTime.now();
-                            toRet = tokenTimestamp >= now.toInstant().toEpochMilli();
+                            toRet = tokenTimestamp >= System.currentTimeMillis();
                         }
                     }
                 }
@@ -612,7 +584,7 @@ public class UserServiceImpl implements UserService {
         String decryptedToken = decryptToken(token);
         if (StringUtils.isNotEmpty(decryptedToken)) {
             StringTokenizer tokenElements = new StringTokenizer(decryptedToken, "|");
-            if (tokenElements.countTokens() == 3) {
+            if (tokenElements.countTokens() == 4) {
                 toRet = tokenElements.nextToken();
             }
         }
@@ -620,15 +592,150 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @HasPermission(type = DefaultPermission.class, action = "update_users")
+    @HasPermission(type = DefaultPermission.class, action = PERMISSION_UPDATE_USERS)
     public boolean resetPassword(String username, String newPassword)
-            throws UserNotFoundException, UserExternallyManagedException, ServiceLayerException {
+            throws UserNotFoundException, ServiceLayerException {
         return userServiceInternal.setUserPassword(username, newPassword);
     }
 
+    @Override
+    public Map<String, Map<String, String>> getUserProperties(String siteId) throws ServiceLayerException {
+        return userServiceInternal.getUserProperties(siteId);
+    }
+
+    @Override
+    public Map<String, String> updateUserProperties(String siteId, Map<String, String> propertiesToUpdate)
+            throws ServiceLayerException {
+        return userServiceInternal.updateUserProperties(siteId, propertiesToUpdate);
+    }
+
+    @Override
+    public Map<String, String> deleteUserProperties(String siteId, List<String> propertiesToDelete)
+            throws ServiceLayerException {
+        return userServiceInternal.deleteUserProperties(siteId, propertiesToDelete);
+    }
+
+    @Override
+    public List<String> getCurrentUserSitePermissions(String site)
+            throws ServiceLayerException, UserNotFoundException, ExecutionException {
+        String currentUser = securityService.getCurrentUser();
+        List<String> roles = getUserSiteRoles(-1, currentUser, site);
+        return securityServiceV2.getUserPermission(site, currentUser, roles);
+    }
+
+    @Override
+    public Map<String, Boolean> hasCurrentUserSitePermissions(String site, List<String> permissions)
+            throws ServiceLayerException, UserNotFoundException, ExecutionException {
+        Map<String, Boolean> toRet = new HashMap<>();
+        List<String> userPermissions = getCurrentUserSitePermissions(site);
+        permissions.forEach(p -> toRet.put(p, userPermissions.contains(p)));
+        return toRet;
+    }
+
+    @Override
+    public List<String> getCurrentUserGlobalPermissions() throws ServiceLayerException, UserNotFoundException, ExecutionException {
+        String currentUser = securityService.getCurrentUser();
+        List<String> roles = getUserGlobalRoles(-1, currentUser);
+        return securityServiceV2.getUserPermission(StringUtils.EMPTY, currentUser, roles);
+    }
+
+    @Override
+    public Map<String, Boolean> hasCurrentUserGlobalPermissions(List<String> permissions) throws ServiceLayerException, UserNotFoundException, ExecutionException {
+        Map<String, Boolean> toRet = new HashMap<>();
+        List<String> userPermissions = getCurrentUserGlobalPermissions();
+        permissions.forEach(p -> toRet.put(p, userPermissions.contains(p)));
+        return toRet;
+    }
+
+    private List<String> getUserGlobalRoles(long userId, String username)
+            throws ServiceLayerException, UserNotFoundException {
+        List<Group> groups = userServiceInternal.getUserGroups(userId, username);
+
+        if (CollectionUtils.isNotEmpty(groups)) {
+            Map<String, List<String>> roleMappings = configurationService.getGlobalRoleMappings();
+            Set<String> userRoles = new LinkedHashSet<>();
+
+            if (MapUtils.isNotEmpty(roleMappings)) {
+                for (Group group : groups) {
+                    String groupName = group.getGroupName();
+                    List<String> roles = roleMappings.get(groupName);
+                    if (CollectionUtils.isNotEmpty(roles)) {
+                        userRoles.addAll(roles);
+                    }
+                }
+            }
+
+            return new ArrayList<>(userRoles);
+        } else {
+            return Collections.emptyList();
+        }
+    }
 
     private boolean isAuthenticatedSMTP() {
         return Boolean.parseBoolean(studioConfiguration.getProperty(MAIL_SMTP_AUTH));
+    }
+
+    public void setUserServiceInternal(UserServiceInternal userServiceInternal) {
+        this.userServiceInternal = userServiceInternal;
+    }
+
+    public void setConfigurationService(ConfigurationService configurationService) {
+        this.configurationService = configurationService;
+    }
+
+    public void setGroupServiceInternal(GroupServiceInternal groupServiceInternal) {
+        this.groupServiceInternal = groupServiceInternal;
+    }
+
+    public void setSiteService(SiteService siteService) {
+        this.siteService = siteService;
+    }
+
+    public void setEntitlementValidator(EntitlementValidator entitlementValidator) {
+        this.entitlementValidator = entitlementValidator;
+    }
+
+    public void setGeneralLockService(GeneralLockService generalLockService) {
+        this.generalLockService = generalLockService;
+    }
+
+    public void setSecurityService(SecurityService securityService) {
+        this.securityService = securityService;
+    }
+
+    public void setStudioConfiguration(StudioConfiguration studioConfiguration) {
+        this.studioConfiguration = studioConfiguration;
+    }
+
+    public void setAuditServiceInternal(AuditServiceInternal auditServiceInternal) {
+        this.auditServiceInternal = auditServiceInternal;
+    }
+    public void setFreeMarkerConfig(ObjectFactory<FreeMarkerConfig> freeMarkerConfig) {
+        this.freeMarkerConfig = freeMarkerConfig;
+    }
+
+    public void setEmailService(JavaMailSender emailService) {
+        this.emailService = emailService;
+    }
+
+    public void setEmailServiceNoAuth(JavaMailSender emailServiceNoAuth) {
+        this.emailServiceNoAuth = emailServiceNoAuth;
+    }
+
+    public void setInstanceService(InstanceService instanceService) {
+        this.instanceService = instanceService;
+    }
+
+    public void setEncryptor(TextEncryptor encryptor) {
+        this.encryptor = encryptor;
+    }
+
+    public void setSecurityServiceV2(org.craftercms.studio.api.v2.service.security.SecurityService securityServiceV2) {
+        this.securityServiceV2 = securityServiceV2;
+    }
+
+    public void setSessionRegistry(SessionRegistry sessionRegistry) {
+        this.sessionRegistry = sessionRegistry;
     }
 
 }

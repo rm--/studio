@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -17,14 +17,17 @@
 package org.craftercms.studio.impl.v2.upgrade.operations.site;
 
 import org.apache.commons.lang3.StringUtils;
+import org.craftercms.commons.upgrade.exception.UpgradeException;
 import org.craftercms.studio.api.v1.constant.StudioConstants;
 import org.craftercms.studio.api.v1.dal.SiteFeed;
 import org.craftercms.studio.api.v1.dal.SiteFeedMapper;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
-import org.craftercms.studio.api.v2.exception.UpgradeException;
+import org.craftercms.studio.api.v2.utils.StudioConfiguration;
+import org.craftercms.studio.impl.v2.upgrade.StudioUpgradeContext;
 import org.craftercms.studio.impl.v2.upgrade.operations.AbstractUpgradeOperation;
 
+import java.beans.ConstructorProperties;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,8 +45,15 @@ public class AddSiteUuidOperation extends AbstractUpgradeOperation {
 
     private SiteFeedMapper siteFeedMapper;
 
+    @ConstructorProperties({"studioConfiguration", "siteFeedMapper"})
+    public AddSiteUuidOperation(StudioConfiguration studioConfiguration, SiteFeedMapper siteFeedMapper) {
+        super(studioConfiguration);
+        this.siteFeedMapper = siteFeedMapper;
+    }
+
     @Override
-    public void execute(String site) throws UpgradeException {
+    public void doExecute(final StudioUpgradeContext context) throws UpgradeException {
+        var site = context.getTarget();
         logger.debug("Get site data from database for site " + site);
         Map<String, String> params = new HashMap<String, String>();
         params.put(SITE_ID, site);
@@ -69,11 +79,4 @@ public class AddSiteUuidOperation extends AbstractUpgradeOperation {
         }
     }
 
-    public SiteFeedMapper getSiteFeedMapper() {
-        return siteFeedMapper;
-    }
-
-    public void setSiteFeedMapper(SiteFeedMapper siteFeedMapper) {
-        this.siteFeedMapper = siteFeedMapper;
-    }
 }

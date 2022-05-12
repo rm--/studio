@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -16,56 +16,106 @@
 
 package org.craftercms.sites.editorial
 
+import co.elastic.clients.elasticsearch._types.SortOrder
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery
+import co.elastic.clients.elasticsearch._types.query_dsl.Query
+import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType
+import co.elastic.clients.elasticsearch.core.SearchRequest
+import co.elastic.clients.elasticsearch.core.search.Highlight
 import org.apache.commons.lang3.StringUtils
 import org.craftercms.engine.service.UrlTransformationService
-import org.elasticsearch.action.search.SearchRequest
-import org.elasticsearch.index.query.QueryBuilders
-import org.elasticsearch.search.builder.SearchSourceBuilder
-import org.elasticsearch.search.sort.FieldSortBuilder
-import org.elasticsearch.search.sort.SortOrder
+import org.craftercms.search.elasticsearch.client.ElasticsearchClientWrapper
 
 class SearchHelper {
 
-  static final String ARTICLE_CONTENT_TYPE_QUERY = "content-type:\"/page/article\""
+  static final String ARTICLE_CONTENT_TYPE = "/page/article"
+  static final List<String> ARTICLE_SEARCH_FIELDS = [
+    'subject_t^1.5',
+    'sections_o.item.section_html^1.0'
+  ]
   static final String[] HIGHLIGHT_FIELDS = ["subject_t", "sections_o.item.section_html"]
   static final int DEFAULT_START = 0
   static final int DEFAULT_ROWS = 10
 
-  def elasticsearch
+  ElasticsearchClientWrapper elasticsearchClient
   UrlTransformationService urlTransformationService
 
-  SearchHelper(elasticsearch, UrlTransformationService urlTransformationService) {
-    this.elasticsearch = elasticsearch
+  SearchHelper(ElasticsearchClientWrapper elasticsearchClient, UrlTransformationService urlTransformationService) {
+    this.elasticsearchClient = elasticsearchClient
     this.urlTransformationService = urlTransformationService
   }
 
   def search(userTerm, categories, start = DEFAULT_START, rows = DEFAULT_ROWS) {
-    def q = "${ARTICLE_CONTENT_TYPE_QUERY}"
+    def query = new BoolQuery.Builder()
+
+    // Filter by content-type
+    query.filter(q -> q
+      .match(m -> m
+        .field("content-type")
+        .query(v -> v
+          .stringValue(ARTICLE_CONTENT_TYPE)
+        )
+      )
+    )
+    if (categories) {
+      // Filter by categories
+      query.filter(getFieldQueryWithMultipleValues("categories_o.item.key", categories))
+    }
 
     if (userTerm) {
-      if(!userTerm.contains(" ")) {
-        userTerm = "${userTerm}~1 OR *${userTerm}*"
+      // Check if the user is requesting an exact match with quotes
+      def matcher = userTerm =~ /.*("([^"]+)").*/
+      if (matcher.matches()) {
+        // Using must excludes any doc that doesn't match with the input from the user
+        query.must(q -> q
+          .multiMatch(m -> m
+            .query(matcher.group(2))
+            .fields(ARTICLE_SEARCH_FIELDS)
+            .fuzzyTranspositions(false)
+            .autoGenerateSynonymsPhraseQuery(false)
+          )
+        )
+
+        // Remove the exact match to continue processing the user input
+        userTerm = StringUtils.remove(userTerm, matcher.group(1))
+      } else {
+        // Exclude docs that do not have any optional matches
+        query.minimumShouldMatch("1")
       }
-      def userTermQuery = "(subject_t:(${userTerm}) OR sections_o.item.section_html:(${userTerm}))"
 
-      q = "${q} AND ${userTermQuery}"
+      if (userTerm) {
+        // Using should makes it optional and each additional match will increase the score of the doc
+        query
+          // Search for phrase matches including a wildcard at the end and increase the score for this match
+          .should(q -> q
+            .multiMatch(m -> m
+              .query(userTerm)
+              .fields(ARTICLE_SEARCH_FIELDS)
+              .type(TextQueryType.PhrasePrefix)
+              .boost(1.5f)
+            )
+          )
+          // Search for matches on individual terms
+          .should(q -> q
+            .multiMatch(m -> m
+              .query(userTerm)
+              .fields(ARTICLE_SEARCH_FIELDS)
+            )
+          )
+      }
     }
-    if (categories) {
-      def categoriesQuery = getFieldQueryWithMultipleValues("categories_o.item.key", categories)
 
-      q = "${q} AND ${categoriesQuery}"
-    }
+    def highlighter = new Highlight.Builder();
+    HIGHLIGHT_FIELDS.each{ field -> highlighter.fields(field, f -> f ) }
 
-    def highlighter = SearchSourceBuilder.highlight()
-    HIGHLIGHT_FIELDS.each{ field -> highlighter.field(field) }
-
-    def builder = new SearchSourceBuilder()
-      .query(QueryBuilders.queryStringQuery(q))
+    SearchRequest request = SearchRequest.of(r -> r
+      .query(query.build()._toQuery())
       .from(start)
       .size(rows)
-      .highlighter(highlighter)
-    
-    def result = elasticsearch.search(new SearchRequest().source(builder))
+      .highlight(highlighter.build())
+    )
+
+    def result = elasticsearchClient.search(request, Map)
 
     if (result) {
       return processUserSearchResults(result)
@@ -75,32 +125,54 @@ class SearchHelper {
   }
 
   def searchArticles(featured, categories, segments, start = DEFAULT_START, rows = DEFAULT_ROWS, additionalCriteria = null) {
-    def q = "${ARTICLE_CONTENT_TYPE_QUERY}"
-
-    if (featured) {
-      q = "${q} AND featured_b:true"
-    }
-    if (categories) {
-      def categoriesQuery = getFieldQueryWithMultipleValues("categories_o.item.key", categories)
-
-      q = "${q} AND ${categoriesQuery}"
-    }
-    if (segments) {
-      def segmentsQuery = getFieldQueryWithMultipleValues("segments_o.item.key", segments)
-
-      q = "${q} AND ${segmentsQuery}"
-    }
-    if (additionalCriteria) {
-      q = "${q} AND ${additionalCriteria}"
-    }
-    
-    def builder = new SearchSourceBuilder()
-      .query(QueryBuilders.queryStringQuery(q))
+    SearchRequest request = SearchRequest.of(r -> r
+      .query(q -> q
+        .bool(b -> {
+          b.filter(f -> f
+            .match(m -> m
+              .field("content-type")
+              .query(v -> v
+                .stringValue(ARTICLE_CONTENT_TYPE)
+              )
+            )
+          )
+          if (featured) {
+            b.filter(f -> f
+              .term(t -> t
+                .field("featured_b")
+                .value(v -> v
+                  .booleanValue(true)
+                )
+              )
+            )
+          }
+          if (categories) {
+            b.filter(getFieldQueryWithMultipleValues("categories_o.item.key", categories))
+          }
+          if (segments) {
+            b.filter(getFieldQueryWithMultipleValues("segments_o.item.key", segments))
+          }
+          if (additionalCriteria) {
+            b.filter(f -> f
+              .queryString(s -> s
+                .query(additionalCriteria)
+              )
+            )
+          }
+          return b
+        })
+      )
       .from(start)
       .size(rows)
-      .sort(new FieldSortBuilder("date_dt").order(SortOrder.DESC))
-    
-    def result = elasticsearch.search(new SearchRequest().source(builder))
+      .sort(s -> s
+        .field(f -> f
+          .field("date_dt")
+          .order(SortOrder.Desc)
+        )
+      )
+    )
+
+    def result = elasticsearchClient.search(request, Map)
 
     if (result) {
       return processArticleListingResults(result)
@@ -111,22 +183,25 @@ class SearchHelper {
 
   private def processUserSearchResults(result) {
     def articles = []
-    def hits = result.hits.hits
+    def hits = result.hits().hits()
 
     if (hits) {
       hits.each {hit ->
-        def doc = hit.getSourceAsMap()
+        def doc = hit.source()
         def article = [:]
+            article.id = doc.objectId
+            article.objectId = doc.objectId
+            article.path = doc.localId
             article.title = doc.title_t
             article.url = urlTransformationService.transform("storeUrlToRenderUrl", doc.localId)
 
-        if (hit.highlightFields) {
-          def articleHighlights = hit.highlightFields.values()*.getFragments().flatten()*.string()
+        if (hit.highlight()) {
+          def articleHighlights = hit.highlight().values()
           if (articleHighlights) {
               def highlightValues = []
 
               articleHighlights.each { value ->
-                  highlightValues << value
+                  highlightValues.addAll(value)
               }
 
               article.highlight = StringUtils.join(highlightValues, "... ")
@@ -143,15 +218,19 @@ class SearchHelper {
 
   private def processArticleListingResults(result) {
     def articles = []
-    def documents = result.hits.hits*.getSourceAsMap()
+    def documents = result.hits().hits()*.source()
 
     if (documents) {
       documents.each {doc ->
         def article = [:]
-            article.title = doc.subject_t
-            article.summary = doc.summary_t
-            article.url = urlTransformationService.transform("storeUrlToRenderUrl", doc.localId)
-            article.image = doc.image_s
+        article.id = doc.objectId
+        article.objectId = doc.objectId
+        article.path = doc.localId
+        article.storeUrl = doc.localId
+        article.title = doc.subject_t
+        article.summary = doc.summary_t
+        article.url = urlTransformationService.transform("storeUrlToRenderUrl", doc.localId)
+        article.image = doc.image_s
 
         articles << article
       }
@@ -160,18 +239,25 @@ class SearchHelper {
     return articles
   }
 
-  private def getFieldQueryWithMultipleValues(field, values) {
+  private Query getFieldQueryWithMultipleValues(field, values) {
     if (values.class.isArray()) {
       values = values as List
     }
 
     if (values instanceof Iterable) {
-      values = "(" + StringUtils.join((Iterable)values, " OR ") + ")"
+      values = StringUtils.join((Iterable)values, " ") as String
     } else {
-      values = "\"${values}\""
+      values = values as String
     }
 
-    return "${field}:${values}"
+    return Query.of(q -> q
+      .match(m -> m
+        .field(field)
+        .query(v -> v
+          .stringValue(values)
+        )
+      )
+    );
   }
 
 }

@@ -15,8 +15,8 @@
  */
 package org.craftercms.studio.impl.v2.utils.git.cli;
 
-import org.craftercms.studio.api.v2.exception.git.cli.NoChangesToCommitException;
 import org.craftercms.studio.api.v2.exception.git.cli.GitCliOutputException;
+import org.craftercms.studio.api.v2.exception.git.cli.NoChangesToCommitException;
 
 import java.util.regex.Pattern;
 

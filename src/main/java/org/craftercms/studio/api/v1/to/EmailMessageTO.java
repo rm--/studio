@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -65,7 +65,7 @@ public class EmailMessageTO implements Serializable {
 
 	/**
 	 * Starts from /site
-	 * @param browserUrl
+	 * @param browserUrl preview url
 	 */
 	public void setBrowserUrl(String browserUrl) {
 		this.browserUrl = browserUrl;		

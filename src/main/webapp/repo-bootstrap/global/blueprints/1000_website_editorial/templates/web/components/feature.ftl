@@ -1,8 +1,15 @@
-<#import "/templates/system/common/cstudio-support.ftl" as studio />
-<article <@studio.componentAttr component=contentModel ice=true />>
-  <span class="icon ${contentModel.icon_s}"></span>
+<#import "/templates/system/common/crafter.ftl" as crafter />
+
+<!-- Feature Component -->
+<@crafter.article class="feature">
+  <@crafter.span class="icon ${contentModel.icon_s}" $field="icon_s"/>
   <div class="content">
-    <h3>${contentModel.title_t}</h3>
-    ${contentModel.body_html}
+    <@crafter.h3 $field="title_t">
+      ${contentModel.title_t}
+    </@crafter.h3>
+    <@crafter.div $field="body_html">
+      ${contentModel.body_html}
+    </@crafter.div>
   </div>
-</article>
+</@crafter.article>
+<!-- /Feature Component -->

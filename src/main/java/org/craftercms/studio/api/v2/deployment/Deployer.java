@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -28,10 +28,9 @@ public interface Deployer {
      * Calls a Crafter Deployer to create any necessary targets for the site.
      *
      * @param site the site
-     * @param searchEngine the search engine used by the site
      * @throws RestClientException if an error occurs
      */
-    void createTargets(String site, String searchEngine) throws RestClientException;
+    void createTargets(String site) throws RestClientException;
 
     /**
      * Deletes the targets associated with the site.

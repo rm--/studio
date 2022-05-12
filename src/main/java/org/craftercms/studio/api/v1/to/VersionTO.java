@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -15,9 +15,10 @@
  */
 package org.craftercms.studio.api.v1.to;
 
+import org.craftercms.studio.impl.v2.utils.DateUtils;
+
 import java.io.Serializable;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 
 import static org.craftercms.studio.api.v1.constant.StudioConstants.DATE_PATTERN_WORKFLOW_WITH_TZ;
@@ -49,7 +50,7 @@ public class VersionTO implements Comparable<VersionTO>, Serializable {
      */
     public String getLastModifiedDate() {
         if (lastModifiedDate != null) {
-            String dateStr = lastModifiedDate.format(DateTimeFormatter.ofPattern(DATE_PATTERN_WORKFLOW_WITH_TZ));
+            String dateStr = DateUtils.formatDate(lastModifiedDate, DATE_PATTERN_WORKFLOW_WITH_TZ);
             return dateStr;
         } else {
             return null;

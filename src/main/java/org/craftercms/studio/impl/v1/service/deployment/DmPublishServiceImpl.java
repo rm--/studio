@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -15,7 +15,6 @@
  */
 package org.craftercms.studio.impl.v1.service.deployment;
 
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -29,21 +28,21 @@ import org.craftercms.commons.validation.annotations.param.ValidateSecurePathPar
 import org.craftercms.commons.validation.annotations.param.ValidateStringParam;
 import org.craftercms.studio.api.v1.constant.DmConstants;
 import org.craftercms.studio.api.v1.exception.ServiceLayerException;
-import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
+import org.craftercms.studio.api.v1.exception.security.UserNotFoundException;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
 import org.craftercms.studio.api.v1.repository.ContentRepository;
 import org.craftercms.studio.api.v1.service.AbstractRegistrableService;
 import org.craftercms.studio.api.v1.service.content.ContentService;
-import org.craftercms.studio.api.v1.service.content.ObjectMetadataManager;
 import org.craftercms.studio.api.v1.service.dependency.DependencyService;
 import org.craftercms.studio.api.v1.service.deployment.DeploymentException;
 import org.craftercms.studio.api.v1.service.deployment.DeploymentService;
 import org.craftercms.studio.api.v1.service.deployment.DmPublishService;
-import org.craftercms.studio.api.v1.service.objectstate.ObjectStateService;
 import org.craftercms.studio.api.v1.service.security.SecurityService;
 import org.craftercms.studio.api.v1.service.site.SiteService;
 import org.craftercms.studio.api.v1.service.workflow.context.MultiChannelPublishingContext;
+import org.craftercms.studio.api.v2.service.item.internal.ItemServiceInternal;
+import org.craftercms.studio.impl.v2.utils.DateUtils;
 
 import static org.craftercms.studio.api.v1.constant.StudioConstants.FILE_SEPARATOR;
 
@@ -56,9 +55,8 @@ public class DmPublishServiceImpl extends AbstractRegistrableService implements 
     protected SiteService siteService;
     protected ContentService contentService;
     protected ContentRepository contentRepository;
-    protected ObjectMetadataManager objectMetadataManager;
-    protected ObjectStateService objectStateService;
     protected DependencyService dependencyService;
+    protected ItemServiceInternal itemServiceInternal;
 
     @Override
     public void register() {
@@ -72,7 +70,7 @@ public class DmPublishServiceImpl extends AbstractRegistrableService implements 
         boolean scheduledDateIsNow = false;
         if (launchDate == null) {
             scheduledDateIsNow=true;
-            launchDate = ZonedDateTime.now(ZoneOffset.UTC);
+            launchDate = DateUtils.getCurrentTime();
         }
         final String approver = securityService.getCurrentUser();
         final ZonedDateTime ld = launchDate;
@@ -81,7 +79,7 @@ public class DmPublishServiceImpl extends AbstractRegistrableService implements 
         try {
             deploymentService.deploy(site, mcpContext.getPublishingChannelGroup(), paths, ld, approver,
                         mcpContext.getSubmissionComment(),scheduledDateIsNow );
-        } catch (DeploymentException e) {
+        } catch (DeploymentException | ServiceLayerException | UserNotFoundException e) {
             logger.error("Error while submitting paths to publish");
         }
 
@@ -98,11 +96,11 @@ public class DmPublishServiceImpl extends AbstractRegistrableService implements 
     public void unpublish(@ValidateStringParam(name = "site") String site, List<String> paths,
                           @ValidateStringParam(name = "approver") String approver, ZonedDateTime scheduleDate) {
         if (scheduleDate == null) {
-            scheduleDate = ZonedDateTime.now(ZoneOffset.UTC);
+            scheduleDate = DateUtils.getCurrentTime();
         }
         try {
             deploymentService.delete(site, paths, approver, scheduleDate, null);
-        } catch (DeploymentException | SiteNotFoundException ex) {
+        } catch (DeploymentException | ServiceLayerException | UserNotFoundException ex) {
             logger.error("Unable to delete files due a error ",ex);
         }
     }
@@ -134,12 +132,12 @@ public class DmPublishServiceImpl extends AbstractRegistrableService implements 
         logger.debug("Get change set for subtree for site: " + site + " root path: " + queryPath);
         List<String> childrenPaths = new ArrayList<String>();
 
-        childrenPaths = objectStateService.getChangeSetForSubtree(site, queryPath);
+        childrenPaths = itemServiceInternal.getChangeSetForSubtree(site, queryPath);
 
         logger.debug("Collected " + childrenPaths.size() + " content items for site " + site + " and root path "
                 + queryPath);
         Set<String> processedPaths = new HashSet<String>();
-        ZonedDateTime launchDate = ZonedDateTime.now(ZoneOffset.UTC);
+        ZonedDateTime launchDate = DateUtils.getCurrentTime();
         for (String childPath : childrenPaths) {
             String childHash = DigestUtils.md2Hex(childPath);
             logger.debug("Processing dependencies for site " + site + " path " + childPath);
@@ -147,7 +145,7 @@ public class DmPublishServiceImpl extends AbstractRegistrableService implements 
                 List<String> pathsToPublish = new ArrayList<String>();
                 List<String> candidatesToPublish = new ArrayList<String>();
                 pathsToPublish.add(childPath);
-                candidatesToPublish.addAll(objectMetadataManager.getSameCommitItems(site, childPath));
+                candidatesToPublish.addAll(itemServiceInternal.getSameCommitItems(site, childPath));
                 candidatesToPublish.addAll(dependencyService.getPublishingDependencies(site, childPath));
                 for (String pathToAdd : candidatesToPublish) {
                     String hash = DigestUtils.md2Hex(pathToAdd);
@@ -163,7 +161,7 @@ public class DmPublishServiceImpl extends AbstractRegistrableService implements 
                         "' for site" + site + " path " + childPath);
                 try {
                     deploymentService.deploy(site, environment, pathsToPublish, launchDate, aprover, comment, true);
-                } catch (DeploymentException e) {
+                } catch (DeploymentException | UserNotFoundException e) {
                     logger.error("Error while running Bulk Publish operation", e);
                 } finally {
                     logger.debug("Finished processing deployment package for path " + childPath + " site " + site);
@@ -209,27 +207,19 @@ public class DmPublishServiceImpl extends AbstractRegistrableService implements 
         this.contentRepository = contentRepository;
     }
 
-    public ObjectMetadataManager getObjectMetadataManager() {
-        return objectMetadataManager;
-    }
-
-    public void setObjectMetadataManager(ObjectMetadataManager objectMetadataManager) {
-        this.objectMetadataManager = objectMetadataManager;
-    }
-
-    public ObjectStateService getObjectStateService() {
-        return objectStateService;
-    }
-
-    public void setObjectStateService(ObjectStateService objectStateService) {
-        this.objectStateService = objectStateService;
-    }
-
     public DependencyService getDependencyService() {
         return dependencyService;
     }
 
     public void setDependencyService(DependencyService dependencyService) {
         this.dependencyService = dependencyService;
+    }
+
+    public ItemServiceInternal getItemServiceInternal() {
+        return itemServiceInternal;
+    }
+
+    public void setItemServiceInternal(ItemServiceInternal itemServiceInternal) {
+        this.itemServiceInternal = itemServiceInternal;
     }
 }

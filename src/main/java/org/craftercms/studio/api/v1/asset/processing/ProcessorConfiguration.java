@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -61,6 +61,8 @@ public class ProcessorConfiguration {
      * during input path matching, to form the final output path. E.g for path /static-assets/image/logo.jpg, if pipeline input path
      * pattern = /static-assets/image/(.+)\.jpg and output path format = /static-assets/image/processed/$1.jpg, then the final output
      * path of the processed asset will be /static-assets/image/processed/logo.jpg
+     *
+     * @return output path format
      */
     public String getOutputPathFormat() {
         return outputPathFormat;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -23,14 +23,8 @@ import java.util.Map;
 
 import static org.craftercms.studio.api.v2.dal.QueryParameterNames.CLUSTER_ID;
 import static org.craftercms.studio.api.v2.dal.QueryParameterNames.CLUSTER_LOCAL_ADDRESS;
-import static org.craftercms.studio.api.v2.dal.QueryParameterNames.CLUSTER_NODE_ID;
-import static org.craftercms.studio.api.v2.dal.QueryParameterNames.COMMIT_ID;
-import static org.craftercms.studio.api.v2.dal.QueryParameterNames.NODE_LAST_COMMIT_ID;
-import static org.craftercms.studio.api.v2.dal.QueryParameterNames.NODE_LAST_SYNCED_GITLOG_COMMIT_ID;
-import static org.craftercms.studio.api.v2.dal.QueryParameterNames.NODE_LAST_VERIFIED_GITLOG_COMMIT_ID;
 import static org.craftercms.studio.api.v2.dal.QueryParameterNames.REMOTE_REPOSITORY_ID;
 import static org.craftercms.studio.api.v2.dal.QueryParameterNames.SITE_ID;
-import static org.craftercms.studio.api.v2.dal.QueryParameterNames.STATE;
 
 public interface ClusterDAO {
 
@@ -44,6 +38,7 @@ public interface ClusterDAO {
     /**
      * Get number of active cluster members from database
      *
+     * @param params SQL query params
      * @return number of active cluster members
      */
     int countActiveMembers(Map params);
@@ -51,6 +46,7 @@ public interface ClusterDAO {
     /**
      * Get other cluster members from database - different from member executing query
      *
+     * @param params SQL query params
      * @return List of cluster members
      */
     List<ClusterMember> getOtherMembers(Map params);
@@ -173,70 +169,4 @@ public interface ClusterDAO {
      * @return cluster member
      */
     ClusterMember getMemberByLocalAddress(@Param(CLUSTER_LOCAL_ADDRESS) String localAddress);
-
-    /**
-     * Insert cluster node site sync repo record
-     * @param clusterNodeId cluster node identifier
-     * @param siteId site identifier
-     * @param nodeLastCommitId last commit id of local sandbox repository
-     * @param nodeLastVerifiedGitlogCommitId last verified git log commit id in local repo
-     */
-    void insertClusterSiteSyncRepo(@Param(CLUSTER_NODE_ID) long clusterNodeId, @Param(SITE_ID) long siteId,
-                                   @Param(NODE_LAST_COMMIT_ID) String nodeLastCommitId,
-                                   @Param(NODE_LAST_VERIFIED_GITLOG_COMMIT_ID) String nodeLastVerifiedGitlogCommitId,
-                                   @Param(NODE_LAST_SYNCED_GITLOG_COMMIT_ID) String nodeLastSyncedGitlogCommitId);
-
-    /**
-     * Update local last verified git log commit id
-     * @param clusterNodeId cluster node identifier
-     * @param siteId site identifier
-     * @param commitId commit id
-     */
-    void updateNodeLastVerifiedGitlogCommitId(@Param(CLUSTER_NODE_ID) long clusterNodeId, @Param(SITE_ID) long siteId,
-                                              @Param(COMMIT_ID) String commitId);
-
-    /**
-     * Update local last git log commit id
-     * @param clusterNodeId cluster node identifier
-     * @param siteId site identifier
-     * @param commitId commit id
-     */
-    void updateNodeLastCommitId(@Param(CLUSTER_NODE_ID) long clusterNodeId, @Param(SITE_ID) long siteId,
-                                @Param(COMMIT_ID) String commitId);
-
-    /**
-     * get last commit id for node
-     * @param clusterNodeId cluster node identifier
-     * @param siteId site identifier
-     * @return last commit id for local studio node
-     */
-    String getNodeLastCommitId(@Param(CLUSTER_NODE_ID) long clusterNodeId, @Param(SITE_ID) long siteId);
-
-    /**
-     * get last verified git log commit id for site
-     * @param clusterNodeId cluster node identifier
-     * @param siteId site identifier
-     * @return last verified git log commit id for local studio node
-     */
-    String getNodeLastVerifiedGitlogCommitId(@Param(CLUSTER_NODE_ID) long clusterNodeId, @Param(SITE_ID) long siteId);
-
-    /**
-     * Check if sync markers exists in DB
-     * @param clusterNodeId cluster node identifier
-     * @param siteId site identifier
-     * @return
-     */
-    int existsClusterSiteSyncRepo(@Param(CLUSTER_NODE_ID) long clusterNodeId, @Param(SITE_ID) long siteId);
-
-    void setSiteState(@Param(CLUSTER_NODE_ID) long clusterNodeId, @Param(SITE_ID) long siteId,
-                      @Param(STATE) String state);
-
-    List<ClusterSiteRecord> getSiteStateAcrossCluster(@Param(SITE_ID) String siteId);
-
-    ClusterSiteRecord getClusterSiteRecord(@Param(CLUSTER_NODE_ID) long clusterNodeId, @Param(SITE_ID) long siteId);
-
-    void setPublishedRepoCreated(@Param(CLUSTER_NODE_ID) long clusterNodeId, @Param(SITE_ID) long siteId);
-
-    void updateNodeLastSyncedGitlogCommitId(@Param(CLUSTER_NODE_ID) long clusterNodeId, @Param(SITE_ID) long siteId,
-                                             @Param(COMMIT_ID) String commitId);
 }

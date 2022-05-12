@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -16,20 +16,9 @@
 
 package org.craftercms.studio.api.v1.exception;
 
-public class BlueprintNotFoundException extends ServiceLayerException {
+import org.craftercms.studio.api.v2.exception.marketplace.PluginNotFoundException;
 
-    private static final long serialVersionUID = -2848136136746845231L;
-
-    public BlueprintNotFoundException() {
-    }
-
-    public BlueprintNotFoundException(Throwable t) {
-        super(t);
-    }
-
-    public BlueprintNotFoundException(Exception e) {
-        super(e);
-    }
+public class BlueprintNotFoundException extends PluginNotFoundException {
 
     public BlueprintNotFoundException(String message) {
         super(message);
@@ -38,4 +27,5 @@ public class BlueprintNotFoundException extends ServiceLayerException {
     public BlueprintNotFoundException(String message, Exception e) {
         super(message, e);
     }
+
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -17,7 +17,9 @@
 package org.craftercms.studio.controller.rest.v2;
 
 import org.apache.commons.collections.CollectionUtils;
+import org.craftercms.studio.api.v1.exception.ServiceLayerException;
 import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
+import org.craftercms.studio.api.v1.exception.security.UserNotFoundException;
 import org.craftercms.studio.api.v1.service.site.SiteService;
 import org.craftercms.studio.api.v2.dal.DeploymentHistoryGroup;
 import org.craftercms.studio.api.v2.dal.PublishStatus;
@@ -31,6 +33,7 @@ import org.craftercms.studio.model.rest.PaginatedResultList;
 import org.craftercms.studio.model.rest.ResponseBody;
 import org.craftercms.studio.model.rest.Result;
 import org.craftercms.studio.model.rest.ResultOne;
+import org.craftercms.studio.model.rest.publish.AvailablePublishingTargets;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -52,6 +55,7 @@ import static org.craftercms.studio.controller.rest.v2.RequestConstants.REQUEST_
 import static org.craftercms.studio.controller.rest.v2.RequestConstants.REQUEST_PARAM_SITEID;
 import static org.craftercms.studio.controller.rest.v2.RequestConstants.REQUEST_PARAM_STATES;
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.API_2;
+import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.AVAILABLE_TARGETS;
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.CANCEL;
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.CLEAR_LOCK;
 import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.HISTORY;
@@ -124,7 +128,8 @@ public class PublishController {
 
     @PostMapping(CANCEL)
     public ResponseBody cancelPublishingPackages(
-            @RequestBody CancelPublishingPackagesRequest cancelPublishingPackagesRequest) throws SiteNotFoundException {
+            @RequestBody CancelPublishingPackagesRequest cancelPublishingPackagesRequest)
+            throws ServiceLayerException, UserNotFoundException {
         String siteId = cancelPublishingPackagesRequest.getSiteId();
         if (!siteService.exists(siteId)) {
             throw new SiteNotFoundException(siteId);
@@ -171,7 +176,8 @@ public class PublishController {
     public ResponseBody getPublishingHistory(@RequestParam(name = REQUEST_PARAM_SITEID) String siteId,
                                              @RequestParam(name = REQUEST_PARAM_DAYS) int daysFromToday,
                                              @RequestParam(name = REQUEST_PARAM_NUM) int numberOfItems,
-                                             @RequestParam(name = REQUEST_PARAM_FILTER_TYPE) String filterType)
+                                             @RequestParam(name = REQUEST_PARAM_FILTER_TYPE, required = false,
+                                                     defaultValue = "page") String filterType)
             throws SiteNotFoundException {
         if (!siteService.exists(siteId)) {
             throw new SiteNotFoundException(siteId);
@@ -186,6 +192,24 @@ public class PublishController {
         result.setLimit(history.size());
         result.setTotal(history.size());
         responseBody.setResult(result);
+        return responseBody;
+    }
+
+    @GetMapping(value = AVAILABLE_TARGETS, produces = APPLICATION_JSON_VALUE)
+    public ResponseBody getAvailablePublishingTargets(@RequestParam(name = REQUEST_PARAM_SITEID) String siteId)
+            throws SiteNotFoundException {
+        if (!siteService.exists(siteId)) {
+            throw new SiteNotFoundException(siteId);
+        }
+        var availableTargets = publishService.getAvailablePublishingTargets(siteId);
+        var published = publishService.isSitePublished(siteId);
+        AvailablePublishingTargets availablePublishingTargets = new AvailablePublishingTargets();
+        availablePublishingTargets.setPublishingTargets(availableTargets);
+        availablePublishingTargets.setPublished(published);
+
+        ResponseBody responseBody = new ResponseBody();
+        availablePublishingTargets.setResponse(OK);
+        responseBody.setResult(availablePublishingTargets);
         return responseBody;
     }
 

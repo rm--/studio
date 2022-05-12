@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -24,7 +24,9 @@ import org.craftercms.studio.api.v1.log.LoggerFactory;
 import org.craftercms.studio.api.v2.annotation.RetryingOperation;
 import org.craftercms.studio.api.v2.dal.ClusterDAO;
 import org.craftercms.studio.api.v2.dal.ClusterMember;
+import org.craftercms.studio.api.v2.dal.RetryingDatabaseOperationFacade;
 import org.craftercms.studio.api.v2.utils.StudioConfiguration;
+import org.craftercms.studio.api.v2.utils.spring.context.SystemStatusProvider;
 
 import java.util.HashMap;
 import java.util.List;
@@ -47,37 +49,42 @@ public class StudioNodeActivityCheckJob implements Runnable{
 
     private StudioConfiguration studioConfiguration;
     private ClusterDAO clusterDao;
+    private RetryingDatabaseOperationFacade retryingDatabaseOperationFacade;
+    private SystemStatusProvider systemStatusProvider;
 
     private final static ReentrantLock singleWorkerLock = new ReentrantLock();
 
     @Override
     public void run() {
-        if (singleWorkerLock.tryLock()) {
-            try {
-                List<ClusterMember> staleMembers = getMembersWithStaleHeartbeat();
-                if (CollectionUtils.isNotEmpty(staleMembers)) {
-                    setStaleMembersInactive(staleMembers);
-                }
+        if (systemStatusProvider.isSystemReady()) {
+            if (singleWorkerLock.tryLock()) {
+                try {
+                    List<ClusterMember> staleMembers = getMembersWithStaleHeartbeat();
+                    if (CollectionUtils.isNotEmpty(staleMembers)) {
+                        setStaleMembersInactive(staleMembers);
+                    }
 
-                List<ClusterMember> inactiveMembersToRemove = getInactiveMembersForRemoval();
-                if (CollectionUtils.isNotEmpty(inactiveMembersToRemove)) {
-                    removeInactiveMembers(inactiveMembersToRemove);
+                    List<ClusterMember> inactiveMembersToRemove = getInactiveMembersForRemoval();
+                    if (CollectionUtils.isNotEmpty(inactiveMembersToRemove)) {
+                        removeInactiveMembers(inactiveMembersToRemove);
+                    }
+                } catch (Exception error) {
+                    logger.error("Error while executing node activity check job", error);
+                } finally {
+                    singleWorkerLock.unlock();
                 }
-            } catch (Exception error) {
-                logger.error("Error while executing node activity check job", error);
-            } finally {
-                singleWorkerLock.unlock();
+            } else {
+                logger.debug("Another worker is checking cluster nodes activity. Skipping cycle.");
             }
         } else {
-            logger.debug("Another worker is checking cluster nodes activity. Skipping cycle.");
+            logger.debug("System is not ready yet. Skipping cycle.");
         }
     }
 
-    @RetryingOperation
     public void setStaleMembersInactive(List<ClusterMember> staleMembers) {
         staleMembers.forEach(member -> {
             member.setState(INACTIVE);
-            clusterDao.updateMember(member);
+            retryingDatabaseOperationFacade.updateClusterMember(member);
         });
     }
 
@@ -96,7 +103,6 @@ public class StudioNodeActivityCheckJob implements Runnable{
         return clusterDao.getInactiveMembersWithStaleHeartbeat(params);
     }
 
-    @RetryingOperation
     public void removeInactiveMembers(List<ClusterMember> inactiveMembersToRemove) {
         List<Long> idsToRemove = inactiveMembersToRemove.stream()
                 .map(ClusterMember::getId)
@@ -105,7 +111,7 @@ public class StudioNodeActivityCheckJob implements Runnable{
             Map<String, Object> params = new HashMap<String, Object>();
             params.put(CLUSTER_MEMBER_IDS, idsToRemove);
             params.put(CLUSTER_INACTIVE_STATE, INACTIVE);
-            int result = clusterDao.removeMembers(params);
+            retryingDatabaseOperationFacade.removeClusterMembers(params);
         }
     }
 
@@ -136,4 +142,17 @@ public class StudioNodeActivityCheckJob implements Runnable{
     public void setClusterDao(ClusterDAO clusterDAO) {
         this.clusterDao = clusterDAO;
     }
+
+    public RetryingDatabaseOperationFacade getRetryingDatabaseOperationFacade() {
+        return retryingDatabaseOperationFacade;
+    }
+
+    public void setRetryingDatabaseOperationFacade(RetryingDatabaseOperationFacade retryingDatabaseOperationFacade) {
+        this.retryingDatabaseOperationFacade = retryingDatabaseOperationFacade;
+    }
+
+    public void setSystemStatusProvider(SystemStatusProvider systemStatusProvider) {
+        this.systemStatusProvider = systemStatusProvider;
+    }
+
 }

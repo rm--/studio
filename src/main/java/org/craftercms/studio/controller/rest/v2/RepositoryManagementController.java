@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -17,18 +17,20 @@
 package org.craftercms.studio.controller.rest.v2;
 
 import org.apache.commons.lang3.StringUtils;
-import org.craftercms.commons.crypto.CryptoException;
 import org.craftercms.studio.api.v1.constant.GitRepositories;
 import org.craftercms.studio.api.v1.exception.ServiceLayerException;
 import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
+import org.craftercms.studio.api.v1.exception.repository.InvalidRemoteRepositoryCredentialsException;
 import org.craftercms.studio.api.v1.exception.repository.InvalidRemoteUrlException;
 import org.craftercms.studio.api.v1.exception.repository.RemoteNotRemovableException;
+import org.craftercms.studio.api.v1.exception.repository.RemoteRepositoryNotFoundException;
 import org.craftercms.studio.api.v1.service.site.SiteService;
 import org.craftercms.studio.api.v2.dal.DiffConflictedFile;
 import org.craftercms.studio.api.v2.dal.RemoteRepository;
 import org.craftercms.studio.api.v2.dal.RemoteRepositoryInfo;
 import org.craftercms.studio.api.v2.dal.RepositoryStatus;
 import org.craftercms.studio.api.v2.exception.PullFromRemoteConflictException;
+import org.craftercms.studio.api.v2.service.repository.MergeResult;
 import org.craftercms.studio.api.v2.service.repository.RepositoryManagementService;
 import org.craftercms.studio.model.rest.ApiResponse;
 import org.craftercms.studio.model.rest.CancelFailedPullRequest;
@@ -79,7 +81,7 @@ public class RepositoryManagementController {
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping(ADD_REMOTE)
     public ResponseBody addRemote(HttpServletResponse response, @RequestBody RemoteRepository remoteRepository)
-            throws ServiceLayerException, InvalidRemoteUrlException {
+            throws ServiceLayerException, InvalidRemoteUrlException, RemoteRepositoryNotFoundException {
 
         if (!siteService.exists(remoteRepository.getSiteId())) {
             throw new SiteNotFoundException(remoteRepository.getSiteId());
@@ -100,15 +102,15 @@ public class RepositoryManagementController {
     }
 
     @GetMapping(value = LIST_REMOTES, produces = APPLICATION_JSON_VALUE)
-    public ResponseBody listRemotes(@RequestParam(name = "siteId", required = true) String siteId)
-            throws ServiceLayerException, CryptoException {
+    public ResponseBody listRemotes(@RequestParam(name = "siteId") String siteId)
+            throws ServiceLayerException {
         if (!siteService.exists(siteId)) {
             throw new SiteNotFoundException(siteId);
         }
         List<RemoteRepositoryInfo> remotes = repositoryManagementService.listRemotes(siteId);
 
         ResponseBody responseBody = new ResponseBody();
-        ResultList<RemoteRepositoryInfo> result = new ResultList<RemoteRepositoryInfo>();
+        ResultList<RemoteRepositoryInfo> result = new ResultList<>();
         result.setEntities(RESULT_KEY_REMOTES, remotes);
         result.setResponse(OK);
         responseBody.setResult(result);
@@ -116,29 +118,33 @@ public class RepositoryManagementController {
     }
 
     @PostMapping(PULL_FROM_REMOTE)
-    public ResponseBody pullFromRemote(@RequestBody PullFromRemoteRequest pullFromRemoteRequest)
-            throws InvalidRemoteUrlException, ServiceLayerException, CryptoException {
+    public ResponseBody pullFromRemote(@Valid @RequestBody PullFromRemoteRequest pullFromRemoteRequest)
+            throws InvalidRemoteUrlException, ServiceLayerException,
+            InvalidRemoteRepositoryCredentialsException, RemoteRepositoryNotFoundException {
         if (!siteService.exists(pullFromRemoteRequest.getSiteId())) {
             throw new SiteNotFoundException(pullFromRemoteRequest.getSiteId());
         }
-        boolean res = repositoryManagementService.pullFromRemote(pullFromRemoteRequest.getSiteId(),
+        MergeResult mergeResult = repositoryManagementService.pullFromRemote(pullFromRemoteRequest.getSiteId(),
                 pullFromRemoteRequest.getRemoteName(), pullFromRemoteRequest.getRemoteBranch(),
                 pullFromRemoteRequest.getMergeStrategy());
 
-        if (!res) {
+        //TODO: The service should throw this exception, not the controller
+        if (!mergeResult.isSuccessful()) {
             throw new PullFromRemoteConflictException("Pull from remote result is merge conflict.");
         }
 
         ResponseBody responseBody = new ResponseBody();
-        Result result = new Result();
+        ResultOne<MergeResult> result = new ResultOne<>();
         result.setResponse(OK);
+        result.setEntity(RESULT_KEY_RESULT, mergeResult);
         responseBody.setResult(result);
         return responseBody;
     }
 
     @PostMapping(PUSH_TO_REMOTE)
     public ResponseBody pushToRemote(HttpServletResponse response, @RequestBody PushToRemoteRequest pushToRemoteRequest)
-            throws InvalidRemoteUrlException, CryptoException, ServiceLayerException {
+            throws InvalidRemoteUrlException, ServiceLayerException,
+            InvalidRemoteRepositoryCredentialsException, RemoteRepositoryNotFoundException {
         if (!siteService.exists(pushToRemoteRequest.getSiteId())) {
             throw new SiteNotFoundException(pushToRemoteRequest.getSiteId());
         }
@@ -175,7 +181,7 @@ public class RepositoryManagementController {
 
     @PostMapping(REMOVE_REMOTE)
     public ResponseBody removeRemote(HttpServletResponse response, @RequestBody RemoveRemoteRequest removeRemoteRequest)
-            throws CryptoException, SiteNotFoundException, RemoteNotRemovableException {
+            throws SiteNotFoundException, RemoteNotRemovableException {
         if (!siteService.exists(removeRemoteRequest.getSiteId())) {
             throw new SiteNotFoundException(removeRemoteRequest.getSiteId());
         }
@@ -196,13 +202,13 @@ public class RepositoryManagementController {
 
     @GetMapping(STATUS)
     public ResponseBody getRepositoryStatus(@RequestParam(value = REQUEST_PARAM_SITEID) String siteId)
-            throws ServiceLayerException, CryptoException {
+            throws ServiceLayerException {
         if (!siteService.exists(siteId)) {
             throw new SiteNotFoundException(siteId);
         }
         RepositoryStatus status = repositoryManagementService.getRepositoryStatus(siteId);
         ResponseBody responseBody = new ResponseBody();
-        ResultOne<RepositoryStatus> result = new ResultOne<RepositoryStatus>();
+        ResultOne<RepositoryStatus> result = new ResultOne<>();
         result.setEntity(RESULT_KEY_REPOSITORY_STATUS, status);
         result.setResponse(OK);
         responseBody.setResult(result);
@@ -211,7 +217,7 @@ public class RepositoryManagementController {
 
     @PostMapping(RESOLVE_CONFLICT)
     public ResponseBody resolveConflict(@RequestBody ResolveConflictRequest resolveConflictRequest)
-            throws ServiceLayerException, CryptoException {
+            throws ServiceLayerException {
         if (!siteService.exists(resolveConflictRequest.getSiteId())) {
             throw new SiteNotFoundException(resolveConflictRequest.getSiteId());
         }
@@ -222,7 +228,7 @@ public class RepositoryManagementController {
         RepositoryStatus status = repositoryManagementService.resolveConflict(resolveConflictRequest.getSiteId(),
                 path, resolveConflictRequest.getResolution());
         ResponseBody responseBody = new ResponseBody();
-        ResultOne<RepositoryStatus> result = new ResultOne<RepositoryStatus>();
+        ResultOne<RepositoryStatus> result = new ResultOne<>();
         result.setResponse(OK);
         result.setEntity(RESULT_KEY_REPOSITORY_STATUS, status);
         responseBody.setResult(result);
@@ -232,7 +238,7 @@ public class RepositoryManagementController {
     @GetMapping(DIFF_CONFLICTED_FILE)
     public ResponseBody getDiffForConflictedFile(@RequestParam(value = REQUEST_PARAM_SITEID) String siteId,
                                                  @RequestParam(value = REQUEST_PARAM_PATH) String path)
-            throws ServiceLayerException, CryptoException {
+            throws ServiceLayerException {
         if (!siteService.exists(siteId)) {
             throw new SiteNotFoundException(siteId);
         }
@@ -242,7 +248,7 @@ public class RepositoryManagementController {
         }
         DiffConflictedFile diff = repositoryManagementService.getDiffForConflictedFile(siteId, diffPath);
         ResponseBody responseBody = new ResponseBody();
-        ResultOne<DiffConflictedFile> result = new ResultOne<DiffConflictedFile>();
+        ResultOne<DiffConflictedFile> result = new ResultOne<>();
         result.setEntity(RESULT_KEY_DIFF, diff);
         result.setResponse(OK);
         responseBody.setResult(result);
@@ -251,14 +257,14 @@ public class RepositoryManagementController {
 
     @PostMapping(COMMIT_RESOLUTION)
     public ResponseBody commitConflictResolution(@RequestBody CommitResolutionRequest commitResolutionRequest)
-            throws ServiceLayerException, CryptoException {
+            throws ServiceLayerException {
         if (!siteService.exists(commitResolutionRequest.getSiteId())) {
             throw new SiteNotFoundException(commitResolutionRequest.getSiteId());
         }
         RepositoryStatus status = repositoryManagementService.commitResolution(commitResolutionRequest.getSiteId(),
                 commitResolutionRequest.getCommitMessage());
         ResponseBody responseBody = new ResponseBody();
-        ResultOne<RepositoryStatus> result = new ResultOne<RepositoryStatus>();
+        ResultOne<RepositoryStatus> result = new ResultOne<>();
         result.setEntity(RESULT_KEY_REPOSITORY_STATUS, status);
         result.setResponse(OK);
         responseBody.setResult(result);
@@ -267,13 +273,13 @@ public class RepositoryManagementController {
 
     @PostMapping(CANCEL_FAILED_PULL)
     public ResponseBody cancelFailedPull(@RequestBody CancelFailedPullRequest cancelFailedPullRequest)
-            throws ServiceLayerException, CryptoException {
+            throws ServiceLayerException {
         if (!siteService.exists(cancelFailedPullRequest.getSiteId())) {
             throw new SiteNotFoundException(cancelFailedPullRequest.getSiteId());
         }
         RepositoryStatus status = repositoryManagementService.cancelFailedPull(cancelFailedPullRequest.getSiteId());
         ResponseBody responseBody = new ResponseBody();
-        ResultOne<RepositoryStatus> result = new ResultOne<RepositoryStatus>();
+        ResultOne<RepositoryStatus> result = new ResultOne<>();
         result.setEntity(RESULT_KEY_REPOSITORY_STATUS, status);
         result.setResponse(OK);
         responseBody.setResult(result);
@@ -281,8 +287,8 @@ public class RepositoryManagementController {
     }
 
     @PostMapping(UNLOCK)
-    public ResponseBody unlockRepository(@RequestBody UnlockRepositoryRequest unlockRepositoryRequest) throws CryptoException, SiteNotFoundException {
-        boolean success = false;
+    public ResponseBody unlockRepository(@RequestBody UnlockRepositoryRequest unlockRepositoryRequest) throws SiteNotFoundException {
+        boolean success;
         if (!StringUtils.isEmpty(unlockRepositoryRequest.getSiteId()) &&
                 (!siteService.exists(unlockRepositoryRequest.getSiteId()))) {
             throw new SiteNotFoundException("Site " + unlockRepositoryRequest.getSiteId() + " not found");
@@ -303,7 +309,7 @@ public class RepositoryManagementController {
     @GetMapping(CORRUPTED)
     public ResponseBody isRepositoryCorrupted(@RequestParam(required = false) String siteId,
                                               @RequestParam GitRepositories repositoryType)
-            throws ServiceLayerException, CryptoException {
+            throws ServiceLayerException {
         ResponseBody responseBody = new ResponseBody();
 
         ResultOne<Boolean> result = new ResultOne<>();
@@ -317,7 +323,7 @@ public class RepositoryManagementController {
 
     @PostMapping(REPAIR)
     public ResponseBody repairCorruptedRepository(@Valid @RequestBody RepairRepositoryRequest request)
-            throws ServiceLayerException, CryptoException {
+            throws ServiceLayerException {
         repositoryManagementService.repairCorrupted(request.getSiteId(), request.getRepositoryType());
 
         ResponseBody responseBody = new ResponseBody();
@@ -328,16 +334,8 @@ public class RepositoryManagementController {
         return responseBody;
     }
 
-    public RepositoryManagementService getRepositoryManagementService() {
-        return repositoryManagementService;
-    }
-
     public void setRepositoryManagementService(RepositoryManagementService repositoryManagementService) {
         this.repositoryManagementService = repositoryManagementService;
-    }
-
-    public SiteService getSiteService() {
-        return siteService;
     }
 
     public void setSiteService(SiteService siteService) {

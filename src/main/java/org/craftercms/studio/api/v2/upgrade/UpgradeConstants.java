@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -24,10 +24,6 @@ public interface UpgradeConstants {
 
     String VERSION_3_0_0 = "3.0.0";
 
-    String CONFIG_KEY_CURRENT_VERSION = "currentVersion";
-    String CONFIG_KEY_NEXT_VERSION = "nextVersion";
-    String CONFIG_KEY_OPERATIONS = "operations";
-    String CONFIG_KEY_TYPE = "type";
     String CONFIG_KEY_PATH = "path";
     String CONFIG_KEY_CONFIGURATIONS = "configurations";
     String CONFIG_KEY_MODULE = "module";

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -21,34 +21,39 @@ import org.craftercms.studio.api.v2.service.dependency.DependencyService;
 import org.craftercms.studio.model.rest.ApiResponse;
 import org.craftercms.studio.model.rest.ResponseBody;
 import org.craftercms.studio.model.rest.ResultOne;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.craftercms.studio.model.rest.dependency.GetSoftDependenciesRequestBody;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.validation.Valid;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.craftercms.studio.controller.rest.v2.RequestConstants.REQUEST_PARAM_PATHS;
-import static org.craftercms.studio.controller.rest.v2.RequestConstants.REQUEST_PARAM_SITEID;
+import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.API_2;
+import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.DEPENDENCIES;
+import static org.craftercms.studio.controller.rest.v2.RequestMappingConstants.DEPENDENCY;
 import static org.craftercms.studio.controller.rest.v2.ResultConstants.RESULT_KEY_HARD_DEPENDENCIES;
 import static org.craftercms.studio.controller.rest.v2.ResultConstants.RESULT_KEY_ITEMS;
 import static org.craftercms.studio.controller.rest.v2.ResultConstants.RESULT_KEY_SOFT_DEPENDENCIES;
 
 @RestController
-@RequestMapping("/api/2/dependency")
+@RequestMapping(API_2 + DEPENDENCY)
 public class DependencyController {
 
     private DependencyService dependencyService;
 
-    @GetMapping("/dependencies")
-    public ResponseBody getSoftDependencies(
-            @RequestParam(value = REQUEST_PARAM_SITEID, required = true) String siteId,
-            @RequestParam(value = REQUEST_PARAM_PATHS, required = true)List<String> paths) throws ServiceLayerException {
-        List<String> softDeps = dependencyService.getSoftDependencies(siteId, paths);
-        List<String> hardDeps = dependencyService.getHardDependencies(siteId, paths);
+    @PostMapping(DEPENDENCIES)
+    public ResponseBody getSoftDependencies(@RequestBody @Valid GetSoftDependenciesRequestBody request)
+            throws ServiceLayerException {
+        List<String> softDeps = dependencyService.getSoftDependencies(request.getSiteId(), request.getPaths());
+        List<String> hardDeps = dependencyService.getHardDependencies(request.getSiteId(), request.getPaths());
+
+        List<String> filteredSoftDeps =
+                softDeps.stream().filter(sd -> !hardDeps.contains(sd)).collect(Collectors.toList());
 
         List<String> filteredSoftDeps =
                 softDeps.stream().filter(sd -> !hardDeps.contains(sd)).collect(Collectors.toList());

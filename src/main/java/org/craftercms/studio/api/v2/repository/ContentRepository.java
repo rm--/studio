@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -16,7 +16,9 @@
 
 package org.craftercms.studio.api.v2.repository;
 
+import org.craftercms.core.service.Item;
 import org.craftercms.studio.api.v1.constant.GitRepositories;
+import org.craftercms.studio.api.v1.exception.ContentNotFoundException;
 import org.craftercms.studio.api.v1.exception.ServiceLayerException;
 import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
 import org.craftercms.studio.api.v1.exception.repository.InvalidRemoteRepositoryCredentialsException;
@@ -28,10 +30,13 @@ import org.craftercms.studio.api.v1.to.DeploymentItemTO;
 import org.craftercms.studio.api.v2.dal.GitLog;
 import org.craftercms.studio.api.v2.dal.PublishingHistoryItem;
 import org.craftercms.studio.api.v2.dal.RepoOperation;
+import org.craftercms.studio.model.rest.content.DetailedItem;
+import org.springframework.core.io.Resource;
 
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public interface ContentRepository {
 
@@ -126,7 +131,7 @@ public interface ContentRepository {
      * @param fromDate lower boundary for published date
      * @param toDate upper boundary for published date
      * @param limit number of records to return
-     * @return
+     * @return publishing history
      */
     List<PublishingHistoryItem> getPublishingHistory(String siteId, String environment, String path,
                                                      String publisher, ZonedDateTime fromDate, ZonedDateTime toDate,
@@ -153,6 +158,7 @@ public interface ContentRepository {
      * @param environment environment to publish to
      * @param author author
      * @param comment submission comment
+     * @throws DeploymentException deployment error
      */
     void publish(String siteId, String sandboxBranch, List<DeploymentItemTO> deploymentItems, String environment,
                  String author, String comment) throws DeploymentException;
@@ -161,7 +167,7 @@ public interface ContentRepository {
      * Check if repository exists for  given site
      *
      * @param site     site id
-     * @return true if it repository exists, otherwise false
+     * @return true if repository exists, otherwise false
      */
     boolean repositoryExists(String site);
 
@@ -188,13 +194,26 @@ public interface ContentRepository {
      * Create new site as a clone from remote repository
      *
      * @param siteId         site identifier
+     * @param sandboxBranch  sandbox branch name
      * @param remoteName     remote name
      * @param remoteUrl      remote repository url
+     * @param remoteBranch   remote branch name
+     * @param singleBranch   flag to signal if clone single branch or full repository
+     * @param authenticationType type of authentication to use to connect remote repository
      * @param remoteUsername remote username
      * @param remotePassword remote password
+     * @param remoteToken    remote token
+     * @param remotePrivateKey remote private key
      * @param params         site parameters
      * @param createAsOrphan create as orphan
+     *
      * @return true if success
+     *
+     * @throws InvalidRemoteRepositoryException invalid remote repository
+     * @throws InvalidRemoteRepositoryCredentialsException invalid credentials for remote repository
+     * @throws RemoteRepositoryNotFoundException remote repository not found
+     * @throws InvalidRemoteUrlException invalid url for remote repository
+     * @throws ServiceLayerException general service error
      */
     boolean createSiteCloneRemote(String siteId, String sandboxBranch, String remoteName, String remoteUrl,
                                   String remoteBranch, boolean singleBranch, String authenticationType,
@@ -228,6 +247,18 @@ public interface ContentRepository {
      * @return last commit id (current HEAD)
      */
     String getRepoLastCommitId(String site);
+
+    Item getItem(String siteId, String path, boolean flatten);
+
+    /**
+     * get file size
+     *
+     * @param site site id where the operation will be executed
+     * @param path path to content
+     * @return Size in bytes
+     */
+    long getContentSize(String site, String path);
+
 
     String getLastEditCommitId(String siteId, String path);
 
@@ -282,6 +313,17 @@ public interface ContentRepository {
     int countUnprocessedCommits(String siteId, long marker);
 
     /**
+     * Get environment properties for item
+     * @param siteId site identifier
+     * @param repo repository type
+     * @param environment branch
+     * @param path path of the item
+     * @return environment properties
+     */
+    DetailedItem.Environment getItemEnvironmentProperties(String siteId, GitRepositories repo, String environment,
+                                                          String path);
+
+    /**
      * Mark all git logs as processed if they are inserted before marker
      * @param siteId site identifier
      * @param marker marker git commit
@@ -297,6 +339,24 @@ public interface ContentRepository {
      */
     String getPreviousCommitId(String siteId, String commitId);
 
+
+    /**
+     * lock an item
+     * NOTE: site will be removed from this interface
+     *
+     * @param site site id where the operation will be executed
+     * @param path path of the item
+     */
+    void lockItem(String site, String path); // TODO: SJ: Change to have a return
+
+    /**
+     * unlock an item
+     *
+     * @param site site id where the operation will be executed
+     * @param path path of the item
+     */
+    void itemUnlock(String site, String path);
+
     /**
      * Upsert git logs as processed and audited
      * @param siteId site identifier
@@ -305,4 +365,31 @@ public interface ContentRepository {
      * @param audited true if already audited
      */
     void upsertGitLogList(String siteId, List<String> commitIds, boolean processed, boolean audited);
+
+    /**
+     * return a specific version of the content
+     *
+     * @param site    site id where the operation will be executed
+     * @param path    path of the content
+     * @param commitId version to return
+     * @return the resource if available
+     *
+     * @throws ContentNotFoundException content not found for given path and version
+     */
+    Optional<Resource> getContentByCommitId(String site, String path, String commitId) throws ContentNotFoundException;
+
+    /**
+     * Check if published repository exists for given site.
+     *
+     * @param siteId site identifier
+     * @return true if PUBLISHED repository exists, otherwise false
+     */
+    boolean publishedRepositoryExists(String siteId);
+
+    /**
+     * Execute initial publish for given site
+     *
+     * @param siteId site identifier
+     */
+    void initialPublish(String siteId) throws SiteNotFoundException;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -17,16 +17,18 @@
 package org.craftercms.studio.api.v2.service.site.internal;
 
 import org.craftercms.commons.plugin.model.PluginDescriptor;
+import org.craftercms.studio.api.v1.exception.SiteAlreadyExistsException;
+import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
 import org.craftercms.studio.api.v2.dal.PublishStatus;
-import org.craftercms.studio.api.v2.exception.MissingPluginParameterException;
 
 import java.util.List;
-import java.util.Map;
 
 public interface SitesServiceInternal {
 
     /**
      * Get list of available blueprints
+     *
+     * @return lost of blueprints
      */
     List<PluginDescriptor> getAvailableBlueprints();
 
@@ -53,13 +55,16 @@ public interface SitesServiceInternal {
     PluginDescriptor getSiteBlueprintDescriptor(String id);
 
     /**
-     * Validates that all required parameters are provided and have a value
-     * @param descriptor the plugin descriptor to validate
-     * @param params the parameters to validate
-     * @throws MissingPluginParameterException if any of the required parameters is not valid
+     * Updates the name and description for the given site
+     *
+     * @param siteId the id of the site
+     * @param name the name of the site
+     * @param description the description of the site
+     *
+     * @throws SiteNotFoundException if the site doesn't exist
      */
-    void validateBlueprintParameters(PluginDescriptor descriptor, Map<String, String> params)
-        throws MissingPluginParameterException;
+    void updateSite(String siteId, String name, String description)
+            throws SiteNotFoundException, SiteAlreadyExistsException;
 
     /**
      * Get publishing status for site

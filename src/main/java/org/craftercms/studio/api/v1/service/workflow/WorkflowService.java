@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -21,8 +21,8 @@ import java.util.Map;
 import java.util.Set;
 
 import org.craftercms.studio.api.v1.exception.ServiceLayerException;
+import org.craftercms.studio.api.v1.exception.security.UserNotFoundException;
 import org.craftercms.studio.api.v1.service.workflow.context.GoLiveContext;
-import org.craftercms.studio.api.v1.to.ContentItemTO;
 import org.craftercms.studio.api.v1.to.DmDependencyTO;
 import org.craftercms.studio.api.v1.to.GoLiveQueue;
 import org.craftercms.studio.api.v1.to.ResultTO;
@@ -43,8 +43,6 @@ public interface WorkflowService {
 
 	ResultTO submitToGoLive(String site, String username, String request) throws ServiceLayerException;
 
-    void preGoLive(Set<String> uris, GoLiveContext context, Set<String> rescheduledUris);
-
 	Map<String, Object> getGoLiveItems(String site, String sort, boolean ascending) throws ServiceLayerException;
 
 	Map<String, Object> getInProgressItems(String site, String sort, boolean ascending, boolean inProgressOnly)
@@ -53,31 +51,31 @@ public interface WorkflowService {
 	/**
 	 * cancel the workflow pending on the given item.
 	 *
-	 * @param site
-	 * @param path
+	 * @param site site identifier
+	 * @param path path of the content
+	 *
 	 * @param cancelWorkflow
 	 * 			cancel the pending workflow instance this content belongs to?
-	 * @throws ServiceLayerException
+	 * @return true if success, otherwise false
+	 * @throws ServiceLayerException general service error
 	 */
-	boolean removeFromWorkflow(String site, String path, boolean cancelWorkflow) throws ServiceLayerException;
-
-	List<ContentItemTO> getWorkflowAffectedPaths(String site, String path) throws ServiceLayerException;
+	boolean removeFromWorkflow(String site, String path, boolean cancelWorkflow) throws ServiceLayerException, UserNotFoundException;
 
 	/**
 	 * update workflow sandboxes if the content at the given path is in workflow
 	 *
-	 * @param site
-	 * @param path
+	 * @param site site identifier
+	 * @param path path of the item
 	 */
 	void updateWorkflowSandboxes(String site, String path);
 
     /**
      * approve workflows and schedule them as specified in the request
      *
-     * @param site
-     * @param request
+     * @param site site identifier
+     * @param request request body
+	 * @param user  user
      * @return call result
-     * @throws ServiceLayerException
      */
     ResultTO goDelete(String site, String request);
 
@@ -87,19 +85,17 @@ public interface WorkflowService {
                            GoLiveContext context, Set rescheduledUris) throws ServiceLayerException;
 
     List<String> preDelete(Set<String> urisToDelete, GoLiveContext context,Set<String> rescheduledUris) throws
-		ServiceLayerException;
+			ServiceLayerException, UserNotFoundException;
 
     boolean isRescheduleRequest(DmDependencyTO dependencyTO, String site);
-
-    void preSchedule(Set<String> uris, ZonedDateTime date, GoLiveContext context,Set<String> rescheduledUris);
 
     /**
      * approve workflows and schedule them as specified in the request
      *
-     * @param site
-     * @param request
+     * @param site site identifier
+     * @param request request body
      * @return call result
-     * @throws ServiceLayerException
+     * @throws ServiceLayerException general service error
      */
     ResultTO goLive(final String site, final String request) throws ServiceLayerException;
 
@@ -108,5 +104,5 @@ public interface WorkflowService {
     void fillQueue(String site, GoLiveQueue goLiveQueue, GoLiveQueue inProcessQueue) throws ServiceLayerException;
 
     boolean cleanWorkflow(final String url, final String site, final Set<DmDependencyTO> dependents) throws
-		ServiceLayerException;
+			ServiceLayerException, UserNotFoundException;
 }

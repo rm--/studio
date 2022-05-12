@@ -105,13 +105,13 @@ CREATE PROCEDURE tryLockPublishingForSite(
     OUT locked INT)
 BEGIN
     DECLARE v_lock_owner_id VARCHAR(255);
-    DECLARE v_lock_heartbeat TIMESTAMP;
+    DECLARE v_lock_heartbeat DATETIME;
     SELECT publishing_lock_owner, publishing_lock_heartbeat INTO  v_lock_owner_id, v_lock_heartbeat FROM site
-    WHERE site_id = siteId and deleted = 0;
+    WHERE site_id = siteId AND deleted = 0;
     SET locked = 0;
     IF (v_lock_owner_id IS NULL OR v_lock_owner_id = '' OR v_lock_owner_id = lockOwnerId OR DATE_ADD(v_lock_heartbeat, INTERVAL ttl MINUTE) < CURRENT_TIMESTAMP)
     THEN
-        UPDATE site SET publishing_lock_owner = lockOwnerId, publishing_lock_heartbeat = CURRENT_TIMESTAMP WHERE site_id = siteId and deleted = 0;
+        UPDATE site SET publishing_lock_owner = lockOwnerId, publishing_lock_heartbeat = CURRENT_TIMESTAMP WHERE site_id = siteId AND deleted = 0;
         SET locked = 1;
     END IF;
     SELECT locked;
@@ -124,7 +124,7 @@ CREATE TABLE _meta (
   PRIMARY KEY (`version`)
 ) ;
 
-INSERT INTO _meta (version, studio_id) VALUES ('3.1.23.2', UUID()) ;
+INSERT INTO _meta (version, studio_id) VALUES ('4.0.0.43', UUID()) ;
 
 CREATE TABLE IF NOT EXISTS `audit` (
   `id`                        BIGINT(20)    NOT NULL AUTO_INCREMENT,
@@ -152,20 +152,20 @@ CREATE TABLE IF NOT EXISTS `audit` (
   ROW_FORMAT = DYNAMIC ;
 
 CREATE TABLE IF NOT EXISTS `audit_parameters` (
-  `id`                BIGINT(20) NOT NULL AUTO_INCREMENT,
-  `audit_id`          BIGINT(20) NOT NULL,
-  `target_id`         VARCHAR(1024)  NOT NULL,
-  `target_type`       VARCHAR(32)   NOT NULL,
-  `target_subtype`    VARCHAR(32)   NULL,
-  `target_value`      VARCHAR(1024)  NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `audit_parameters_audit_id_idx` (`audit_id`),
-  KEY `audit_parameters_target_id_idx` (`target_id`),
-  KEY `audit_parameters_target_value_idx` (`target_value`)
-)
-  ENGINE = InnoDB
-  DEFAULT CHARSET = utf8
-  ROW_FORMAT = DYNAMIC ;
+    `id`                BIGINT(20) NOT NULL AUTO_INCREMENT,
+    `audit_id`          BIGINT(20) NOT NULL,
+    `target_id`         VARCHAR(1024)  NOT NULL,
+    `target_type`       VARCHAR(32)   NOT NULL,
+    `target_subtype`    VARCHAR(32)   NULL,
+    `target_value`      VARCHAR(1024)  NOT NULL,
+    PRIMARY KEY (`id`),
+    KEY `audit_parameters_audit_id_idx` (`audit_id`),
+    KEY `audit_parameters_target_id_idx` (`target_id`),
+    KEY `audit_parameters_target_value_idx` (`target_value`)
+    )
+    ENGINE = InnoDB
+    DEFAULT CHARSET = utf8
+    ROW_FORMAT = DYNAMIC ;
 
 CREATE TABLE IF NOT EXISTS `dependency` (
   `id`          BIGINT(20)  NOT NULL AUTO_INCREMENT,
@@ -176,20 +176,6 @@ CREATE TABLE IF NOT EXISTS `dependency` (
   PRIMARY KEY (`id`),
   KEY `dependency_site_idx` (`site`),
   KEY `dependency_sourcepath_idx` (`source_path`(1000))
-)
-  ENGINE = InnoDB
-  DEFAULT CHARSET = utf8
-  ROW_FORMAT = DYNAMIC ;
-
-CREATE TABLE IF NOT EXISTS `item_state` (
-  `object_id`         VARCHAR(255)  NOT NULL,
-  `site`              VARCHAR(50)   NOT NULL,
-  `path`              VARCHAR(2000) NOT NULL,
-  `state`             VARCHAR(255)  NOT NULL,
-  `system_processing` BIT(1)        NOT NULL,
-  PRIMARY KEY (`object_id`),
-  KEY `item_state_object_idx` (`object_id`),
-  UNIQUE `uq_is_site_path` (`site`, `path`(900))
 )
   ENGINE = InnoDB
   DEFAULT CHARSET = utf8
@@ -218,10 +204,12 @@ CREATE TABLE IF NOT EXISTS `publish_request` (
   `state`             VARCHAR(50)  NOT NULL,
   `action`            VARCHAR(20)  NOT NULL,
   `contenttypeclass`  VARCHAR(20)  NULL,
+  `submission_type`   VARCHAR(32)  NULL,
   `submissioncomment` TEXT         NULL,
   `commit_id`         VARCHAR(50)  NULL,
   `package_id`         VARCHAR(50)  NULL,
-  `completed_date`     TIMESTAMP   NULL,
+  `label`             VARCHAR(256) NULL,
+  `published_on`      TIMESTAMP     NULL,
   PRIMARY KEY (`id`),
   INDEX `publish_request_site_idx` (`site` ASC),
   INDEX `publish_request_environment_idx` (`environment` ASC),
@@ -239,20 +227,17 @@ CREATE TABLE IF NOT EXISTS `site` (
   `site_id`                         VARCHAR(50)   NOT NULL,
   `name`                            VARCHAR(255)  NOT NULL,
   `description`                     TEXT          NULL,
-  `status`                          VARCHAR(255)  NULL,
   `deleted`                         INT           NOT NULL DEFAULT 0,
   `last_commit_id`                  VARCHAR(50)   NULL,
   `system`                          INT           NOT NULL DEFAULT 0,
   `publishing_enabled`              INT           NOT NULL DEFAULT 1,
   `publishing_status`               VARCHAR(20)   NULL,
-  `publishing_status_message`       VARCHAR(2000) NULL,
   `last_verified_gitlog_commit_id`  VARCHAR(50)   NULL,
   `sandbox_branch`                  VARCHAR(255)  NOT NULL DEFAULT 'master',
-  `search_engine`                   VARCHAR(20)   NOT NULL DEFAULT 'Elasticsearch',
   `published_repo_created`          INT           NOT NULL DEFAULT 0,
   `publishing_lock_owner`           VARCHAR(255)  NULL,
   `publishing_lock_heartbeat`       TIMESTAMP      NULL,
-  `state`                           VARCHAR(50)   NOT NULL DEFAULT 'CREATING',
+  `state`                           VARCHAR(50)   NOT NULL DEFAULT 'INITIALIZING',
   `last_synced_gitlog_commit_id`   VARCHAR(50)   NULL,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `id_unique` (`id` ASC),
@@ -260,40 +245,6 @@ CREATE TABLE IF NOT EXISTS `site` (
   INDEX `site_id_idx` (`site_id` ASC)
 )
 
-  ENGINE = InnoDB
-  DEFAULT CHARSET = utf8
-  ROW_FORMAT = DYNAMIC ;
-
-CREATE TABLE IF NOT EXISTS `item_metadata` (
-  `id`                      INT           NOT NULL AUTO_INCREMENT,
-  `site`                    VARCHAR(50)   NOT NULL,
-  `path`                    VARCHAR(2000) NOT NULL,
-  `name`                    VARCHAR(255)  NULL,
-  `modified`                TIMESTAMP     NULL,
-  `modifier`                VARCHAR(255)  NULL,
-  `owner`                   VARCHAR(255)  NULL,
-  `creator`                 VARCHAR(255)  NULL,
-  `firstname`               VARCHAR(255)  NULL,
-  `lastname`                VARCHAR(255)  NULL,
-  `lockowner`               VARCHAR(255)  NULL,
-  `email`                   VARCHAR(255)  NULL,
-  `renamed`                 INT           NULL,
-  `oldurl`                  TEXT          NULL,
-  `deleteurl`               TEXT          NULL,
-  `imagewidth`              INT           NULL,
-  `imageheight`             INT           NULL,
-  `approvedby`              VARCHAR(255)  NULL,
-  `submittedby`             VARCHAR(255)  NULL,
-  `submittedfordeletion`    INT           NULL,
-  `sendemail`               INT           NULL,
-  `submissioncomment`       TEXT          NULL,
-  `launchdate`              TIMESTAMP      NULL,
-  `commit_id`               VARCHAR(50)   NULL,
-  `submittedtoenvironment`  VARCHAR(255)  NULL,
-  `published_date`          TIMESTAMP      NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE `uq__im_site_path` (`site`, `path`(900))
-)
   ENGINE = InnoDB
   DEFAULT CHARSET = utf8
   ROW_FORMAT = DYNAMIC ;
@@ -312,6 +263,7 @@ CREATE TABLE IF NOT EXISTS `user`
   `email`                 VARCHAR(255) NOT NULL,
   `enabled`               INT          NOT NULL,
   `deleted`               INT          NOT NULL DEFAULT 0,
+  `avatar`                TEXT         NULL, -- TODO: update the user service to include this new field
   PRIMARY KEY (`id`),
   INDEX `user_ix_record_last_updated` (`record_last_updated` DESC),
   UNIQUE INDEX `user_ix_username` (`username`),
@@ -322,10 +274,50 @@ CREATE TABLE IF NOT EXISTS `user`
   DEFAULT CHARSET = utf8
   ROW_FORMAT = DYNAMIC ;
 
+CREATE TABLE IF NOT EXISTS `activity_stream` (
+    `id`                        BIGINT(20)      NOT NULL AUTO_INCREMENT,
+    `site_id`                   BIGINT(20)      NOT NULL,
+    `user_id`                   BIGINT(20)      NOT NULL,
+    `action`                    VARCHAR(32)     NOT NULL,
+    `action_timestamp`          TIMESTAMP       NOT NULL,
+    `item_id`                   BIGINT(20)      NULL,
+    `item_path`                 VARCHAR(2048)   NULL,
+    `item_label`                VARCHAR(256)    NULL,
+    `package_id`                VARCHAR(50)     NULL,
+    PRIMARY KEY (`id`),
+    FOREIGN KEY `activity_user_idx` (`user_id`) REFERENCES `user`(`id`),
+    FOREIGN KEY `activity_site_idx` (`site_id`) REFERENCES `site`(`id`),
+    INDEX `activity_action_idx` (`action` ASC)
+)
+    ENGINE = InnoDB
+    DEFAULT CHARSET = utf8
+    ROW_FORMAT = DYNAMIC ;
+
 INSERT IGNORE INTO `user` (id, record_last_updated, username, password, first_name, last_name,
                            externally_managed, timezone, locale, email, enabled, deleted)
 VALUES (1, CURRENT_TIMESTAMP, 'admin', 'vTwNOJ8GJdyrP7rrvQnpwsd2hCV1xRrJdTX2sb51i+w=|R68ms0Od3AngQMdEeKY6lA==',
         'admin', 'admin', 0, 'EST5EDT', 'en/US', 'evaladmin@example.com', 1, 0) ;
+
+INSERT IGNORE INTO `user` (id, record_last_updated, username, password, first_name, last_name,
+                           externally_managed, timezone, locale, email, enabled, deleted)
+VALUES (2, CURRENT_TIMESTAMP, 'git_repo_user', '',
+           'Git Repo', 'User', 0, 'EST5EDT', 'en/US', 'evalgit@example.com', 1, 0) ;
+
+CREATE TABLE IF NOT EXISTS `user_properties`
+(
+  `id` BIGINT(20) NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT(20) NOT NULL,
+  `site_id` BIGINT(20) NOT NULL,
+  `property_key` VARCHAR(255) NOT NULL,
+  `property_value` TEXT NOT NULL,
+  PRIMARY KEY (`id`),
+  FOREIGN KEY `user_property_ix_user_id` (`user_id`) REFERENCES `user` (`id`),
+  FOREIGN KEY `user_property_ix_site_id` (`site_id`) REFERENCES `site` (`id`),
+  UNIQUE INDEX `user_property_ix_property_key` (`user_id`, `site_id`, `property_key`)
+)
+  ENGINE = InnoDB
+  DEFAULT CHARSET = utf8
+  ROW_FORMAT = DYNAMIC ;
 
 CREATE TABLE IF NOT EXISTS `organization`
 (
@@ -412,6 +404,80 @@ CREATE TABLE IF NOT EXISTS group_user
   DEFAULT CHARSET = utf8
   ROW_FORMAT = DYNAMIC ;
 
+CREATE TABLE IF NOT EXISTS `item` (
+  `id`                      BIGINT          NOT NULL    AUTO_INCREMENT,
+  `record_last_updated`     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `site_id`                 BIGINT          NOT NULL,
+  `path`                    VARCHAR(2048)   NOT NULL,
+  `preview_url`             VARCHAR(2048)   NULL,
+  `state`                   BIGINT          NOT NULL,
+  `locked_by`               BIGINT          NULL,
+  `created_by`              BIGINT          NULL,
+  `created_on`              TIMESTAMP       NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+  `last_modified_by`        BIGINT          NULL,
+  `last_modified_on`        TIMESTAMP       NOT NULL    DEFAULT CURRENT_TIMESTAMP,
+  `last_published_on`       TIMESTAMP       NULL,
+  `label`                   VARCHAR(256)    NULL,
+  `content_type_id`         VARCHAR(256)    NULL,
+  `system_type`             VARCHAR(64)     NULL,
+  `mime_type`               VARCHAR(96)     NULL,
+  `locale_code`             VARCHAR(16)     NULL,
+  `translation_source_id`   BIGINT          NULL,
+  `size`                    BIGINT          NULL,
+  `parent_id`               BIGINT          NULL,
+  `commit_id`               VARCHAR(128)    NULL,
+  `previous_path`           VARCHAR(2048)   NULL,
+  `ignored`                 INT             NOT NULL    DEFAULT 0,
+  PRIMARY KEY (`id`),
+  FOREIGN KEY item_ix_created_by(`created_by`) REFERENCES `user` (`id`),
+  FOREIGN KEY item_ix_last_modified_by(`last_modified_by`) REFERENCES `user` (`id`),
+  FOREIGN KEY item_ix_locked_by(`locked_by`) REFERENCES `user` (`id`),
+  FOREIGN KEY item_ix_site_id(`site_id`) REFERENCES `site` (`id`),
+  FOREIGN KEY item_ix_parent(`parent_id`) REFERENCES `item` (`id`) ON DELETE CASCADE ,
+  UNIQUE uq_i_site_path (`site_id`, `path`(900))
+)
+    ENGINE = InnoDB
+    DEFAULT CHARSET = utf8
+    ROW_FORMAT = DYNAMIC ;
+
+CREATE TABLE IF NOT EXISTS `item_translation` (
+  `id`                      BIGINT(20) NOT NULL AUTO_INCREMENT,
+  `record_last_updated`     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `source_id`               BIGINT(20)      NOT NULL,
+  `translation_id`          BIGINT(20)      NOT NULL,
+  `locale_code`             VARCHAR(16)     NOT NULL,
+  `date_translated`         TIMESTAMP       NOT NULL,
+  PRIMARY KEY (`id`),
+  FOREIGN KEY `item_translation_ix_source`(`source_id`) REFERENCES `item` (`id`) ON DELETE CASCADE,
+  FOREIGN KEY `item_translation_ix_translation`(`translation_id`) REFERENCES `item` (`id`) ON DELETE CASCADE
+)
+    ENGINE = InnoDB
+    DEFAULT CHARSET = utf8
+    ROW_FORMAT = DYNAMIC ;
+
+CREATE TABLE IF NOT EXISTS workflow
+(
+    `id`                    BIGINT(20)      NOT NULL AUTO_INCREMENT,
+    `item_id`               BIGINT(20)      NOT NULL,
+    `target_environment`    VARCHAR(20)     NOT NULL,
+    `state`                 VARCHAR(16)     NOT NULL,
+    `submitter_id`          BIGINT(20)      NULL,
+    `submitter_comment`     TEXT            NULL,
+    `reviewer_id`           BIGINT(20)      NULL,
+    `reviewer_comment`      TEXT            NULL,
+    `schedule`              TIMESTAMP       NULL,
+    `publishing_package_id` VARCHAR(50)     NULL,
+    `submission_type`       VARCHAR(32)     NULL,
+    `notify_submitter`      INT             NOT NULL DEFAULT 0,
+    `label`                 VARCHAR(256)    NULL,
+    PRIMARY KEY (`id`),
+    FOREIGN KEY `workflow_ix_item`(`item_id`) REFERENCES `item` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY `workflow_ix_submitter`(`submitter_id`) REFERENCES `user` (`id`) ON DELETE CASCADE,
+    FOREIGN KEY `workflow_ix_reviewer`(`reviewer_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+)
+    ENGINE = InnoDB
+    DEFAULT CHARSET = utf8
+    ROW_FORMAT = DYNAMIC ;
 
 CREATE TABLE IF NOT EXISTS gitlog
 (
@@ -484,28 +550,33 @@ CREATE TABLE IF NOT EXISTS cluster_remote_repository
   DEFAULT CHARSET = utf8
   ROW_FORMAT = DYNAMIC ;
 
-CREATE TABLE IF NOT EXISTS cluster_site_sync_repo
+CREATE TABLE IF NOT EXISTS `refresh_token`
 (
-    `cluster_node_id`                       BIGINT(20)      NOT NULL,
-    `site_id`                               BIGINT(20)      NOT NULL,
-    `node_last_commit_id`                   VARCHAR(50)     NULL,
-    `node_last_verified_gitlog_commit_id`   VARCHAR(50)     NULL,
-    `node_last_synced_gitlog_commit_id`    VARCHAR(50)   NULL,
-    `site_state`                                 VARCHAR(50)     NOT NULL DEFAULT 'CREATING',
-    `site_published_repo_created`                INT             NOT NULL DEFAULT 0,
-    PRIMARY KEY (`cluster_node_id`, `site_id`),
-    FOREIGN KEY cluster_site_ix_cluster_id(`cluster_node_id`) REFERENCES `cluster` (`id`)
-        ON DELETE CASCADE,
-    FOREIGN KEY cluster_site_ix_remote_id(`site_id`) REFERENCES `site` (`id`)
-        ON DELETE CASCADE
+    `user_id` BIGINT(20) PRIMARY KEY, -- Add FK
+    `token` VARCHAR(50) NOT NULL,
+    `last_updated_on` TIMESTAMP,
+    `created_on` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
     ENGINE = InnoDB
     DEFAULT CHARSET = utf8
     ROW_FORMAT = DYNAMIC ;
 
+CREATE TABLE IF NOT EXISTS `access_token`
+(
+    `id`      BIGINT(20) PRIMARY KEY AUTO_INCREMENT,
+    `user_id` BIGINT(20), -- Add FK,
+    `label`   VARCHAR(2550) NOT NULL,
+    `enabled` BOOLEAN DEFAULT true,
+    `last_updated_on` TIMESTAMP,
+    `created_on` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `expires_at` TIMESTAMP NULL DEFAULT NULL
+)
+    ENGINE = InnoDB
+    DEFAULT CHARSET = utf8
+    ROW_FORMAT = DYNAMIC ;
 
-INSERT IGNORE INTO site (site_id, name, description, system)
-VALUES ('studio_root', 'Studio Root', 'Studio Root for global permissions', 1) ;
+INSERT IGNORE INTO site (site_id, name, description, system, state)
+VALUES ('studio_root', 'Studio Root', 'Studio Root for global permissions', 1, 'READY') ;
 
 INSERT IGNORE INTO group_user (user_id, group_id) VALUES (1, 1) ;
 

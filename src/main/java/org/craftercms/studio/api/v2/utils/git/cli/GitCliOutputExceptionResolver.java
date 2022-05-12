@@ -18,7 +18,7 @@ package org.craftercms.studio.api.v2.utils.git.cli;
 import org.craftercms.studio.api.v2.exception.git.cli.GitCliOutputException;
 
 /**
- * Parses the output of the CLI to determine the {@link org.craftercms.studio.api.v2.exception.git.cli.GitCliOutputException}
+ * Parses the output of the CLI to determine the {@link GitCliOutputException}
  * that should be thrown
  *
  * @author Alfonso Vasquez

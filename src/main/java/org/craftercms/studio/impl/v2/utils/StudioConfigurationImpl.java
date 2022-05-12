@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -16,8 +16,7 @@
 
 package org.craftercms.studio.impl.v2.utils;
 
-import net.sf.ehcache.Cache;
-import net.sf.ehcache.Element;
+import com.google.common.cache.Cache;
 import org.apache.commons.configuration2.CombinedConfiguration;
 import org.apache.commons.configuration2.HierarchicalConfiguration;
 import org.apache.commons.configuration2.ex.ConfigurationException;
@@ -34,6 +33,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 
+import java.beans.ConstructorProperties;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -48,11 +48,13 @@ public class StudioConfigurationImpl implements StudioConfiguration {
 
     protected HierarchicalConfiguration<ImmutableNode> systemConfig;
 
-    protected Cache configurationCache;
+    protected Cache<String, HierarchicalConfiguration<ImmutableNode>> configurationCache;
 
     protected String configLocation;
 
-    public StudioConfigurationImpl(Cache configurationCache, String configLocation) {
+    @ConstructorProperties({"configurationCache", "configLocation"})
+    public StudioConfigurationImpl(Cache<String, HierarchicalConfiguration<ImmutableNode>> configurationCache,
+                                   String configLocation) {
         this.configurationCache = configurationCache;
         this.configLocation = configLocation;
     }
@@ -109,44 +111,47 @@ public class StudioConfigurationImpl implements StudioConfiguration {
     @SuppressWarnings("unchecked")
     private HierarchicalConfiguration<ImmutableNode> loadGlobalRepoConfig() {
         String cacheKey = prependIfMissing(systemConfig.getString(STUDIO_CONFIG_GLOBAL_REPO_OVERRIDE_CONFIG), "/");
-        Path globalRepoOverrideConfigLocation = Paths.get(systemConfig.getString(REPO_BASE_PATH),
-                systemConfig.getString(GLOBAL_REPO_PATH),
-                systemConfig.getString(STUDIO_CONFIG_GLOBAL_REPO_OVERRIDE_CONFIG));
-        HierarchicalConfiguration<ImmutableNode> config = systemConfig;
-        Element element = configurationCache.get(cacheKey);
-        if (element != null && !element.isExpired()) {
-            config = (HierarchicalConfiguration<ImmutableNode>) element.getObjectValue();
-        } else {
-            if (systemConfig.containsKey(STUDIO_CONFIG_GLOBAL_REPO_OVERRIDE_CONFIG)) {
-                FileSystemResource fsr = new FileSystemResource(globalRepoOverrideConfigLocation.toFile());
-                if (fsr.exists()) {
-                    try {
-                        YamlConfiguration globalRepoOverrideConfig = new YamlConfiguration();
-                        try (InputStream in = fsr.getInputStream()) {
-                            globalRepoOverrideConfig.setExpressionEngine(getExpressionEngine());
-                            globalRepoOverrideConfig.read(in);
+        try {
+            HierarchicalConfiguration<ImmutableNode> config = configurationCache.getIfPresent(cacheKey);
+            if (config == null) {
+                config = systemConfig;
+                Path globalRepoOverrideConfigLocation = Paths.get(
+                        systemConfig.getString(REPO_BASE_PATH),
+                        systemConfig.getString(GLOBAL_REPO_PATH),
+                        systemConfig.getString(STUDIO_CONFIG_GLOBAL_REPO_OVERRIDE_CONFIG));
+                if (systemConfig.containsKey(STUDIO_CONFIG_GLOBAL_REPO_OVERRIDE_CONFIG)) {
+                    FileSystemResource fsr = new FileSystemResource(globalRepoOverrideConfigLocation.toFile());
+                    if (fsr.exists()) {
+                        try {
+                            YamlConfiguration globalRepoOverrideConfig = new YamlConfiguration();
+                            try (InputStream in = fsr.getInputStream()) {
+                                globalRepoOverrideConfig.setExpressionEngine(getExpressionEngine());
+                                globalRepoOverrideConfig.read(in);
 
-                            if (!globalRepoOverrideConfig.isEmpty()) {
-                                logger.debug("Loaded additional configuration from location: {0} \n {1}",
-                                        fsr.getPath(), globalRepoOverrideConfig);
-                                CombinedConfiguration combinedConfig = new CombinedConfiguration(new OverrideCombiner());
-                                combinedConfig.setExpressionEngine(getExpressionEngine());
-                                combinedConfig.addConfiguration(globalRepoOverrideConfig);
-                                combinedConfig.addConfiguration(systemConfig);
+                                if (!globalRepoOverrideConfig.isEmpty()) {
+                                    logger.debug("Loaded additional configuration from location: {0} \n {1}",
+                                            fsr.getPath(), globalRepoOverrideConfig);
 
-                                config = combinedConfig;
+                                    CombinedConfiguration combinedConfig = new CombinedConfiguration(new OverrideCombiner());
+                                    combinedConfig.setExpressionEngine(getExpressionEngine());
+                                    combinedConfig.addConfiguration(globalRepoOverrideConfig);
+                                    combinedConfig.addConfiguration(systemConfig);
+
+                                    config = combinedConfig;
+                                }
                             }
-
+                        } catch (IOException | ConfigurationException e) {
+                            logger.error("Failed to load studio configuration from: " + fsr.getPath(), e);
                         }
-                    } catch (IOException | ConfigurationException e) {
-                        logger.error("Failed to load studio configuration from: " + fsr.getPath(), e);
                     }
                 }
+                configurationCache.put(cacheKey, config);
             }
-            configurationCache.put(new Element(cacheKey, config));
+            return config;
+        } catch (Exception e) {
+            logger.error("Error loading configuration from global repo", e);
+            return systemConfig;
         }
-
-        return config;
     }
 
     protected ExpressionEngine getExpressionEngine() {
@@ -182,6 +187,11 @@ public class StudioConfigurationImpl implements StudioConfiguration {
     @SuppressWarnings("unchecked")
     public <T> T[] getArray(String key, Class<T> clazz) {
         return (T[]) getConfig().getArray(clazz, key);
+    }
+
+    @Override
+    public <T> List<T> getList(String key, Class<T> clazz) {
+        return getConfig().getList(clazz, key);
     }
 
     @Override

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+  ~ Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
   ~
   ~ This program is free software: you can redistribute it and/or modify
   ~ it under the terms of the GNU General Public License version 3 as published by
@@ -15,113 +15,45 @@
   ~ along with this program.  If not, see <http://www.gnu.org/licenses/>.
   -->
 
-<project
-    xmlns="http://maven.apache.org/POM/4.0.0"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
     <modelVersion>4.0.0</modelVersion>
-    <groupId>org.craftercms</groupId>
     <artifactId>crafter-studio</artifactId>
+
     <name>Crafter Studio</name>
     <description>Crafter Content Authoring Application</description>
     <url>https://github.com/craftercms/studio</url>
 
-    <packaging>war</packaging>
-    <version>3.1.23</version><!-- craftercms version flag -->
-    <organization>
-        <name>CrafterCMS</name>
-        <url>http://craftercms.org</url>
-    </organization>
-
-    <properties>
-        <java.version>1.8</java.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <mockito.version>1.9.5</mockito.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.test.sourceEncoding>UTF-8</project.test.sourceEncoding>
-        <testng.version>6.9.10</testng.version>
-        <studio.ui.path>target/ui/</studio.ui.path>
-        <studio.ui.version>master</studio.ui.version><!-- craftercms ui version flag -->
-        <studio.ui.node.version>v15.0.1</studio.ui.node.version>
-        <studio.ui.yarn.version>v1.22.10</studio.ui.yarn.version>
-        <spring.version>4.3.29.RELEASE</spring.version>
-        <spring.security.version>4.2.19.RELEASE</spring.security.version>
-        <spring.data.version>2.0.9.RELEASE</spring.data.version>
-        <spring.ldap.version>2.3.2.RELEASE</spring.ldap.version>
-	<aws.version>1.12.139</aws.version>
-	<box.sdk.version>2.58.0</box.sdk.version>
-        <tinify.version>1.6.4</tinify.version>
-        <mariadb4j.version>2.4.12.1</mariadb4j.version>
-        <jackson.version>2.13.1</jackson.version>
-        <jackson.databind.version>2.13.2.2</jackson.databind.version>
-        <bouncycastle.version>1.61</bouncycastle.version>
-        <sardine.version>5.10</sardine.version>
-        <saxon.version>9.8.0-14</saxon.version>
-        <apache.cxf.version>3.3.8</apache.cxf.version>
-        <nekohtml.version>1.9.22</nekohtml.version>
-        <xerces.version>2.12.2</xerces.version>
-		<gson.version>2.8.9</gson.version>
-    </properties>
-
-    <licenses>
-        <license>
-            <name>GNU GENERAL PUBLIC LICENSE, Version 3</name>
-            <url>http://www.gnu.org/licenses/gpl-3.0.html</url>
-            <distribution>repo</distribution>
-        </license>
-    </licenses>
-
-    <developers>
-        <developer>
-            <id>sumerjabri</id>
-            <name>Sumer Jabri</name>
-            <email>sumer.jabri@craftercms.org</email>
-        </developer>
-        <developer>
-            <name>Russ Danner</name>
-            <email>russ.danner@craftercms.org</email>
-        </developer>
-        <developer>
-            <id>dejanbrkic</id>
-            <name>Dejan Brkic</name>
-            <email>dejan.brkic@craftercms.org</email>
-        </developer>
-    </developers>
     <scm>
         <connection>scm:git:git://github.com/craftercms/studio</connection>
         <developerConnection>scm:git:git://github.com/craftercms/studio</developerConnection>
         <url>scm:git:git://github.com/craftercms/studio</url>
     </scm>
 
+    <packaging>war</packaging>
 
-    <repositories>
-        <repository>
-            <id>sonatype-snapshots</id>
-            <name>sonatype Snapshots</name>
-            <url>https://s01.oss.sonatype.org/content/repositories/snapshots/</url>
-            <releases>
-                <enabled>true</enabled>
-                <updatePolicy>always</updatePolicy>
-                <checksumPolicy>warn</checksumPolicy>
-            </releases>
-        </repository>
+    <parent>
+        <groupId>org.craftercms</groupId>
+        <artifactId>craftercms</artifactId>
+        <version>4.0.0</version><!-- craftercms version flag -->
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
 
-        <repository>
-            <id>jgit-snapshot-repository</id>
-            <url>https://repo.eclipse.org/content/groups/jgit/</url>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
+    <properties>
+        <!-- Overrides are listed here -->
+        <exec.maven.version>1.5.0</exec.maven.version>
+        <frontend.maven.version>1.7.6</frontend.maven.version>
+
+        <studio.ui.path>../studio-ui/</studio.ui.path>
+    </properties>
 
     <dependencies>
         <!-- Servlet -->
         <dependency>
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>
-            <version>3.0.1</version>
+            <version>${servlet.api.version}</version>
             <scope>provided</scope>
         </dependency>
 
@@ -173,23 +105,31 @@
             <version>${project.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.craftercms</groupId>
+            <artifactId>crafter-commons-upgrade-manager</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Database DALs -->
         <dependency>
             <groupId>org.apache.ibatis</groupId>
             <artifactId>ibatis-sqlmap</artifactId>
-            <version>2.3.0</version>
+            <version>${ibatis.sqlmap.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.mybatis</groupId>
             <artifactId>mybatis-spring</artifactId>
-            <version>1.3.1</version>
+            <version>${mybatis.spring.version}</version>
         </dependency>
         <dependency>
             <groupId>org.mybatis</groupId>
             <artifactId>mybatis</artifactId>
-            <version>3.4.5</version>
+            <version>${mybatis.version}</version>
         </dependency>
+
+        <!-- Spring -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-jdbc</artifactId>
@@ -256,21 +196,48 @@
                 </exclusion>
             </exclusions>
         </dependency>
+
         <dependency>
-            <groupId>javax.transaction</groupId>
-            <artifactId>jta</artifactId>
-            <version>1.1</version>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-websocket</artifactId>
+            <version>${spring.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-messaging</artifactId>
+            <version>${spring.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-messaging</artifactId>
+            <version>${spring.security.version}</version>
+        </dependency>
+
+        <!-- Commons -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-dbcp2</artifactId>
-            <version>2.1.1</version>
+            <version>${commons.dbcp2.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-fileupload</groupId>
+            <artifactId>commons-fileupload</artifactId>
+            <version>${commons.fileupload.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>${commons.text.version}</version>
         </dependency>
 
         <dependency>
             <groupId>net.sf.json-lib</groupId>
             <artifactId>json-lib</artifactId>
-            <version>2.4</version>
+            <version>${json.lib.version}</version>
             <classifier>jdk15</classifier>
             <exclusions>
                 <exclusion>
@@ -284,24 +251,42 @@
             </exclusions>
         </dependency>
 
-        <!-- collections -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>${commons.io.version}</version>
+        </dependency>
+
+        <!-- Other -->
+        <dependency>
+            <groupId>javax.transaction</groupId>
+            <artifactId>jta</artifactId>
+            <version>${jta.version}</version>
+        </dependency>
+
+	<dependency>
+	    <groupId>javax.validation</groupId>
+	    <artifactId>validation-api</artifactId>
+	    <version>${validation.api.version}</version>
+	</dependency>
+
+        <dependency>
+            <groupId>org.hibernate.validator</groupId>
+            <artifactId>hibernate-validator</artifactId>
+            <version>${hibernate.validator.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.freemarker</groupId>
             <artifactId>freemarker</artifactId>
-            <version>2.3.31</version>
-        </dependency>
-        <dependency>
-            <groupId>commons-fileupload</groupId>
-            <artifactId>commons-fileupload</artifactId>
-            <version>1.3.3</version>
+            <version>${freemarker.version}</version>
         </dependency>
 
         <!-- JGit -->
         <dependency>
             <groupId>org.eclipse.jgit</groupId>
             <artifactId>org.eclipse.jgit</artifactId>
-            <version>5.13.0.202109080827-r</version>
+            <version>${jgit.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.bouncycastle</groupId>
@@ -331,24 +316,19 @@
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
-            <artifactId>mockito-all</artifactId>
+            <artifactId>mockito-core</artifactId>
             <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>commons-io</groupId>
-            <artifactId>commons-io</artifactId>
-            <version>2.4</version>
-        </dependency>
-        <dependency>
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>
-            <version>1.17</version>
+            <version>${snakeyaml.version}</version>
         </dependency>
         <dependency>
             <groupId>com.jayway.restassured</groupId>
             <artifactId>rest-assured</artifactId>
-            <version>2.4.1</version>
+            <version>${rest.assured.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -356,6 +336,21 @@
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
             <version>${spring.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.xmlunit</groupId>
+            <artifactId>xmlunit-core</artifactId>
+            <version>${org.xmlunit.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Required by spring-websocket -->
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-websocket</artifactId>
+            <version>${tomcat.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -369,19 +364,19 @@
         <dependency>
             <groupId>org.mariadb.jdbc</groupId>
             <artifactId>mariadb-java-client</artifactId>
-            <version>1.5.8</version>
+            <version>${mariadb.java.client.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>jcl-over-slf4j</artifactId>
-            <version>1.7.23</version>
+            <version>${jcl.over.slf4j.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>1.7.23</version>
+            <version>${slf4j.api.version}</version>
         </dependency>
 
         <!-- LDAP -->
@@ -548,175 +543,33 @@
         </dependency>
 
         <dependency>
-            <groupId>net.sourceforge.nekohtml</groupId>
-            <artifactId>nekohtml</artifactId>
-            <version>${nekohtml.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>xerces</groupId>
-                    <artifactId>xercesImpl</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>${gson.version}</version>
         </dependency>
+
         <dependency>
             <groupId>xerces</groupId>
             <artifactId>xercesImpl</artifactId>
             <version>${xerces.version}</version>
         </dependency>
-    </dependencies>
 
-    <dependencyManagement>
-        <dependencies>
-            <!-- AWS SDK -->
-            <dependency>
-                <groupId>com.amazonaws</groupId>
-                <artifactId>aws-java-sdk-bom</artifactId>
-                <version>${aws.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+        <dependency>
+            <groupId>org.bitbucket.b_c</groupId>
+            <artifactId>jose4j</artifactId>
+            <version>${jose4j.version}</version>
+        </dependency>
+
+    </dependencies>
 
     <build>
         <finalName>studio</finalName>
+        <!-- Overrides are listed here -->
         <plugins>
-            <plugin>
-                <artifactId>maven-clean-plugin</artifactId>
-                <version>3.0.0</version>
-                <configuration>
-                    <filesets>
-                        <fileset>
-                            <directory>overlays/</directory>
-                            <followSymlinks>false</followSymlinks>
-                        </fileset>
-                    </filesets>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <inherited>false</inherited> <!-- only execute these in the parent -->
-                <version>1.5.0</version>
-                <executions>
-                    <execution>
-                        <id>git get ui</id>
-                        <phase>prepare-package</phase>
-                        <configuration>
-                            <executable>git</executable>
-                            <arguments>
-                                <argument>clone</argument>
-                                <argument>--depth</argument>
-                                <argument>1</argument>
-                                <argument>-b</argument>
-                                <argument>${studio.ui.version}</argument>
-                                <argument>https://github.com/craftercms/studio-ui.git</argument>
-                                <argument>${studio.ui.path}</argument>
-                            </arguments>
-                        </configuration>
-                        <goals>
-                            <goal>exec</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>com.github.eirslett</groupId>
-                <artifactId>frontend-maven-plugin</artifactId>
-                <version>1.7.6</version>
-                <configuration>
-                    <nodeVersion>${studio.ui.node.version}</nodeVersion>
-                    <yarnVersion>${studio.ui.yarn.version}</yarnVersion>
-                    <installDirectory>target</installDirectory>
-                    <yarnInheritsProxyConfigFromMaven>false</yarnInheritsProxyConfigFromMaven>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>install node and yarn</id>
-                        <goals>
-                            <goal>install-node-and-yarn</goal>
-                        </goals>
-                        <phase>prepare-package</phase>
-                    </execution>
-                    <execution>
-                        <id>UI build: prep</id>
-                        <goals>
-                            <goal>yarn</goal>
-                        </goals>
-                        <phase>prepare-package</phase>
-                        <configuration>
-                            <workingDirectory>${studio.ui.path}</workingDirectory>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>yarn install sass</id>
-                        <goals>
-                            <goal>yarn</goal>
-                        </goals>
-                        <phase>prepare-package</phase>
-                        <configuration>
-                            <workingDirectory>${studio.ui.path}/ui/scss</workingDirectory>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>yarn build sass</id>
-                        <goals>
-                            <goal>yarn</goal>
-                        </goals>
-                        <phase>prepare-package</phase>
-                        <configuration>
-                            <workingDirectory>${studio.ui.path}/ui/scss</workingDirectory>
-                            <arguments>build-if-changed</arguments>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>yarn install react</id>
-                        <goals>
-                            <goal>yarn</goal>
-                        </goals>
-                        <phase>prepare-package</phase>
-                        <configuration>
-                            <workingDirectory>${studio.ui.path}/ui/app</workingDirectory>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>yarn build react</id>
-                        <goals>
-                            <goal>yarn</goal>
-                        </goals>
-                        <phase>prepare-package</phase>
-                        <configuration>
-                            <workingDirectory>${studio.ui.path}/ui/app</workingDirectory>
-                            <arguments>build-if-changed</arguments>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>install legacy hybrid deps</id>
-                        <goals>
-                            <goal>yarn</goal>
-                        </goals>
-                        <phase>prepare-package</phase>
-                        <configuration>
-                            <workingDirectory>${studio.ui.path}/ui/legacy</workingDirectory>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>build legacy hybrid files</id>
-                        <goals>
-                            <goal>yarn</goal>
-                        </goals>
-                        <phase>prepare-package</phase>
-                        <configuration>
-                            <workingDirectory>${studio.ui.path}/ui/legacy</workingDirectory>
-                            <arguments>build-if-changed</arguments>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>buildnumber-maven-plugin</artifactId>
-                <version>1.2</version>
+                <version>${buildnumber.maven.version}</version>
                 <executions>
                     <execution>
                         <id>Java Code</id>
@@ -742,7 +595,6 @@
                             <doCheck>false</doCheck>
                             <doUpdate>false</doUpdate>
                             <revisionOnScmFailure>unknown</revisionOnScmFailure>
-                            <scmDirectory>${studio.ui.path}</scmDirectory>
                             <buildNumberPropertyName>UIbuildNumber</buildNumberPropertyName>
                         </configuration>
                     </execution>
@@ -750,18 +602,8 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.1</version>
-                <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
-                </configuration>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
-                <version>2.4</version>
+                <version>${maven.war.version}</version>
                 <configuration>
                     <attachClasses>true</attachClasses>
                     <warSourceExcludes>**/crafterTemplateRepository/</warSourceExcludes>
@@ -794,10 +636,6 @@
                                 <exclude>/WEB-INF/lib/guava-collections-r03.jar</exclude>
                                 <exclude>/WEB-INF/lib/guava-primitives-r03.jar</exclude>
                                 <exclude>/WEB-INF/templates/system/common/versionInfo.ftl</exclude>
-                                <!-- AWS -->
-                                <exclude>/WEB-INF/lib/aws-java-sdk-s3-1.11.435.jar</exclude>
-                                <exclude>/WEB-INF/lib/aws-java-sdk-kms-1.11.435.jar</exclude>
-                                <exclude>/WEB-INF/lib/aws-java-sdk-core-1.11.435.jar</exclude>
                                 <exclude>/WEB-INF/classes/crafter/engine/services/security-context.xml</exclude>
                             </excludes>
                         </overlay>
@@ -823,7 +661,6 @@
                             <filtering>false</filtering>
                             <targetPath>default-site/site</targetPath>
                         </resource>
-
 
                         <resource>
                             <directory>src/main/generated-resources/ftl</directory>
@@ -865,115 +702,61 @@
                     </webResources>
                 </configuration>
             </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-                <version>2.2.1</version>
-                <executions>
-                    <execution>
-                        <id>attach-sources</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
-                <version>2.9</version>
-                <executions>
-                    <execution>
-                        <id>attach-javadocs</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.18</version>
-                <configuration>
-                    <systemPropertyVariables>
-                        <application.logs>target/test-logs</application.logs>
-                        <crafter.engine.extension.base>classpath*:crafter/studio/extension</crafter.engine.extension.base>
-                        <crafter.bin.dir>target/test-resources/bin</crafter.bin.dir>
-                    </systemPropertyVariables>
-                    <environmentVariables>
-                        <CRAFTER_DATA_DIR>target/test-resources/data</CRAFTER_DATA_DIR>
-                        <MARIADB_ROOT_PASSWD>root</MARIADB_ROOT_PASSWD>
-                        <STUDIO_CONFIG_CACHE_MAX_SIZE>100</STUDIO_CONFIG_CACHE_MAX_SIZE>
-                        <STUDIO_CONFIG_CACHE_EXPIRE_TIME>300</STUDIO_CONFIG_CACHE_EXPIRE_TIME>
-                    </environmentVariables>
-                </configuration>
-            </plugin>
-
         </plugins>
     </build>
 
     <profiles>
         <profile>
-            <id>cloneUI</id>
-            <activation>
-                <activeByDefault>true</activeByDefault>
-            </activation>
-        </profile>
-        <profile>
-            <id>JDK8</id>
-            <activation>
-                <jdk>[1.8,)</jdk>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-javadoc-plugin</artifactId>
-                        <version>2.10.4</version>
-                        <executions>
-                            <execution>
-                                <id>attach-javadocs</id>
-                                <goals>
-                                    <goal>jar</goal>
-                                </goals>
-                                <configuration>
-                                    <additionalparam>-Xdoclint:none</additionalparam>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <profile>
-            <id>release-sign-artifacts</id>
+            <id>cloneUi</id>
             <activation>
                 <property>
-                    <name>performRelease</name>
+                    <name>cloneUi</name>
                     <value>true</value>
                 </property>
             </activation>
+            <properties>
+                <studio.ui.path>target/ui/</studio.ui.path>
+                <studio.ui.version>master</studio.ui.version><!-- craftercms ui version flag -->
+            </properties>
             <build>
                 <plugins>
                     <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-deploy-plugin</artifactId>
-                        <version>2.7</version>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-gpg-plugin</artifactId>
-                        <version>1.4</version>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <inherited>false</inherited> <!-- only execute these in the parent -->
+                        <version>1.5.0</version>
                         <executions>
                             <execution>
-                                <id>sign-artifacts</id>
-                                <phase>verify</phase>
+                                <id>git get ui</id>
+                                <phase>prepare-package</phase>
+                                <configuration>
+                                    <executable>git</executable>
+                                    <arguments>
+                                        <argument>clone</argument>
+                                        <argument>--depth</argument>
+                                        <argument>1</argument>
+                                        <argument>-b</argument>
+                                        <argument>${studio.ui.version}</argument>
+                                        <argument>https://github.com/craftercms/studio-ui.git</argument>
+                                        <argument>${studio.ui.path}</argument>
+                                    </arguments>
+                                </configuration>
                                 <goals>
-                                    <goal>sign</goal>
+                                    <goal>exec</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>build ui</id>
+                                <phase>prepare-package</phase>
+                                <configuration>
+                                    <executable>mvn</executable>
+                                    <arguments>
+                                        <argument>package</argument>
+                                    </arguments>
+                                    <workingDirectory>${studio.ui.path}/</workingDirectory>
+                                </configuration>
+                                <goals>
+                                    <goal>exec</goal>
                                 </goals>
                             </execution>
                         </executions>
@@ -983,15 +766,30 @@
         </profile>
     </profiles>
 
-    <distributionManagement>
-        <snapshotRepository>
-            <id>sonatype-nexus-snapshots</id>
-            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>sonatype-nexus-staging</id>
-            <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-        </repository>
-    </distributionManagement>
+	<repositories>
+		<repository>
+			<id>sonatype-snapshots</id>
+			<name>Sonatype Snapshot Repository</name>
+			<url>https://s01.oss.sonatype.org/content/repositories/snapshots/</url>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+				<updatePolicy>always</updatePolicy>
+				<checksumPolicy>fail</checksumPolicy>
+			</snapshots>
+		</repository>
+	</repositories>
 
+	<distributionManagement>
+		<snapshotRepository>
+			<id>sonatype-snapshots</id>
+			<url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
+		</snapshotRepository>
+		<repository>
+			<id>sonatype-staging</id>
+			<url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+		</repository>
+	</distributionManagement>
 </project>

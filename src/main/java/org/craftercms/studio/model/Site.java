@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -19,6 +19,8 @@ package org.craftercms.studio.model;
 public class Site implements Entity {
 
     private String siteId;
+    private String uuid;
+    private String name;
     private String desc;
 
     public String getSiteId() {
@@ -27,6 +29,22 @@ public class Site implements Entity {
 
     public void setSiteId(String siteId) {
         this.siteId = siteId;
+    }
+
+    public String getUuid() {
+        return uuid;
+    }
+
+    public void setUuid(String uuid) {
+        this.uuid = uuid;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getDesc() {

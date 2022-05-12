@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -17,24 +17,23 @@
 package org.craftercms.studio.impl.v1.service.content;
 
 import org.apache.commons.lang3.StringUtils;
+import org.craftercms.commons.validation.ValidationException;
 import org.craftercms.commons.validation.annotations.param.ValidateParams;
 import org.craftercms.commons.validation.annotations.param.ValidateSecurePathParam;
 import org.craftercms.studio.api.v1.constant.DmConstants;
-import org.craftercms.studio.api.v1.dal.ItemState;
 import org.craftercms.studio.api.v1.exception.ServiceLayerException;
-import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
+import org.craftercms.studio.api.v1.exception.security.UserNotFoundException;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
 import org.craftercms.studio.api.v1.repository.ContentRepository;
 import org.craftercms.studio.api.v1.service.content.ContentService;
 import org.craftercms.studio.api.v1.service.content.ImportService;
 import org.craftercms.studio.api.v1.service.deployment.DmPublishService;
-import org.craftercms.studio.api.v1.service.objectstate.ObjectStateService;
-import org.craftercms.studio.api.v1.service.objectstate.TransitionEvent;
 import org.craftercms.studio.api.v1.service.security.SecurityService;
 import org.craftercms.studio.api.v1.service.site.SiteService;
 import org.craftercms.studio.api.v1.service.workflow.context.MultiChannelPublishingContext;
 import org.craftercms.studio.api.v1.to.ContentItemTO;
+import org.craftercms.studio.api.v2.service.item.internal.ItemServiceInternal;
 import org.craftercms.studio.api.v2.utils.StudioConfiguration;
 import org.craftercms.studio.impl.v1.util.ContentFormatUtils;
 import org.craftercms.studio.impl.v1.util.ContentUtils;
@@ -57,6 +56,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.craftercms.studio.api.v1.constant.StudioConstants.FILE_SEPARATOR;
+import static org.craftercms.studio.api.v2.dal.ItemState.SAVE_AND_CLOSE_OFF_MASK;
+import static org.craftercms.studio.api.v2.dal.ItemState.SAVE_AND_CLOSE_ON_MASK;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.IMPORT_ASSET_CHAIN_NAME;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.IMPORT_ASSIGNEE;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.IMPORT_XML_CHAIN_NAME;
@@ -69,9 +70,9 @@ public class ImportServiceImpl implements ImportService {
     protected SecurityService securityService;
     protected ContentRepository contentRepository;
     protected ContentService contentService;
-    protected ObjectStateService objectStateService;
     protected DmPublishService dmPublishService;
     protected StudioConfiguration studioConfiguration;
+    protected ItemServiceInternal itemServiceInternal;
 
     /**
      * is import in progress?
@@ -91,7 +92,7 @@ public class ImportServiceImpl implements ImportService {
     @SuppressWarnings("unchecked")
     @ValidateParams
     public void importSite(@ValidateSecurePathParam(name = "configLocation") String configLocation)
-            throws SiteNotFoundException {
+            throws ServiceLayerException, ValidationException, UserNotFoundException {
         Document document = loadConfiguration(configLocation);
         if (document != null) {
             Element root = document.getRootElement();
@@ -146,7 +147,7 @@ public class ImportServiceImpl implements ImportService {
     private void importFromConfigNode(final String site, String publishChannelGroup, final Node node,
                                       final String fileRoot, final String targetRoot,
                                       boolean publish, int chunkSize, int delayInterval, int delayLength)
-            throws SiteNotFoundException {
+            throws ServiceLayerException, ValidationException, UserNotFoundException {
         if (!inProgress) {
             inProgress = true;
             if (delayInterval > 0) pauseEanbeld = true;
@@ -207,7 +208,8 @@ public class ImportServiceImpl implements ImportService {
     @SuppressWarnings("unchecked")
     private void createFolders(String site, Set<String> importedPaths, List<String> importedFullPaths,
                                List<Node> nodes, String fileRoot, String targetRoot, String parentPath,
-                               boolean overWrite, String user) throws SiteNotFoundException {
+                               boolean overWrite, String user)
+            throws ServiceLayerException, UserNotFoundException {
         logger.info("[IMPORT] createFolders : site[" + site + "] " + "] fileRoot [" + fileRoot + "] targetRoot [ "
                 + targetRoot + "] parentPath [" + parentPath + "] overwrite[" + overWrite + "]");
 
@@ -262,7 +264,7 @@ public class ImportServiceImpl implements ImportService {
      */
     protected void importRootFileList(String site, Set<String> importedPaths, List<String> importedFullPaths,
                                       String fileRoot, String targetRoot, String parentPath, boolean overWrite,
-                                      String user) throws SiteNotFoundException {
+                                      String user) throws ServiceLayerException, UserNotFoundException {
         URL resourceUrl = getResourceUrl(fileRoot);
         if (resourceUrl != null) {
             String resourcePath = resourceUrl.getFile();
@@ -327,7 +329,7 @@ public class ImportServiceImpl implements ImportService {
      */
     protected void importFileList(String site, Set<String> importedPaths, List<String> importedFullPaths,
                                   String fileRoot, String targetRoot, String parentPath, boolean overWrite, String user)
-            throws SiteNotFoundException {
+            throws ServiceLayerException, UserNotFoundException {
         logger.info("[IMPORT] importFileList: fileRoot [" + fileRoot + "] name [" + targetRoot + "] overwrite["
                 + overWrite + "]");
         URL resourceUrl = getResourceUrl(fileRoot);
@@ -425,20 +427,14 @@ public class ImportServiceImpl implements ImportService {
                 // existing
                 if (!contentExists || overWrite) {
                     String fullPath = targetRoot + filePath;
-                    objectStateService.setSystemProcessing(site, currentPath, true);
+                    itemServiceInternal.setSystemProcessing(site, currentPath, true);
                     // write the content
                     contentService.processContent(id, in, isXml, params, processChain);
                     ContentItemTO item = contentService.getContentItem(site, currentPath);
-                    // update state
-                    if (item != null) {
-                        objectStateService.transition(site, item, TransitionEvent.SAVE);
-                        objectStateService.setSystemProcessing(site, currentPath, false);
-                    } else {
-                        ItemState state = objectStateService.getObjectState(site, currentPath);
-                        if (state == null) {
-                            objectStateService.insertNewEntry(site, currentPath);
-                        }
-                    }
+
+                    // Item
+                    itemServiceInternal.updateStateBits(site, currentPath, SAVE_AND_CLOSE_ON_MASK,
+                            SAVE_AND_CLOSE_OFF_MASK);
 
                     importedPaths.add(filePath);
                     importedFullPaths.add(fullPath);
@@ -451,7 +447,7 @@ public class ImportServiceImpl implements ImportService {
         } catch (FileNotFoundException e) {
             logger.warn("[IMPORT] " + filePath + " does not exist.");
 
-        } catch (ServiceLayerException e) {
+        } catch (ServiceLayerException | UserNotFoundException e) {
             logger.error("[IMPORT] failed to import " + filePath, e);
         } finally {
             ContentUtils.release(in);
@@ -633,13 +629,6 @@ public class ImportServiceImpl implements ImportService {
         this.contentService = contentService;
     }
 
-    public ObjectStateService getObjectStateService() {
-        return objectStateService;
-    }
-    public void setObjectStateService(ObjectStateService objectStateService) {
-        this.objectStateService = objectStateService;
-    }
-
     public DmPublishService getDmPublishService() {
         return dmPublishService;
     }
@@ -654,6 +643,14 @@ public class ImportServiceImpl implements ImportService {
 
     public void setStudioConfiguration(StudioConfiguration studioConfiguration) {
         this.studioConfiguration = studioConfiguration;
+    }
+
+    public ItemServiceInternal getItemServiceInternal() {
+        return itemServiceInternal;
+    }
+
+    public void setItemServiceInternal(ItemServiceInternal itemServiceInternal) {
+        this.itemServiceInternal = itemServiceInternal;
     }
 
     public String getAssignee() {

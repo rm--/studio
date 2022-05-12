@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -16,6 +16,7 @@
 
 package org.craftercms.studio.impl.v2.upgrade.operations.global;
 
+import java.beans.ConstructorProperties;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.file.FileVisitOption;
@@ -29,17 +30,16 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.craftercms.commons.crypto.TextEncryptor;
 import org.craftercms.commons.monitoring.VersionInfo;
+import org.craftercms.commons.upgrade.exception.UpgradeException;
 import org.craftercms.studio.api.v1.constant.GitRepositories;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
 import org.craftercms.studio.api.v1.service.GeneralLockService;
-import org.craftercms.studio.api.v1.service.configuration.ServicesConfig;
-import org.craftercms.studio.api.v1.service.security.SecurityService;
-import org.craftercms.studio.api.v2.exception.UpgradeException;
 import org.craftercms.studio.api.v2.repository.RetryingRepositoryOperationFacade;
-import org.craftercms.studio.api.v2.service.security.internal.UserServiceInternal;
 import org.craftercms.studio.api.v2.utils.GitRepositoryHelper;
+import org.craftercms.studio.api.v2.utils.StudioConfiguration;
 import org.craftercms.studio.impl.v1.repository.git.TreeCopier;
+import org.craftercms.studio.impl.v2.upgrade.StudioUpgradeContext;
 import org.craftercms.studio.impl.v2.upgrade.operations.AbstractUpgradeOperation;
 import org.eclipse.jgit.api.AddCommand;
 import org.eclipse.jgit.api.CommitCommand;
@@ -48,7 +48,6 @@ import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.StatusCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.Repository;
-import org.springframework.beans.factory.annotation.Required;
 
 import static org.craftercms.studio.api.v1.constant.StudioConstants.BOOTSTRAP_REPO_GLOBAL_PATH;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.BOOTSTRAP_REPO_PATH;
@@ -60,7 +59,7 @@ import static org.craftercms.studio.api.v2.utils.StudioConfiguration.REPO_BLUEPR
 import static org.craftercms.studio.impl.v1.repository.git.GitContentRepositoryConstants.GIT_COMMIT_ALL_ITEMS;
 
 /**
- * Implementation of {@link org.craftercms.studio.api.v2.upgrade.UpgradeOperation} that syncs the blueprints in the
+ * Implementation of {@link org.craftercms.commons.upgrade.UpgradeOperation} that syncs the blueprints in the
  * global repository from the bootstrap repo.
  * @author joseross
  */
@@ -70,32 +69,28 @@ public class BlueprintsUpgradeOperation extends AbstractUpgradeOperation {
 
     private static final String STUDIO_MANIFEST_LOCATION = "/META-INF/MANIFEST.MF";
 
-    protected ServicesConfig servicesConfig;
-    protected SecurityService securityService;
-    protected UserServiceInternal userServiceInternal;
-    protected TextEncryptor encryptor;
     protected GeneralLockService generalLockService;
+    protected GitRepositoryHelper gitRepositoryHelper;
     protected RetryingRepositoryOperationFacade retryingRepositoryOperationFacade;
 
-    @Required
-    public void setServicesConfig(final ServicesConfig servicesConfig) {
-        this.servicesConfig = servicesConfig;
+    @ConstructorProperties({"studioConfiguration", "generalLockService", "gitRepositoryHelper",
+            "retryingRepositoryOperationFacade"})
+    public BlueprintsUpgradeOperation(StudioConfiguration studioConfiguration,
+                                      GeneralLockService generalLockService,
+                                      GitRepositoryHelper gitRepositoryHelper,
+                                      RetryingRepositoryOperationFacade retryingRepositoryOperationFacade) {
+        super(studioConfiguration);
+        this.generalLockService = generalLockService;
+        this.gitRepositoryHelper = gitRepositoryHelper;
+        this.retryingRepositoryOperationFacade = retryingRepositoryOperationFacade;
     }
 
-    public SecurityService getSecurityService() {
-        return securityService;
+    public GeneralLockService getGeneralLockService() {
+        return generalLockService;
     }
 
-    public void setSecurityService(SecurityService securityService) {
-        this.securityService = securityService;
-    }
-
-    public UserServiceInternal getUserServiceInternal() {
-        return userServiceInternal;
-    }
-
-    public void setUserServiceInternal(UserServiceInternal userServiceInternal) {
-        this.userServiceInternal = userServiceInternal;
+    public void setGeneralLockService(GeneralLockService generalLockService) {
+        this.generalLockService = generalLockService;
     }
 
     public TextEncryptor getEncryptor() {
@@ -123,13 +118,12 @@ public class BlueprintsUpgradeOperation extends AbstractUpgradeOperation {
     }
 
     @Override
-    public void execute(final String site) throws UpgradeException {
+    public void doExecute(final StudioUpgradeContext context) throws UpgradeException {
+        var site = context.getTarget();
         String gitLockKey = SITE_SANDBOX_REPOSITORY_GIT_LOCK.replaceAll(PATTERN_SITE, site);
         generalLockService.lock(gitLockKey);
         try {
-            GitRepositoryHelper helper = GitRepositoryHelper.getHelper(studioConfiguration, securityService,
-                    userServiceInternal, encryptor, generalLockService, retryingRepositoryOperationFacade);
-            Path globalConfigPath = helper.buildRepoPath(GitRepositories.GLOBAL);
+            Path globalConfigPath = gitRepositoryHelper.buildRepoPath(GitRepositories.GLOBAL);
             Path blueprintsPath = Paths.get(globalConfigPath.toAbsolutePath().toString(),
                 studioConfiguration.getProperty(BLUE_PRINTS_PATH));
 
@@ -174,7 +168,7 @@ public class BlueprintsUpgradeOperation extends AbstractUpgradeOperation {
                         studioConfiguration.getProperty(BLUE_PRINTS_PATH), "BLUEPRINTS.MF").toFile());
             }
 
-            Repository globalRepo = helper.getRepository(site, GitRepositories.GLOBAL);
+            Repository globalRepo = gitRepositoryHelper.getRepository(site, GitRepositories.GLOBAL);
             try (Git git = new Git(globalRepo)) {
                 StatusCommand statusCommand = git.status();
                 Status status = retryingRepositoryOperationFacade.call(statusCommand);
@@ -184,7 +178,7 @@ public class BlueprintsUpgradeOperation extends AbstractUpgradeOperation {
                     // TODO: Consider what to do with the commitId in the future
                     AddCommand addCommand = git.add().addFilepattern(GIT_COMMIT_ALL_ITEMS);
                     retryingRepositoryOperationFacade.call(addCommand);
-                    CommitCommand commitCommand= git.commit()
+                    CommitCommand commitCommand = git.commit()
                             .setAll(true)
                             .setMessage(studioConfiguration.getProperty(REPO_BLUEPRINTS_UPDATED_COMMIT_MESSAGE));
                     retryingRepositoryOperationFacade.call(commitCommand);

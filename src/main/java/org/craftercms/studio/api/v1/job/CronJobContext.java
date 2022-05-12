@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -32,17 +32,12 @@ public class CronJobContext {
         threadLocal.remove();
     }
 
-    public CronJobContext(String authenticationToken, String currentUser) {
-        this.authenticationToken = authenticationToken;
+    public CronJobContext(String currentUser) {
         this.currentUser = currentUser;
     }
-
-    public String getAuthenticationToken() { return authenticationToken; }
-    public void setAuthenticationToken(String authenticationToken) { this.authenticationToken = authenticationToken; }
 
     public String getCurrentUser() { return currentUser; }
     public void setCurrentUser(String currentUser) { this.currentUser = currentUser; }
 
-    private String authenticationToken;
     private String currentUser;
 }

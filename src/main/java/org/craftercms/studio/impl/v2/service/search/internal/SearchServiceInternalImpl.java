@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -27,9 +27,27 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
+import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.DateRangeAggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.DateRangeAggregation;
+import co.elastic.clients.elasticsearch._types.aggregations.RangeAggregate;
+import co.elastic.clients.elasticsearch._types.aggregations.RangeAggregation;
+import co.elastic.clients.elasticsearch._types.aggregations.RangeBucket;
+import co.elastic.clients.elasticsearch._types.aggregations.StringTermsAggregate;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.MatchQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.TextQueryType;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.Highlight;
+import co.elastic.clients.json.JsonData;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.configuration2.HierarchicalConfiguration;
@@ -48,24 +66,11 @@ import org.craftercms.studio.model.search.SearchFacetRange;
 import org.craftercms.studio.model.search.SearchResultItem;
 import org.craftercms.studio.model.search.SearchParams;
 import org.craftercms.studio.model.search.SearchResult;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.common.text.Text;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.RangeQueryBuilder;
-import org.elasticsearch.index.search.MatchQuery;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.Aggregations;
-import org.elasticsearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
-import org.elasticsearch.search.aggregations.bucket.range.Range;
-import org.elasticsearch.search.aggregations.bucket.range.RangeAggregationBuilder;
-import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
-import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
-import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.beans.factory.annotation.Required;
+
+import static java.lang.String.format;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 /**
  * Default implementation of {@link SearchServiceInternal}
@@ -73,11 +78,13 @@ import org.springframework.beans.factory.annotation.Required;
  */
 public class SearchServiceInternalImpl implements SearchServiceInternal {
 
+    public static final String CONFIG_KEY_FIELDS = "studio.search.fields.search";
     public static final String CONFIG_KEY_FACETS = "studio.search.facets";
     public static final String CONFIG_KEY_TYPES = "studio.search.types";
 
-    public static final String CONFIG_KEY_FACET_NAME = "name";
-    public static final String CONFIG_KEY_FACET_FIELD = "field";
+    public static final String CONFIG_KEY_NAME = "name";
+    public static final String CONFIG_KEY_FIELD = "field";
+
     public static final String CONFIG_KEY_FACET_DATE = "date";
     public static final String CONFIG_KEY_FACET_MULTIPLE = "multiple";
     public static final String CONFIG_KEY_FACET_RANGES = "ranges";
@@ -85,14 +92,16 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
     public static final String CONFIG_KEY_FACET_RANGE_FROM = "from";
     public static final String CONFIG_KEY_FACET_RANGE_TO = "to";
 
-    public static final String CONFIG_KEY_TYPE_FIELD = CONFIG_KEY_FACET_FIELD;
-    public static final String CONFIG_KEY_TYPE_NAME = CONFIG_KEY_FACET_NAME;
     public static final String CONFIG_KEY_TYPE_MATCHES = "matches";
+
+    public static final String CONFIG_KEY_FIELD_BOOST = "boost";
 
     public static final String FACET_RANGE_MIN = "min";
     public static final String FACET_RANGE_MAX = "max";
 
     public static final String DEFAULT_MIME_TYPE = "application/xml";
+
+    public static final Pattern EXACT_MATCH_PATTERN = Pattern.compile(".*(\"([^\"]+)\").*");
 
     /**
      * Name of the field for paths
@@ -127,7 +136,7 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
     /**
      * List of fields to include during searching
      */
-    protected String[] searchFields;
+    protected Map<String, String> searchFields;
 
     /**
      * List of fields to include during highlighting
@@ -210,11 +219,6 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
     }
 
     @Required
-    public void setSearchFields(final String[] searchFields) {
-        this.searchFields = searchFields;
-    }
-
-    @Required
     public void setHighlightFields(final String[] highlightFields) {
         this.highlightFields = highlightFields;
     }
@@ -245,11 +249,31 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
     }
 
     /**
-     * Loads facets & type mapping from the global configuration
+     * Loads facets and type mapping from the global configuration
      */
     public void init() {
+        loadFieldsFromGlobalConfiguration();
         loadTypesFromGlobalConfiguration();
         loadFacetsFromGlobalConfiguration();
+    }
+
+    protected String addBoosting(String field, float boosting) {
+        return format("%s^%s", field, boosting);
+    }
+
+    protected void loadFieldsFromGlobalConfiguration() {
+        searchFields = new TreeMap<>();
+
+        List<HierarchicalConfiguration<ImmutableNode>> fieldsConfig =
+                studioConfiguration.getSubConfigs(CONFIG_KEY_FIELDS);
+
+        if(CollectionUtils.isNotEmpty(fieldsConfig)) {
+            fieldsConfig.forEach(fieldConfig -> {
+                String field = fieldConfig.getString(CONFIG_KEY_NAME);
+                String boostedField = addBoosting(field, fieldConfig.getFloat(CONFIG_KEY_FIELD_BOOST));
+                searchFields.put(field, boostedField);
+            });
+        }
     }
 
     /**
@@ -264,8 +288,8 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
         if(CollectionUtils.isNotEmpty(facetsConfig)) {
             facetsConfig.forEach(facetConfig -> {
                 FacetTO facet = new FacetTO();
-                facet.setName(facetConfig.getString(CONFIG_KEY_FACET_NAME));
-                facet.setField(facetConfig.getString(CONFIG_KEY_FACET_FIELD));
+                facet.setName(facetConfig.getString(CONFIG_KEY_NAME));
+                facet.setField(facetConfig.getString(CONFIG_KEY_FIELD));
                 facet.setDate(facetConfig.getBoolean(CONFIG_KEY_FACET_DATE, false));
                 facet.setMultiple(facetConfig.getBoolean(CONFIG_KEY_FACET_MULTIPLE, false));
 
@@ -305,7 +329,7 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
         List<HierarchicalConfiguration<ImmutableNode>> typesConfig =
             studioConfiguration.getSubConfigs(CONFIG_KEY_TYPES);
 
-        typesConfig.forEach(type -> types.put(type.getString(CONFIG_KEY_TYPE_NAME), type));
+        typesConfig.forEach(type -> types.put(type.getString(CONFIG_KEY_NAME), type));
 
     }
 
@@ -316,7 +340,8 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
      * @return the search item object
      */
     //TODO: Implement previewUrl for supported types
-    protected SearchResultItem processSearchHit(Map<String, Object> source, Map<String, HighlightField> highlights) {
+    protected SearchResultItem processSearchHit(Map<String, Object> source, Map<String, List<String>> highlights,
+                                                List<String> additionalFields) {
         SearchResultItem item = new SearchResultItem();
         item.setPath((String) source.get(pathFieldName));
         item.setName((String) source.get(internalNameFieldName));
@@ -326,6 +351,7 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
         item.setType(getItemType(source));
         item.setMimeType(getMimeType(source));
         item.setSnippets(getItemSnippets(highlights));
+        item.setAdditionalFields(additionalFields.stream().collect(toMap(identity(), source::get)));
         return item;
     }
 
@@ -336,7 +362,8 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
      * @param siteFacets the facets configured for the site
      */
     @SuppressWarnings("unchecked")
-    protected void updateFilters(BoolQueryBuilder query, SearchParams params, Map<String, FacetTO> siteFacets) {
+    protected void updateFilters(BoolQuery.Builder query, SearchParams params, Map<String, FacetTO> siteFacets) {
+        BoolQuery.Builder builder = params.isOrOperator()? new BoolQuery.Builder() : query;
         params.getFilters().forEach((filter, value) -> {
             FacetTO facetConfig;
             if(MapUtils.isNotEmpty(siteFacets)) {
@@ -347,34 +374,76 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
             if(Objects.nonNull(facetConfig)) {
                 String fieldName = facetConfig.getField();
                 if(facetConfig.isRange()) {
-                    RangeQueryBuilder rangeQuery = QueryBuilders.rangeQuery(fieldName);
+                    RangeQuery.Builder rangeQuery = new RangeQuery.Builder();
                     Map<String, Object> range = (Map<String, Object>) value;
                     rangeQuery
-                        .gte(range.get(FACET_RANGE_MIN))
-                        .lt(range.get(FACET_RANGE_MAX));
-                    query.filter(rangeQuery);
+                        .field(fieldName);
+                    Object min = range.get(FACET_RANGE_MIN);
+                    if (min != null) {
+                        rangeQuery.gte(JsonData.of(min));
+                    }
+                    Object max = range.get(FACET_RANGE_MAX);
+                    if (max != null) {
+                        rangeQuery.lt(JsonData.of(max));
+                    }
+
+                    if (params.isOrOperator()) {
+                        builder.should(rangeQuery.build()._toQuery());
+                    } else {
+                        builder.filter(rangeQuery.build()._toQuery());
+                    }
                 } else if (facetConfig.isMultiple() && value instanceof List) {
                     List<Object> values = (List<Object>) value;
-                    BoolQueryBuilder orQuery = QueryBuilders.boolQuery();
-                    values.forEach(val -> orQuery.should(QueryBuilders.matchQuery(fieldName, val)));
-                    query.filter(QueryBuilders.boolQuery().must(orQuery));
+                    BoolQuery.Builder orQuery = new BoolQuery.Builder();
+                    values.forEach(val -> orQuery.should(s -> s
+                        .match(m -> m
+                            .field(fieldName)
+                            .query(v -> v
+                                .stringValue(val.toString())
+                            )
+                        )
+                    ));
+                    BoolQuery.Builder qb = new BoolQuery.Builder().must(orQuery.build()._toQuery());
+                    if (params.isOrOperator()) {
+                        builder.should(qb.build()._toQuery());
+                    } else {
+                        builder.filter(qb.build()._toQuery());
+                    }
                 } else {
-                    query.filter(QueryBuilders.matchQuery(fieldName, value));
+                    MatchQuery qb = MatchQuery.of(m -> m
+                        .field(fieldName)
+                        .query(v -> v
+                            .stringValue(value.toString())
+                        )
+                    );
+                    if (params.isOrOperator()) {
+                        builder.should(qb._toQuery());
+                    } else {
+                        builder.filter(qb._toQuery());
+                    }
                 }
             }
         });
+        if (params.isOrOperator()) {
+            query.filter(BoolQuery.of(b -> b
+                .must(builder.build()._toQuery()))._toQuery()
+            );
+        }
     }
 
     /**
      * Adds the configured highlighting to the given builder
      * @param builder the search builder to update
      */
-    protected void updateHighlighting(SearchSourceBuilder builder) {
-        HighlightBuilder highlight = SearchSourceBuilder.highlight();
+    protected void updateHighlighting(SearchRequest.Builder builder) {
+        Highlight.Builder highlight = new Highlight.Builder();
         for (String field : highlightFields) {
-            highlight.field(field, snippetSize, numberOfSnippets);
+            highlight.fields(field, f -> f
+                .fragmentSize(snippetSize)
+                .numberOfFragments(numberOfSnippets)
+            );
         }
-        builder.highlighter(highlight);
+        builder.highlight(highlight.build());
     }
 
     /**
@@ -382,12 +451,15 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
      * @param response the response to map
      * @return the search result object
      */
-    protected SearchResult processResults(SearchResponse response, Map<String, FacetTO> siteFacets) {
+    @SuppressWarnings("unchecked,rawtypes")
+    protected SearchResult processResults(SearchResponse<Map> response, Map<String, FacetTO> siteFacets,
+                                          List<String> additionalFields) {
         SearchResult result = new SearchResult();
-        result.setTotal(response.getHits().getTotalHits());
+        result.setTotal(response.hits().total().value());
 
-        List<SearchResultItem> items = Stream.of(response.getHits().getHits())
-            .map(hit -> processSearchHit(hit.getSourceAsMap(), hit.getHighlightFields()))
+        List<SearchResultItem> items = response.hits().hits().stream()
+            .filter(hit -> Objects.nonNull(hit.source()))
+            .map(hit -> processSearchHit(hit.source(), hit.highlight(), additionalFields))
             .collect(Collectors.toList());
 
         result.setItems(items);
@@ -401,37 +473,89 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
      * {@inheritDoc}
      */
     @Override
+    @SuppressWarnings("rawtypes")
     public SearchResult search(final String siteId, final List<String> allowedPaths, final SearchParams params)
-        throws ServiceLayerException {
+            throws ServiceLayerException {
 
         Map<String, FacetTO> siteFacets = servicesConfig.getFacets(siteId);
-        BoolQueryBuilder query = QueryBuilders.boolQuery();
+        BoolQuery.Builder queryBuilder = new BoolQuery.Builder();
+        Map<String, String> boostedFields = new TreeMap<>(searchFields);
+        servicesConfig.getSearchFields(siteId).forEach((field, value) ->
+                boostedFields.put(field, addBoosting(field, value)));
 
+        // A Lucene query, this was added to support the custom query for content monitoring, could be replaced later
         if(StringUtils.isNotEmpty(params.getQuery())) {
-            query.must(QueryBuilders.queryStringQuery(params.getQuery()));
+            queryBuilder.must(m -> m
+                .queryString(q -> q
+                    .query(params.getQuery())
+                )
+            );
         }
 
+        // Do not replace special characters, this will allow ES to handle them per field
         String rawKeywords = params.getKeywords();
-        if (StringUtils.isNotEmpty(rawKeywords)) {
-            rawKeywords = rawKeywords
-                .replaceAll("[^\\p{IsAlphabetic}\\p{Digit}\\s]", StringUtils.EMPTY)
-                .trim();
-            BoolQueryBuilder keywordsQuery = QueryBuilders.boolQuery();
-            String[] keywords = rawKeywords.split(" ");
-            if (ArrayUtils.isNotEmpty(keywords)) {
-                keywordsQuery.should(
-                    QueryBuilders.multiMatchQuery(rawKeywords, searchFields)
-                        .type(MatchQuery.Type.PHRASE_PREFIX)
-                );
 
-                for (String keyword : keywords) {
-                    keywordsQuery
-                        .should(QueryBuilders.regexpQuery(pathFieldName, ".*" + keyword + ".*"))
-                        .should(QueryBuilders.multiMatchQuery(keyword, searchFields));
-                }
+        if (StringUtils.isNotEmpty(rawKeywords)) {
+            // Check if the user requests an exact match with quotes
+            Matcher matcher = EXACT_MATCH_PATTERN.matcher(rawKeywords);
+            if (matcher.matches()) {
+                // A match query without synonyms and no fuzziness is as close as we can get to an exact match
+                queryBuilder.must(q -> q
+                    .multiMatch(m -> m
+                        .query(matcher.group(2))
+                        .autoGenerateSynonymsPhraseQuery(false)
+                        .type(TextQueryType.Phrase)
+                        .fuzzyTranspositions(false)
+                        .fields(List.copyOf(boostedFields.values()))
+                    )
+                );
+                // Remove the quoted section from the keywords to continue processing
+                rawKeywords = StringUtils.remove(rawKeywords, matcher.group(1));
             }
 
-            query.must(keywordsQuery);
+
+            if (StringUtils.isNotEmpty(rawKeywords)) {
+                // Search for the combination of all keywords and a wildcard on the last one
+                // (no custom fields in this one because it only works on text fields)
+                String finalRawKeywords = rawKeywords;
+                queryBuilder.should(q -> q
+                    .multiMatch(m -> m
+                        .query(finalRawKeywords)
+                        .type(TextQueryType.PhrasePrefix)
+                        .fields(List.copyOf(searchFields.values()))
+                    )
+                );
+
+                String[] keywords = rawKeywords.split("\\s");
+                if (ArrayUtils.isNotEmpty(keywords)) {
+                    for (String keyword : keywords) {
+                        queryBuilder
+                            // Search in the configured fields
+                            .should(q -> q
+                                .multiMatch(m -> m
+                                    .query(keyword)
+                                    .fields(List.copyOf(boostedFields.values()))
+                                )
+                            )
+                            // Search in the path, regex is required because the path is indexed as string
+                            .should(q -> q
+                                .regexp(r -> r
+                                    .field(pathFieldName)
+                                    .value(keyword + ".*")
+                                )
+                            );
+                    }
+                }
+            }
+        }
+
+        if (StringUtils.isNotEmpty(params.getPath())) {
+            queryBuilder.filter(q -> q
+                .regexp(r -> r
+                    .field(pathFieldName)
+                    .value(params.getPath())
+                )
+            );
         }
 
         if (StringUtils.isNotEmpty(params.getPath())) {
@@ -439,14 +563,32 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
         }
 
         if(MapUtils.isNotEmpty(params.getFilters())) {
-            updateFilters(query, params, siteFacets);
+            updateFilters(queryBuilder, params, siteFacets);
         }
 
-        SearchSourceBuilder builder = new SearchSourceBuilder()
-            .query(query)
+        // We need to copy it because the builder is immutable and there is no other way to check the queries
+        BoolQuery query = queryBuilder.build();
+        BoolQuery.Builder finalBuilder = new BoolQuery.Builder()
+            .must(query.must())
+            .mustNot(query.mustNot())
+            .should(query.should())
+            .filter(query.filter());
+
+        if (CollectionUtils.isNotEmpty(query.should()) &&
+                (CollectionUtils.isNotEmpty(query.must()) || CollectionUtils.isNotEmpty(query.filter()))) {
+            finalBuilder.minimumShouldMatch("1");
+        }
+
+        SearchRequest.Builder builder = new SearchRequest.Builder()
+            .query(finalBuilder.build()._toQuery())
             .from(params.getOffset())
             .size(params.getLimit())
-            .sort(getSortFieldName(params.getSortBy()), SortOrder.fromString(params.getSortOrder()));
+            .sort(s -> s
+                .field(f -> f
+                    .field(getSortFieldName(params.getSortBy()))
+                    .order(SortOrder._DESERIALIZER.parse(params.getSortOrder().toLowerCase()))
+                )
+            );
 
         if(ArrayUtils.isNotEmpty(highlightFields)) {
             updateHighlighting(builder);
@@ -454,12 +596,11 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
 
         buildAggregations(builder, siteFacets);
 
-        SearchRequest request = new SearchRequest()
-            .source(builder);
+        SearchRequest request = builder.build();
 
         try {
-            SearchResponse response = elasticsearchService.search(siteId, allowedPaths, request);
-            return processResults(response, siteFacets);
+            SearchResponse<Map> response = elasticsearchService.search(siteId, allowedPaths, request, Map.class);
+            return processResults(response, siteFacets, params.getAdditionalFields());
         } catch (IOException e) {
             throw new ServiceLayerException("Error connecting to Elasticsearch", e);
         } catch (Exception e) {
@@ -472,57 +613,66 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
      * @param builder the search source builder
      * @param siteFacets the facets from the site configuration
      */
-    protected void buildAggregations(SearchSourceBuilder builder, Map<String, FacetTO> siteFacets) {
+    protected void buildAggregations(SearchRequest.Builder builder, Map<String, FacetTO> siteFacets) {
         Map<String, FacetTO> mergedFacets = new HashMap<>(facets);
         if(MapUtils.isNotEmpty(siteFacets)) {
             mergedFacets.putAll(siteFacets);
         }
         mergedFacets.forEach((name, facet) -> {
             if (facet.isRange() && facet.isDate()) {
-                DateRangeAggregationBuilder aggregation = AggregationBuilders
-                    .dateRange(name)
+                DateRangeAggregation.Builder aggregation = new DateRangeAggregation.Builder()
                     .field(facet.getField())
                     .keyed(true);
                 for (FacetRangeTO range : facet.getRanges()) {
-                    if (Objects.nonNull(range.getFrom()) && Objects.nonNull(range.getTo())) {
-                        aggregation.addRange(range.getLabel(), range.getFrom(), range.getTo());
-                    } else if (Objects.nonNull(range.getFrom())) {
-                        aggregation.addUnboundedFrom(range.getLabel(), range.getFrom());
-                    } else {
-                        aggregation.addUnboundedTo(range.getLabel(), range.getTo());
-                    }
+                    aggregation.ranges(r -> {
+                        r.key(range.getLabel());
+                        if (range.getFrom() != null) {
+                            r.from(f -> f
+                                .expr(range.getFrom())
+                            );
+                        }
+                        if (range.getTo() != null) {
+                            r.to(t -> t
+                                .expr(range.getTo())
+                            );
+                        }
+                        return  r;
+                    });
                 }
 
-                builder.aggregation(aggregation);
+                builder.aggregations(name, aggregation.build()._toAggregation());
             } else if (facet.isRange()) {
-                RangeAggregationBuilder aggregation = AggregationBuilders
-                    .range(name)
+                RangeAggregation.Builder aggregation = new RangeAggregation.Builder()
                     .field(facet.getField())
                     .keyed(true);
                 for (FacetRangeTO range : facet.getRanges()) {
-                    if (Objects.nonNull(range.getFrom()) && Objects.nonNull(range.getTo())) {
-                        aggregation.addRange(range.getLabel(), Double.parseDouble(range.getFrom()),
-                            Double.parseDouble(range.getTo()));
-                    } else if (Objects.nonNull(range.getFrom())) {
-                        aggregation.addUnboundedFrom(range.getLabel(), Double.parseDouble(range.getFrom()));
-                    } else {
-                        aggregation.addUnboundedTo(range.getLabel(), Double.parseDouble(range.getTo()));
-                    }
+                    aggregation.ranges(r -> {
+                        r.key(range.getLabel());
+                        if (range.getFrom() != null) {
+                            r.from(range.getFrom());
+                        }
+                        if (range.getTo() != null) {
+                            r.to(range.getTo());
+                        }
+                        return  r;
+                    });
                 }
 
-                builder.aggregation(aggregation);
+                builder.aggregations(name, aggregation.build()._toAggregation());
             } else {
-                builder.aggregation(AggregationBuilders
-                    .terms(facet.getName())
-                    .field(facet.getField())
-                    .minDocCount(1)
-                    .size(1000));
+                builder.aggregations(name, a -> a
+                    .terms(t -> t
+                            .field(facet.getField())
+                            .minDocCount(1)
+                            .size(1000)
+                    )
+                );
             }
         });
     }
 
     /**
-     * Maps the field name from the configured facets, if its not found returns the same value.
+     * Maps the field name from the configured facets, if it's not found returns the same value.
      * @param name the facet name
      * @return name of the field to sort
      */
@@ -539,49 +689,59 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
      * @param response the Elasticsearch response to map
      * @return the list of search facet objects
      */
-    @SuppressWarnings("unchecked")
-    private List<SearchFacet> processAggregations(final SearchResponse response, Map<String, FacetTO> siteFacets) {
+    @SuppressWarnings("unchecked, rawtypes")
+    private List<SearchFacet> processAggregations(final SearchResponse<Map> response, Map<String, FacetTO> siteFacets) {
         Map<String, FacetTO> mergedFacets = new HashMap<>(facets);
         if(MapUtils.isNotEmpty(siteFacets)) {
             mergedFacets.putAll(siteFacets);
         }
         List<SearchFacet> facets = new LinkedList<>();
-        Aggregations aggregations = response.getAggregations();
+        Map<String, Aggregate> aggregations = response.aggregations();
         if(aggregations != null) {
-            aggregations.getAsMap().forEach((name, aggregation) -> {
+            aggregations.forEach((name, aggregation) -> {
                 SearchFacet facet = new SearchFacet();
                 facet.setName(name);
                 facet.setMultiple(mergedFacets.get(name).isMultiple());
                 Map values = new LinkedHashMap();
-                if(aggregation instanceof Terms) {
-                    Terms terms = (Terms) aggregation;
-                    for(Terms.Bucket bucket : terms.getBuckets()) {
-                        values.put(bucket.getKey(), bucket.getDocCount());
-                    }
-                } else if(aggregation instanceof Range) {
-                    Range range = (Range) aggregation;
-                    for(Range.Bucket bucket : range.getBuckets()) {
+                if(aggregation.isSterms()) {
+                    StringTermsAggregate terms = aggregation.sterms();
+                    terms.buckets().array().forEach(bucket ->
+                            values.put(bucket.key(), bucket.docCount()));
+                } else if(aggregation.isRange()) {
+                    RangeAggregate range = aggregation.range();
+                    for(Map.Entry<String,RangeBucket> entry : range.buckets().keyed().entrySet()) {
+                        RangeBucket bucket = entry.getValue();
                         SearchFacetRange rangeValues = new SearchFacetRange();
-                        rangeValues.setCount(bucket.getDocCount());
-                        try {
-                            Instant instant = Instant.parse(bucket.getFromAsString());
-                            LocalDate date = LocalDateTime.ofInstant(instant, ZoneOffset.UTC).toLocalDate();
-                            rangeValues.setFrom(date.toString());
-                            facet.setDate(true);
-                        } catch (Exception e) {
-                            rangeValues.setFrom(bucket.getFrom());
+                        rangeValues.setCount(bucket.docCount());
+                        if (bucket.from() != null) {
+                            rangeValues.setFrom(bucket.from());
                         }
-                        try {
-                            Instant instant = Instant.parse(bucket.getToAsString());
-                            LocalDate date = LocalDateTime.ofInstant(instant, ZoneOffset.UTC).toLocalDate();
-                            rangeValues.setTo(date.toString());
-                            facet.setDate(true);
-                        } catch (Exception e) {
-                            rangeValues.setTo(bucket.getTo());
+                        if (bucket.to() != null) {
+                            rangeValues.setTo(bucket.to());
                         }
-                        values.put(bucket.getKey(), rangeValues);
+                        values.put(entry.getKey(), rangeValues);
                     }
                     facet.setRange(true);
+                } else if(aggregation.isDateRange()) {
+                    DateRangeAggregate range = aggregation.dateRange();
+                    for(Map.Entry<String,RangeBucket> entry : range.buckets().keyed().entrySet()) {
+                        RangeBucket bucket = entry.getValue();
+                        SearchFacetRange rangeValues = new SearchFacetRange();
+                        rangeValues.setCount(bucket.docCount());
+                        if (bucket.from() != null && bucket.fromAsString() != null) {
+                            Instant instant = Instant.parse(bucket.fromAsString());
+                            LocalDate date = LocalDateTime.ofInstant(instant, ZoneOffset.UTC).toLocalDate();
+                            rangeValues.setFrom(date.toString());
+                        }
+                        if (bucket.to() != null && bucket.toAsString() != null) {
+                            Instant instant2 = Instant.parse(bucket.toAsString());
+                            LocalDate date2 = LocalDateTime.ofInstant(instant2, ZoneOffset.UTC).toLocalDate();
+                            rangeValues.setTo(date2.toString());
+                        }
+                        values.put(entry.getKey(), rangeValues);
+                    }
+                    facet.setRange(true);
+                    facet.setDate(true);
                 }
                 if(MapUtils.isNotEmpty(values)) {
                     facet.setValues(values);
@@ -600,12 +760,12 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
     protected String getItemType(Map<String, Object> source) {
         if(MapUtils.isNotEmpty(types)) {
             for (HierarchicalConfiguration<ImmutableNode> typeConfig : types.values()) {
-                String fieldName = typeConfig.getString(CONFIG_KEY_TYPE_FIELD);
+                String fieldName = typeConfig.getString(CONFIG_KEY_FIELD);
                 if(source.containsKey(fieldName)) {
                     String fieldValue = source.get(fieldName).toString();
                     if (StringUtils.isNotEmpty(fieldValue) &&
                             fieldValue.matches(typeConfig.getString(CONFIG_KEY_TYPE_MATCHES))) {
-                        return typeConfig.getString(CONFIG_KEY_TYPE_NAME);
+                        return typeConfig.getString(CONFIG_KEY_NAME);
                     }
                 }
             }
@@ -618,14 +778,10 @@ public class SearchServiceInternalImpl implements SearchServiceInternal {
      * @param highlights the highlighting to map
      * @return the list of snippets
      */
-    protected List<String> getItemSnippets(Map<String, HighlightField> highlights) {
+    protected List<String> getItemSnippets(Map<String, List<String>> highlights) {
         if(MapUtils.isNotEmpty(highlights)) {
             List<String> snippets = new LinkedList<>();
-            highlights.values().forEach(highlight -> {
-                for(Text text : highlight.getFragments()) {
-                    snippets.add(text.string());
-                }
-            });
+            highlights.values().forEach(snippets::addAll);
             return snippets;
         }
         return null;

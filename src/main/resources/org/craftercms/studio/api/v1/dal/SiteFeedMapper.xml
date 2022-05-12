@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+  ~ Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
   ~
   ~ This program is free software: you can redistribute it and/or modify
   ~ it under the terms of the GNU General Public License version 3 as published by
@@ -26,15 +26,12 @@
         <result property="siteId" column="site_id"/>
         <result property="name" column="name"/>
         <result property="description" column="description"/>
-        <result property="status" column="status" jdbcType="VARCHAR" javaType="String"/>
         <result property="deleted" column="deleted" javaType="Integer" jdbcType="INTEGER"/>
         <result property="lastCommitId" column="last_commit_id" jdbcType="VARCHAR" javaType="String"/>
         <result property="publishingEnabled" column="publishing_enabled" javaType="Integer" jdbcType="INTEGER"/>
         <result property="publishingStatus" column="publishing_status" jdbcType="VARCHAR" javaType="String"/>
-        <result property="publishingStatusMessage" column="publishing_status_message" jdbcType="VARCHAR" javaType="String"/>
         <result property="lastVerifiedGitlogCommitId" column="last_verified_gitlog_commit_id" jdbcType="VARCHAR" javaType="String"/>
         <result property="sandboxBranch" column="sandbox_branch"/>
-        <result property="searchEngine" column="search_engine" />
         <result property="publishedRepoCreated" column="published_repo_created" javaType="Integer" jdbcType="INTEGER" />
         <result property="publishingLockOwner" column="publishing_lock_owner" />
         <result property="publishingLockHeartbeat" column="publishing_lock_heartbeat" />
@@ -47,7 +44,6 @@
         <id property="id" column="id" />
         <result property="enabledAsInt" column="publishing_enabled" />
         <result property="status" column="publishing_status" />
-        <result property="message" column="publishing_status_message" />
         <result property="lockOwner" column="publishing_lock_owner" />
         <result property="lockTTL" column="publishing_lock_heartbeat" />
     </resultMap>
@@ -58,15 +54,12 @@
         <parameter property="siteId" jdbcType="VARCHAR"/>
         <parameter property="name" jdbcType="VARCHAR"/>
         <parameter property="description" jdbcType="VARCHAR"/>
-        <parameter property="status" jdbcType="VARCHAR"/>
         <parameter property="deleted" jdbcType="INTEGER"/>
         <parameter property="lastCommitId" jdbcType="VARCHAR"/>
         <parameter property="publishingEnabled" jdbcType="INTEGER"/>
-        <parameter property="publishingStatusMessage" jdbcType="VARCHAR" />
         <parameter property="lastVerifiedGitlogCommitId" jdbcType="VARCHAR" />
         <parameter property="lastSyncedGitlogCommitId" jdbcType="VARCHAR" />
         <parameter property="sandboxBranch" jdbcType="VARCHAR"/>
-        <parameter property="searchEngine" jdbcType="VARCHAR"/>
         <parameter property="publishedRepoCreated" jdbcType="INTEGER" />
         <parameter property="publishingLockOwner" jdbcType="VARCHAR" />
         <parameter property="publishingLockHeartbeat" jdbcType="TIMESTAMP" />
@@ -86,14 +79,14 @@
     </select>
 
     <insert id="createSite" parameterType="org.craftercms.studio.api.v1.dal.SiteFeed" flushCache="true">
-        insert into site (site_uuid, site_id, name, description, status, deleted, last_commit_id,
-                          publishing_status, publishing_status_message, sandbox_branch, search_engine)
-        values (#{siteUuid}, #{siteId}, #{name}, #{description}, #{status}, #{deleted}, #{lastCommitId},
-                #{publishingStatus}, #{publishingStatusMessage}, #{sandboxBranch}, #{searchEngine})
+        insert into site (site_uuid, site_id, name, description, deleted, last_commit_id,
+                          publishing_status, sandbox_branch)
+        values (#{siteUuid}, #{siteId}, #{name}, #{description}, #{deleted}, #{lastCommitId},
+                #{publishingStatus}, #{sandboxBranch})
     </insert>
 
-    <update id="deleteSite" parameterType="java.util.Map" >
-        UPDATE site SET deleted = 1 WHERE site_id = #{siteId} AND deleted = 0
+    <update id="deleteSite">
+        UPDATE site SET state = #{state}, deleted = 1 WHERE site_id = #{siteId} AND deleted = 0
     </update>
 
     <update id="updateLastCommitId" parameterType="java.util.Map">
@@ -101,29 +94,20 @@
     </update>
 
     <select id="getLastCommitId" resultType="java.lang.String">
-        SELECT IFNULL(NULLIF(TRIM(cs.node_last_commit_id), ''), s.last_commit_id)
-        FROM site s LEFT OUTER JOIN
-             (SELECT * FROM cluster_site_sync_repo cssr INNER JOIN cluster c ON cssr.cluster_node_id = c.id
-              WHERE c.local_address = #{localAddress} AND c.available = 1
-             ) AS cs ON s.id = cs.site_id
+        SELECT s.last_commit_id
+        FROM site s
         WHERE s.site_id = #{siteId} AND s.deleted = 0
     </select>
 
     <select id="getLastVerifiedGitlogCommitId" resultType="java.lang.String">
-        SELECT IFNULL(NULLIF(TRIM(cs.node_last_verified_gitlog_commit_id), ''), s.last_verified_gitlog_commit_id)
-        FROM site s LEFT OUTER JOIN
-             (SELECT * FROM cluster_site_sync_repo cssr INNER JOIN cluster c ON cssr.cluster_node_id = c.id
-              WHERE c.local_address = #{localAddress} AND c.available = 1
-             ) AS cs ON s.id = cs.site_id
+        SELECT s.last_verified_gitlog_commit_id
+        FROM site s
         WHERE s.site_id = #{siteId} AND s.deleted = 0
     </select>
 
     <select id="getLastSyncedGitlogCommitId" resultType="java.lang.String">
-        SELECT IFNULL(NULLIF(TRIM(cs.node_last_synced_gitlog_commit_id), ''), s.last_synced_gitlog_commit_id)
-        FROM site s LEFT OUTER JOIN
-             (SELECT * FROM cluster_site_sync_repo cssr INNER JOIN cluster c ON cssr.cluster_node_id = c.id
-              WHERE c.local_address = #{localAddress} AND c.available = 1
-             ) AS cs ON s.id = cs.site_id
+        SELECT s.last_synced_gitlog_commit_id
+        FROM site s
         WHERE s.site_id = #{siteId} AND s.deleted = 0
     </select>
 
@@ -137,6 +121,10 @@
 
     <select id="existsByName" parameterType="java.lang.String" resultType="int">
         SELECT count(1) FROM site WHERE name = #{name} AND deleted = 0
+    </select>
+
+    <select id="isNameUsed" resultType="boolean">
+        SELECT count(1) FROM site WHERE name = #{name} AND site_id != #{siteId} AND deleted = 0
     </select>
 
     <select id="getSitesPerUserQuery" resultType="java.lang.String" parameterType="java.util.Map">
@@ -173,8 +161,8 @@
         UPDATE site SET publishing_enabled = #{enabled} WHERE site_id = #{siteId} AND deleted = 0
     </update>
 
-    <update id="updatePublishingStatusMessage" parameterType="java.util.Map">
-        UPDATE site SET publishing_status = #{publishingStatus}, publishing_status_message = #{message}
+    <update id="updatePublishingStatus" parameterType="java.util.Map">
+        UPDATE site SET publishing_status = #{publishingStatus}
         WHERE site_id = #{siteId} AND deleted = 0
     </update>
 
@@ -208,6 +196,15 @@
         WHERE site_id = #{siteId} AND deleted = 0
     </update>
 
+    <update id="updateSite">
+        UPDATE site
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="description != null">description = #{description}</if>
+        </set>
+        WHERE site_id = #{siteId} AND deleted = 0
+    </update>
+
     <update id="setSiteState">
         UPDATE site SET state = #{state}
         WHERE site_id = #{siteId} AND deleted = 0
@@ -218,25 +215,19 @@
     </select>
 
     <select id="getSiteState" resultType="java.lang.String">
-        SELECT IFNULL(NULLIF(TRIM(cs.site_state), ''), s.state)
-        FROM site s LEFT OUTER JOIN
-             (SELECT * FROM cluster_site_sync_repo cssr INNER JOIN cluster c ON cssr.cluster_node_id = c.id
-              WHERE c.local_address = #{localAddress} AND c.available = 1
-             ) AS cs ON s.id = cs.site_id
+        SELECT s.state
+        FROM site s
         WHERE s.site_id = #{siteId} AND s.deleted = 0
     </select>
 
     <select id="getPublishedRepoCreated" resultType="int">
-        SELECT IFNULL(cs.site_published_repo_created, s.published_repo_created)
-        FROM site s LEFT OUTER JOIN
-             (SELECT * FROM cluster_site_sync_repo cssr INNER JOIN cluster c ON cssr.cluster_node_id = c.id
-              WHERE c.local_address = #{localAddress} AND c.available = 1
-             ) AS cs ON s.id = cs.site_id
+        SELECT s.published_repo_created
+        FROM site s
         WHERE s.site_id = #{siteId} AND s.deleted = 0
     </select>
 
     <select id="getPublishingStatus" resultMap="PublishStatusMap">
-        SELECT publishing_enabled, publishing_status, publishing_status_message, publishing_lock_owner,
+        SELECT publishing_enabled, publishing_status, publishing_lock_owner,
                DATE_ADD(publishing_lock_heartbeat, INTERVAL #{ttl} MINUTE) as publishing_lock_heartbeat
         FROM site WHERE site_id = #{siteId} AND deleted = 0 LIMIT 0, 1
     </select>

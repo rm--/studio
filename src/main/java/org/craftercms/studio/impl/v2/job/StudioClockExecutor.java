@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -28,12 +28,13 @@ import org.craftercms.studio.api.v1.dal.SiteFeed;
 import org.craftercms.studio.api.v1.job.Job;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
-import org.craftercms.studio.api.v1.repository.ContentRepository;
 import org.craftercms.studio.api.v1.service.GeneralLockService;
 import org.craftercms.studio.api.v1.service.site.SiteService;
 import org.craftercms.studio.api.v2.deployment.Deployer;
 import org.craftercms.studio.api.v2.job.SiteJob;
+import org.craftercms.studio.api.v2.repository.ContentRepository;
 import org.craftercms.studio.api.v2.utils.StudioConfiguration;
+import org.craftercms.studio.api.v2.utils.spring.context.SystemStatusProvider;
 import org.springframework.core.task.TaskExecutor;
 
 import java.io.IOException;
@@ -45,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static org.craftercms.studio.api.v1.constant.StudioConstants.FILE_SEPARATOR;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.PATTERN_SITE;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.SITE_UUID_FILENAME;
 import static org.craftercms.studio.api.v1.constant.StudioConstants.STUDIO_CLOCK_EXECUTOR_SITE_LOCK;
@@ -57,20 +57,12 @@ public class StudioClockExecutor implements Job {
 
     private static final Logger logger = LoggerFactory.getLogger(StudioClockExecutor.class);
     private static final ReentrantLock singleWorkerLock = new ReentrantLock();
-    private static final Map<String, ReentrantLock> singleWorkerSiteTasksLockMap = new HashMap<String, ReentrantLock>();
 
     private final static Map<String, String> deletedSitesMap = new HashMap<String, String>();
 
-    private static boolean stopSignaled = false;
     private static boolean running = false;
 
-    public static synchronized void signalToStop() {
-        stopSignaled = true;
-    }
-
-    public static synchronized void signalToStart() {
-        stopSignaled = false;
-    }
+    private SystemStatusProvider systemStatusProvider;
 
     public synchronized static boolean isRunning() {
         return running;
@@ -83,36 +75,18 @@ public class StudioClockExecutor implements Job {
     private StudioConfiguration studioConfiguration;
     private TaskExecutor taskExecutor;
     private SiteService siteService;
-    private ContentRepository contentRepository;
+    private org.craftercms.studio.api.v1.repository.ContentRepository contentRepositoryV1;
     private Deployer deployer;
     private GeneralLockService generalLockService;
     private List<Job> globalTasks;
     private List<SiteJob> siteTasks;
+    private ContentRepository contentRepositoryV2;
     private static int threadCounter = 0;
-
-    public StudioClockExecutor(StudioConfiguration studioConfiguration,
-                               TaskExecutor taskExecutor,
-                               SiteService siteService,
-                               ContentRepository contentRepository,
-                               Deployer deployer,
-                               GeneralLockService generalLockService,
-                               List<Job> globalTasks,
-                               List<SiteJob> siteTasks) {
-
-        this.studioConfiguration = studioConfiguration;
-        this.taskExecutor = taskExecutor;
-        this.siteService = siteService;
-        this.contentRepository = contentRepository;
-        this.deployer = deployer;
-        this.generalLockService = generalLockService;
-        this.globalTasks = globalTasks;
-        this.siteTasks = siteTasks;
-    }
 
     @Override
     public void execute() {
         threadCounter++;
-        if (!stopSignaled) {
+        if (systemStatusProvider.isSystemReady()) {
             if (singleWorkerLock.tryLock()) {
                 try {
                     setRunning(true);
@@ -125,6 +99,8 @@ public class StudioClockExecutor implements Job {
                     singleWorkerLock.unlock();
                 }
             }
+        } else {
+            logger.debug("System not ready yet. Skipping cycle");
         }
     }
 
@@ -137,18 +113,15 @@ public class StudioClockExecutor implements Job {
 
         List<String> sites = siteService.getAllCreatedSites();
         for (String site : sites) {
-            taskExecutor.execute(new Runnable() {
-                @Override
-                public void run() {
-                    String tasksLock = STUDIO_CLOCK_EXECUTOR_SITE_LOCK.replaceAll(PATTERN_SITE, site);
-                    if (generalLockService.tryLock(tasksLock)) {
-                        try {
-                            for (SiteJob siteTask : siteTasks) {
-                                siteTask.execute(site);
-                            }
-                        } finally {
-                            generalLockService.unlock(tasksLock);
+            taskExecutor.execute(() -> {
+                String tasksLock = STUDIO_CLOCK_EXECUTOR_SITE_LOCK.replaceAll(PATTERN_SITE, site);
+                if (generalLockService.tryLock(tasksLock)) {
+                    try {
+                        for (SiteJob siteTask : siteTasks) {
+                            siteTask.execute(site);
                         }
+                    } finally {
+                        generalLockService.unlock(tasksLock);
                     }
                 }
             });
@@ -161,14 +134,12 @@ public class StudioClockExecutor implements Job {
         deletedSites.forEach(siteFeed -> {
             String key = siteFeed.getSiteId() + ":" + siteFeed.getSiteUuid();
             if (!deletedSitesMap.containsKey(key)) {
-                if (contentRepository.contentExists(siteFeed.getName(), FILE_SEPARATOR) &&
+                if (contentRepositoryV2.repositoryExists(siteFeed.getName()) &&
                         checkSiteUuid(siteFeed.getSiteId(), siteFeed.getSiteUuid())) {
                     deployer.deleteTargets(siteFeed.getName());
                     destroySitePreviewContext(siteFeed.getName());
-                    contentRepository.deleteSite(siteFeed.getName());
+                    contentRepositoryV1.deleteSite(siteFeed.getName());
                 }
-                StudioClusterSandboxRepoSyncTask.remotesMap.remove(siteFeed.getSiteId());
-                StudioClusterPublishedRepoSyncTask.remotesMap.remove(siteFeed.getSiteId());
                 deletedSitesMap.put(key, siteFeed.getName());
             }
         });
@@ -219,5 +190,81 @@ public class StudioClockExecutor implements Job {
         String url = studioConfiguration.getProperty(CONFIGURATION_SITE_PREVIEW_DESTROY_CONTEXT_URL);
         url = url.replaceAll(StudioConstants.CONFIG_SITENAME_VARIABLE, site);
         return url;
+    }
+
+    public StudioConfiguration getStudioConfiguration() {
+        return studioConfiguration;
+    }
+
+    public void setStudioConfiguration(StudioConfiguration studioConfiguration) {
+        this.studioConfiguration = studioConfiguration;
+    }
+
+    public TaskExecutor getTaskExecutor() {
+        return taskExecutor;
+    }
+
+    public void setTaskExecutor(TaskExecutor taskExecutor) {
+        this.taskExecutor = taskExecutor;
+    }
+
+    public SiteService getSiteService() {
+        return siteService;
+    }
+
+    public void setSiteService(SiteService siteService) {
+        this.siteService = siteService;
+    }
+
+    public org.craftercms.studio.api.v1.repository.ContentRepository getContentRepositoryV1() {
+        return contentRepositoryV1;
+    }
+
+    public void setContentRepositoryV1(org.craftercms.studio.api.v1.repository.ContentRepository contentRepositoryV1) {
+        this.contentRepositoryV1 = contentRepositoryV1;
+    }
+
+    public Deployer getDeployer() {
+        return deployer;
+    }
+
+    public void setDeployer(Deployer deployer) {
+        this.deployer = deployer;
+    }
+
+    public GeneralLockService getGeneralLockService() {
+        return generalLockService;
+    }
+
+    public void setGeneralLockService(GeneralLockService generalLockService) {
+        this.generalLockService = generalLockService;
+    }
+
+    public List<Job> getGlobalTasks() {
+        return globalTasks;
+    }
+
+    public void setGlobalTasks(List<Job> globalTasks) {
+        this.globalTasks = globalTasks;
+    }
+
+    public List<SiteJob> getSiteTasks() {
+        return siteTasks;
+    }
+
+    public void setSiteTasks(List<SiteJob> siteTasks) {
+        this.siteTasks = siteTasks;
+    }
+
+    public void setSystemStatusProvider(SystemStatusProvider systemStatusProvider) {
+        this.systemStatusProvider = systemStatusProvider;
+    }
+
+    public ContentRepository getContentRepositoryV2() {
+        return contentRepositoryV2;
+    }
+
+    public void setContentRepositoryV2(ContentRepository contentRepositoryV2) {
+        this.contentRepositoryV2 = contentRepositoryV2;
     }
 }

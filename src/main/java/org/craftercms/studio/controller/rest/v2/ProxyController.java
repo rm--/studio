@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -32,6 +32,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.servlet.http.HttpServletRequest;
+import java.beans.ConstructorProperties;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
@@ -55,6 +56,7 @@ public class ProxyController {
 
     protected final RestTemplate restTemplate = new RestTemplate();
 
+    @ConstructorProperties({"studioConfiguration", "servicesConfig"})
     public ProxyController(StudioConfiguration studioConfiguration, ServicesConfig servicesConfig) {
         this.studioConfiguration = studioConfiguration;
         this.servicesConfig = servicesConfig;

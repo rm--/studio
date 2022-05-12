@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -25,7 +25,7 @@ import org.craftercms.studio.api.v2.service.security.EncryptionService;
 import org.craftercms.studio.api.v2.service.security.internal.EncryptionServiceInternal;
 
 import static org.craftercms.studio.permissions.PermissionResolverImpl.SITE_ID_RESOURCE_ID;
-import static org.craftercms.studio.permissions.StudioPermissions.ACTION_ENCRYPTION_TOOL;
+import static org.craftercms.studio.permissions.StudioPermissionsConstants.PERMISSION_ENCRYPTION_TOOL;
 
 /**
  * @author joseross
@@ -34,14 +34,18 @@ public class EncryptionServiceImpl implements EncryptionService {
 
     protected EncryptionServiceInternal encryptionServiceInternal;
 
-    public EncryptionServiceImpl(final EncryptionServiceInternal encryptionServiceInternal) {
-        this.encryptionServiceInternal = encryptionServiceInternal;
-    }
-
     @Override
-    @HasPermission(type = DefaultPermission.class, action = ACTION_ENCRYPTION_TOOL)
+    @HasPermission(type = DefaultPermission.class, action = PERMISSION_ENCRYPTION_TOOL)
     public String encrypt(@ProtectedResourceId(SITE_ID_RESOURCE_ID) @ValidateStringParam(name = "siteId") String siteId,
                           @ValidateStringParam(name = "text") String text) throws ServiceLayerException {
         return encryptionServiceInternal.encrypt(text);
+    }
+
+    public EncryptionServiceInternal getEncryptionServiceInternal() {
+        return encryptionServiceInternal;
+    }
+
+    public void setEncryptionServiceInternal(EncryptionServiceInternal encryptionServiceInternal) {
+        this.encryptionServiceInternal = encryptionServiceInternal;
     }
 }

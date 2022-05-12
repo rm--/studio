@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+  ~ Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
   ~
   ~ This program is free software: you can redistribute it and/or modify
   ~ it under the terms of the GNU General Public License version 3 as published by
@@ -60,7 +60,7 @@
         (Values for each of the headers that will be added to responses)
         <accessControlMaxAge>3600</accessControlMaxAge>
         <accessControlAllowOrigin>*</accessControlAllowOrigin>
-        <accessControlAllowMethods>GET\, POST\, PUT</accessControlAllowMethods>
+        <accessControlAllowMethods>GET\, OPTIONS</accessControlAllowMethods>
         <accessControlAllowHeaders>Content-Type</accessControlAllowHeaders>
         <accessControlAllowCredentials>true</accessControlAllowCredentials>
     </cors>
@@ -149,8 +149,8 @@
     </cache>
 
 
-    You can learn more about Crafter Engine site configuration here:
-    http://docs.craftercms.org/en/3.0/site-administrators/engine/engine-site-configuration.html
+    You can learn more about Crafter Engine site configuration in the docs at
+    http://docs.craftercms.org
 
 -->
 
@@ -200,7 +200,7 @@
         <enable>true</enable>
         <accessControlMaxAge>3600</accessControlMaxAge>
         <accessControlAllowOrigin>*</accessControlAllowOrigin>
-        <accessControlAllowMethods>GET\, POST\, PUT</accessControlAllowMethods>
+        <accessControlAllowMethods>GET\, OPTIONS</accessControlAllowMethods>
         <accessControlAllowHeaders>Content-Type</accessControlAllowHeaders>
         <accessControlAllowCredentials>true</accessControlAllowCredentials>
     </cors>

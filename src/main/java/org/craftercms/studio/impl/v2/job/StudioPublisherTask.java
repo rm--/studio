@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -18,11 +18,11 @@ package org.craftercms.studio.impl.v2.job;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.craftercms.studio.api.v1.constant.StudioConstants;
 import org.craftercms.studio.api.v1.dal.PublishRequest;
 import org.craftercms.studio.api.v1.dal.SiteFeed;
 import org.craftercms.studio.api.v1.exception.ServiceLayerException;
 import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
+import org.craftercms.studio.api.v1.exception.security.UserNotFoundException;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
 import org.craftercms.studio.api.v1.service.configuration.ServicesConfig;
@@ -32,19 +32,23 @@ import org.craftercms.studio.api.v1.service.site.SiteService;
 import org.craftercms.studio.api.v1.to.DeploymentItemTO;
 import org.craftercms.studio.api.v2.dal.AuditLog;
 import org.craftercms.studio.api.v2.dal.AuditLogParameter;
+import org.craftercms.studio.api.v2.dal.User;
+import org.craftercms.studio.api.v2.event.publish.PublishEvent;
 import org.craftercms.studio.api.v2.repository.ContentRepository;
+import org.craftercms.studio.api.v2.service.audit.internal.ActivityStreamServiceInternal;
 import org.craftercms.studio.api.v2.service.audit.internal.AuditServiceInternal;
 import org.craftercms.studio.api.v2.service.notification.NotificationService;
+import org.craftercms.studio.api.v2.service.publish.internal.PublishingProgressObserver;
+import org.craftercms.studio.api.v2.service.publish.internal.PublishingProgressServiceInternal;
+import org.craftercms.studio.api.v2.service.security.internal.UserServiceInternal;
 import org.craftercms.studio.api.v2.utils.StudioConfiguration;
 import org.craftercms.studio.impl.v2.service.cluster.StudioClusterUtils;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+import org.craftercms.studio.impl.v2.utils.DateUtils;
 import org.springframework.jdbc.UncategorizedSQLException;
 
-import java.text.SimpleDateFormat;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -52,20 +56,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.craftercms.studio.api.v1.dal.SiteFeed.STATE_CREATED;
+import static org.craftercms.studio.api.v1.dal.SiteFeed.STATE_READY;
 import static org.craftercms.studio.api.v2.dal.AuditLogConstants.OPERATION_PUBLISHED;
 import static org.craftercms.studio.api.v2.dal.AuditLogConstants.TARGET_TYPE_CONTENT_ITEM;
+import static org.craftercms.studio.api.v2.dal.AuditLogConstants.TARGET_TYPE_PUBLISHING_PACKAGE;
 import static org.craftercms.studio.api.v2.dal.PublishStatus.ERROR;
+import static org.craftercms.studio.api.v2.dal.PublishStatus.PROCESSING;
 import static org.craftercms.studio.api.v2.dal.PublishStatus.PUBLISHING;
 import static org.craftercms.studio.api.v2.dal.PublishStatus.QUEUED;
 import static org.craftercms.studio.api.v2.dal.PublishStatus.READY;
 import static org.craftercms.studio.api.v2.utils.StudioConfiguration.JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_MANDATORY_DEPENDENCIES_CHECK_ENABLED;
-import static org.craftercms.studio.api.v2.utils.StudioConfiguration.JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_ERROR;
-import static org.craftercms.studio.api.v2.utils.StudioConfiguration.JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_PUBLISHING;
-import static org.craftercms.studio.api.v2.utils.StudioConfiguration.JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_QUEUED;
-import static org.craftercms.studio.api.v2.utils.StudioConfiguration.JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_READY;
 
-public class StudioPublisherTask extends StudioClockTask {
+public class StudioPublisherTask extends StudioClockTask implements ApplicationContextAware {
 
     private static final Logger logger = LoggerFactory.getLogger(StudioPublisherTask.class);
 
@@ -82,34 +84,15 @@ public class StudioPublisherTask extends StudioClockTask {
     private AuditServiceInternal auditServiceInternal;
     private int maxRetryCounter;
     private StudioClusterUtils studioClusterUtils;
-
-    public StudioPublisherTask(int executeEveryNCycles,
-                               int offset,
-                               StudioConfiguration studioConfiguration,
-                               SiteService siteService,
-                               ContentRepository contentRepository,
-                               PublishingManager publishingManager,
-                               ServicesConfig servicesConfig,
-                               NotificationService notificationService,
-                               AuditServiceInternal auditServiceInternal,
-                               int maxRetryCounter,
-                               StudioClusterUtils studioClusterUtils) {
-        super(executeEveryNCycles, offset, studioConfiguration, siteService);
-        this.studioConfiguration = studioConfiguration;
-        this.siteService = siteService;
-        this.contentRepository = contentRepository;
-        this.publishingManager = publishingManager;
-        this.servicesConfig = servicesConfig;
-        this.notificationService = notificationService;
-        this.auditServiceInternal = auditServiceInternal;
-        this.maxRetryCounter = maxRetryCounter;
-        this.studioClusterUtils = studioClusterUtils;
-    }
+    private PublishingProgressServiceInternal publishingProgressServiceInternal;
+    private UserServiceInternal userServiceInternal;
+    private ActivityStreamServiceInternal activityStreamServiceInternal;
+    private ApplicationContext applicationContext;
 
     @Override
     protected void executeInternal(String siteId) {
         String siteState = siteService.getSiteState(siteId);
-        if (!StringUtils.equals(siteState, STATE_CREATED)) {
+        if (!StringUtils.equals(siteState, STATE_READY)) {
             return;
         }
         String env = null;
@@ -162,8 +145,13 @@ public class StudioPublisherTask extends StudioClockTask {
                                                 " for site " + siteId);
                                         logger.debug("Site \"{0}\" has {1} items ready for deployment",
                                                 siteId, itemsToDeploy.size());
-
+                                        String packageId = itemsToDeploy.get(0).getPackageId();
+                                        PublishingProgressObserver observer =
+                                                new PublishingProgressObserver(siteId, packageId, environment,
+                                                        itemsToDeploy.size());
+                                        publishingProgressServiceInternal.addObserver(observer);
                                         doPublishing(siteId, itemsToDeploy, environment);
+                                        applicationContext.publishEvent(new PublishEvent(siteId));
                                         retryCounter.remove(siteId);
                                         dbErrorNotifiedSites.remove(siteId);
                                         siteService.updatePublishingLockHeartbeatForSite(siteId);
@@ -190,8 +178,8 @@ public class StudioPublisherTask extends StudioClockTask {
                                 }
                             }
                         } catch (UncategorizedSQLException  dbErr) {
-                            logger.error("DB error while executing deployment to environment store for site " + siteId,
-                                    dbErr);
+                            logger.error("DB error while executing deployment to environment store for site "
+                                            + siteId, dbErr);
                             if (!dbErrorNotifiedSites.add(siteId)) {
                                 notificationService.notifyDeploymentError(siteId, dbErr);
                             }
@@ -221,46 +209,43 @@ public class StudioPublisherTask extends StudioClockTask {
             publishingManager.resetProcessingQueue(siteId, env);
         } finally {
             // Unlock publishing if queue does not have packages ready for publishing
+            publishingProgressServiceInternal.removeObserver(siteId);
             logger.debug("Unlocking publishing for site " + siteId + " by lock owner " + lockOwnerId);
             siteService.unlockPublishingForSite(siteId, lockOwnerId);
         }
     }
 
     private void doPublishing(String siteId, List<PublishRequest> itemsToDeploy, String environment)
-            throws DeploymentException, ServiceLayerException {
-        String statusMessage;
+            throws DeploymentException, ServiceLayerException, UserNotFoundException {
+        siteService.updatePublishingStatus(siteId, PROCESSING);
         String status;
         String author = itemsToDeploy.get(0).getUser();
         StringBuilder sbComment = new StringBuilder();
         List<DeploymentItemTO> completeDeploymentItemList = new ArrayList<DeploymentItemTO>();
         Set<String> processedPaths = new HashSet<String>();
-        SimpleDateFormat sdf =
-                new SimpleDateFormat(StudioConstants.DATE_PATTERN_WORKFLOW_WITH_TZ);
         String currentPackageId = StringUtils.EMPTY;
         try {
             logger.debug("Mark items as processing for site \"{0}\"", siteId);
             Set<String> packageIds = new HashSet<String>();
-            int idx = 0;
             for (PublishRequest item : itemsToDeploy) {
-                idx++;
+                processPublishingRequest(siteId, environment, item, completeDeploymentItemList, processedPaths);
                 if (!StringUtils.equals(currentPackageId, item.getPackageId())) {
                     currentPackageId = item.getPackageId();
+                    publishingProgressServiceInternal.updateObserver(siteId, currentPackageId);
+                } else {
+                    publishingProgressServiceInternal.updateObserver(siteId);
                 }
-                statusMessage = studioConfiguration
-                        .getProperty(JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_PUBLISHING);
-                statusMessage =
-                        statusMessage.replace("{package_id}", currentPackageId)
-                                .replace("{datetime}", ZonedDateTime.now(ZoneOffset.UTC)
-                                        .format(DateTimeFormatter.ofPattern(sdf.toPattern())))
-                                .replace("{x}", Integer.toString(idx))
-                                .replace("{y}", Integer.toString(itemsToDeploy.size()));
-                siteService.updatePublishingStatusMessage(siteId, PUBLISHING, statusMessage);
 
-                processPublishingRequest(siteId, environment, item, completeDeploymentItemList, processedPaths);
                 if (packageIds.add(item.getPackageId())) {
                     sbComment.append(item.getSubmissionComment()).append("\n");
                 }
             }
+            publishingProgressServiceInternal.removeObserver(siteId);
+            siteService.updatePublishingStatus(siteId, PUBLISHING);
+            String pkgId = completeDeploymentItemList.get(0).getPackageId();
+            PublishingProgressObserver observer = new PublishingProgressObserver(siteId, pkgId, environment,
+                    completeDeploymentItemList.size());
+            publishingProgressServiceInternal.addObserver(observer);
             deploy(siteId, environment, completeDeploymentItemList, author,
                     sbComment.toString());
             StringBuilder sbPackIds = new StringBuilder("Package(s): ");
@@ -274,27 +259,17 @@ public class StudioPublisherTask extends StudioClockTask {
 
             if (publishingManager.isPublishingQueueEmpty(siteId)) {
                 status = READY;
-                statusMessage = studioConfiguration.getProperty
-                        (JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_READY);
-                statusMessage = statusMessage.replace("{package_id}", currentPackageId)
-                        .replace("{datetime}", ZonedDateTime.now(ZoneOffset.UTC)
-                                .format(DateTimeFormatter.ofPattern(sdf.toPattern())))
-                        .replace("{package_size}",
-                                Integer.toString(itemsToDeploy.size()));
             } else {
                 status = QUEUED;
-                statusMessage =
-                        studioConfiguration.getProperty(JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_QUEUED);
             }
-            siteService.updatePublishingStatusMessage(siteId, status, statusMessage);
+            siteService.updatePublishingStatus(siteId, status);
         } catch (DeploymentException err) {
             logger.error("Error while executing deployment to environment store " +
                             "for site \"{0}\", number of items \"{1}\"", err, siteId,
                     itemsToDeploy.size());
             publishingManager.markItemsReady(siteId, environment, itemsToDeploy);
             siteService.enablePublishing(siteId, false);
-            statusMessage = studioConfiguration.getProperty(JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_ERROR);
-            siteService.updatePublishingStatusMessage(siteId, ERROR, statusMessage);
+            siteService.updatePublishingStatus(siteId, ERROR);
             throw err;
         } catch (Exception err) {
             logger.error("Unexpected error while executing deployment to environment " +
@@ -302,18 +277,16 @@ public class StudioPublisherTask extends StudioClockTask {
                     itemsToDeploy.size());
             publishingManager.markItemsReady(siteId, environment, itemsToDeploy);
             siteService.enablePublishing(siteId, false);
-            statusMessage = studioConfiguration.getProperty(JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_ERROR);
-            siteService.updatePublishingStatusMessage(siteId, ERROR, statusMessage);
+            siteService.updatePublishingStatus(siteId, ERROR);
             throw err;
         }
     }
 
     private void processPublishingRequest(String siteId, String environment, PublishRequest item,
                                           List<DeploymentItemTO> completeDeploymentItemList, Set<String> processedPaths)
-            throws ServiceLayerException, DeploymentException {
+            throws ServiceLayerException, DeploymentException, UserNotFoundException {
         List<DeploymentItemTO> missingDependencies = new ArrayList<DeploymentItemTO>();
         Set<String> missingDependenciesPaths = new HashSet<String>();
-        String statusMessage;
         try {
             List<DeploymentItemTO> deploymentItemList = new ArrayList<DeploymentItemTO>();
 
@@ -339,18 +312,16 @@ public class StudioPublisherTask extends StudioClockTask {
             completeDeploymentItemList.addAll(deploymentItemList);
         } catch (DeploymentException err) {
             logger.error("Error while executing deployment to environment store for site \"{0}\",", err, siteId);
-            publishingManager.markItemsReady(siteId, environment, Arrays.asList(item));
+            publishingManager.markItemsReady(siteId, environment, List.of(item));
             siteService.enablePublishing(siteId, false);
-            statusMessage = studioConfiguration.getProperty(JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_ERROR);
-            siteService.updatePublishingStatusMessage(siteId, ERROR, statusMessage);
+            siteService.updatePublishingStatus(siteId, ERROR);
             throw err;
         } catch (Exception err){
             logger.error("Unexpected error while executing deployment to environment " +
                     "store for site \"{0}\", ", err, siteId);
-            publishingManager.markItemsReady(siteId, environment, Arrays.asList(item));
+            publishingManager.markItemsReady(siteId, environment, List.of(item));
             siteService.enablePublishing(siteId, false);
-            statusMessage = studioConfiguration.getProperty(JOB_DEPLOY_CONTENT_TO_ENVIRONMENT_STATUS_MESSAGE_ERROR);
-            siteService.updatePublishingStatusMessage(siteId, ERROR, statusMessage);
+            siteService.updatePublishingStatus(siteId, ERROR);
             throw err;
         }
     }
@@ -371,7 +342,7 @@ public class StudioPublisherTask extends StudioClockTask {
     }
 
     protected void generateWorkflowActivity(String site, String environment, Set<String> packageIds, String username,
-                                            String operation) throws SiteNotFoundException {
+                                            String operation) throws ServiceLayerException, UserNotFoundException {
         SiteFeed siteFeed = siteService.getSite(site);
         AuditLog auditLog = auditServiceInternal.createAuditLogEntry();
         auditLog.setOperation(operation);
@@ -384,12 +355,18 @@ public class StudioPublisherTask extends StudioClockTask {
         for (String packageId : packageIds) {
             AuditLogParameter auditLogParameter = new AuditLogParameter();
             auditLogParameter.setTargetId(site + ":" + environment);
-            auditLogParameter.setTargetType(TARGET_TYPE_CONTENT_ITEM);
+            auditLogParameter.setTargetType(TARGET_TYPE_PUBLISHING_PACKAGE);
             auditLogParameter.setTargetValue(packageId);
             auditLogParameters.add(auditLogParameter);
         }
         auditLog.setParameters(auditLogParameters);
         auditServiceInternal.insertAuditLog(auditLog);
+
+        User user = userServiceInternal.getUserByIdOrUsername(-1, username);
+        packageIds.forEach(packageId ->
+                activityStreamServiceInternal.insertActivity(siteFeed.getId(), user.getId(), operation,
+                        DateUtils.getCurrentTime(), null, packageId)
+        );
     }
 
     private boolean isMandatoryDependenciesCheckEnabled() {
@@ -405,5 +382,106 @@ public class StudioPublisherTask extends StudioClockTask {
             environments.add(servicesConfig.getStagingEnvironment(site));
         }
         return environments;
+    }
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) {
+        this.applicationContext = applicationContext;
+    }
+
+    public StudioConfiguration getStudioConfiguration() {
+        return studioConfiguration;
+    }
+
+    public void setStudioConfiguration(StudioConfiguration studioConfiguration) {
+        this.studioConfiguration = studioConfiguration;
+    }
+
+    public SiteService getSiteService() {
+        return siteService;
+    }
+
+    public void setSiteService(SiteService siteService) {
+        this.siteService = siteService;
+    }
+
+    public ContentRepository getContentRepository() {
+        return contentRepository;
+    }
+
+    public void setContentRepository(ContentRepository contentRepository) {
+        this.contentRepository = contentRepository;
+    }
+
+    public PublishingManager getPublishingManager() {
+        return publishingManager;
+    }
+
+    public void setPublishingManager(PublishingManager publishingManager) {
+        this.publishingManager = publishingManager;
+    }
+
+    public ServicesConfig getServicesConfig() {
+        return servicesConfig;
+    }
+
+    public void setServicesConfig(ServicesConfig servicesConfig) {
+        this.servicesConfig = servicesConfig;
+    }
+
+    public NotificationService getNotificationService() {
+        return notificationService;
+    }
+
+    public void setNotificationService(NotificationService notificationService) {
+        this.notificationService = notificationService;
+    }
+
+    public AuditServiceInternal getAuditServiceInternal() {
+        return auditServiceInternal;
+    }
+
+    public void setAuditServiceInternal(AuditServiceInternal auditServiceInternal) {
+        this.auditServiceInternal = auditServiceInternal;
+    }
+
+    public int getMaxRetryCounter() {
+        return maxRetryCounter;
+    }
+
+    public void setMaxRetryCounter(int maxRetryCounter) {
+        this.maxRetryCounter = maxRetryCounter;
+    }
+
+    public StudioClusterUtils getStudioClusterUtils() {
+        return studioClusterUtils;
+    }
+
+    public void setStudioClusterUtils(StudioClusterUtils studioClusterUtils) {
+        this.studioClusterUtils = studioClusterUtils;
+    }
+
+    public PublishingProgressServiceInternal getPublishingProgressServiceInternal() {
+        return publishingProgressServiceInternal;
+    }
+
+    public void setPublishingProgressServiceInternal(PublishingProgressServiceInternal publishingProgressServiceInternal) {
+        this.publishingProgressServiceInternal = publishingProgressServiceInternal;
+    }
+
+    public UserServiceInternal getUserServiceInternal() {
+        return userServiceInternal;
+    }
+
+    public void setUserServiceInternal(UserServiceInternal userServiceInternal) {
+        this.userServiceInternal = userServiceInternal;
+    }
+
+    public ActivityStreamServiceInternal getActivityStreamServiceInternal() {
+        return activityStreamServiceInternal;
+    }
+
+    public void setActivityStreamServiceInternal(ActivityStreamServiceInternal activityStreamServiceInternal) {
+        this.activityStreamServiceInternal = activityStreamServiceInternal;
     }
 }

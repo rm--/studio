@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -21,6 +21,7 @@ import org.craftercms.studio.api.v1.constant.StudioConstants;
 import org.craftercms.studio.api.v1.constant.DmConstants;
 import org.craftercms.studio.api.v1.exception.ContentProcessException;
 import org.craftercms.studio.api.v1.exception.ServiceLayerException;
+import org.craftercms.studio.api.v1.exception.security.UserNotFoundException;
 import org.craftercms.studio.api.v1.executor.ProcessContentExecutor;
 import org.craftercms.studio.api.v1.log.Logger;
 import org.craftercms.studio.api.v1.log.LoggerFactory;
@@ -43,7 +44,7 @@ public class ProcessContentExecutorImpl implements ProcessContentExecutor {
 
     @Override
     public ResultTO processContent(String id, InputStream input, boolean isXml, Map<String, String> params,
-                                   String chainName) throws ServiceLayerException {
+                                   String chainName) throws ServiceLayerException, UserNotFoundException {
         final ContentProcessorPipeline chain = processorChains.get(chainName);
         try{
             if (chain != null) {
@@ -58,7 +59,7 @@ public class ProcessContentExecutorImpl implements ProcessContentExecutor {
                         StudioConstants.CONTENT_ENCODING, params);
                     chain.processContent(content, result);
 
-                } catch (ContentProcessException e) {
+                } catch (ContentProcessException | UserNotFoundException e) {
                     logger.error("Error in chain for write content", e);
                     throw e;
                 } catch (RuntimeException e) {

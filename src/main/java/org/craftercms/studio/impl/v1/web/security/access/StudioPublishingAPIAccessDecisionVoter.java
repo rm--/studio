@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -18,6 +18,7 @@ package org.craftercms.studio.impl.v1.web.security.access;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import javax.servlet.http.HttpServletRequest;
 
@@ -53,7 +54,7 @@ public class StudioPublishingAPIAccessDecisionVoter extends StudioAbstractAccess
     }
 
     @Override
-    public int vote(Authentication authentication, Object o, Collection collection) {
+    public int voteInternal(Authentication authentication, Object o, Collection collection) {
         int toRet = ACCESS_ABSTAIN;
         String requestUri = "";
         if (o instanceof FilterInvocation) {
@@ -69,12 +70,9 @@ public class StudioPublishingAPIAccessDecisionVoter extends StudioAbstractAccess
                 try {
                     InputStream is = request.getInputStream();
                     is.mark(0);
-                    String jsonString = IOUtils.toString(is);
+                    String jsonString = IOUtils.toString(is, StandardCharsets.UTF_8);
                     if (StringUtils.isNoneEmpty(jsonString)) {
                         JSONObject jsonObject = JSONObject.fromObject(jsonString);
-                        if (jsonObject.has("username")) {
-                            userParam = jsonObject.getString("username");
-                        }
                         if (jsonObject.has("site_id")) {
                             siteParam = jsonObject.getString("site_id");
                         }
@@ -85,29 +83,26 @@ public class StudioPublishingAPIAccessDecisionVoter extends StudioAbstractAccess
                     logger.debug("Failed to extract username from POST request");
                 }
             }
-            User currentUser = null;
-            try {
-                String username = authentication.getPrincipal().toString();
-                currentUser = userServiceInternal.getUserByIdOrUsername(-1, username);
-            } catch (ClassCastException | UserNotFoundException | ServiceLayerException e) {
-                // anonymous user
-                if (!authentication.getPrincipal().toString().equals("anonymousUser")) {
-                    logger.info("Error getting current user", e);
-                    return ACCESS_ABSTAIN;
-                }
-            }
+            User currentUser = (User) authentication.getPrincipal();
             switch (requestUri) {
-                case START:
-                case STOP:
-                    if (currentUser != null) {
-                        toRet = ACCESS_GRANTED;
-                    } else {
-                        toRet = ACCESS_DENIED;
-                    }
-                    break;
                 case STATUS:
                     if (siteService.exists(siteParam)) {
-                        if (currentUser != null && isSiteMember(siteParam, currentUser)) {
+                        if (isSiteMember(siteParam, currentUser)) {
+                            toRet = ACCESS_GRANTED;
+                        } else {
+                            toRet = ACCESS_DENIED;
+                        }
+                    } else {
+                        toRet = ACCESS_ABSTAIN;
+                    }
+                    break;
+                case COMMITS:
+                case PUBLISH_ITEMS:
+                case RESET_STAGING:
+                    if (siteService.exists(siteParam)) {
+                        if (currentUser != null &&
+                                (isSiteAdmin(siteParam, currentUser) || hasPermission(siteParam, "~DASHBOARD~",
+                                        currentUser.getUsername(), "publish"))) {
                             toRet = ACCESS_GRANTED;
                         } else {
                             toRet = ACCESS_DENIED;

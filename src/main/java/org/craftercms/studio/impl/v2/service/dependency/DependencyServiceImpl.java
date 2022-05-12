@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -29,14 +29,15 @@ import java.util.List;
 import static org.craftercms.studio.permissions.CompositePermissionResolverImpl.PATH_LIST_RESOURCE_ID;
 import static org.craftercms.studio.permissions.PermissionResolverImpl.PATH_RESOURCE_ID;
 import static org.craftercms.studio.permissions.PermissionResolverImpl.SITE_ID_RESOURCE_ID;
-import static org.craftercms.studio.permissions.StudioPermissions.ACTION_DELETE_CONTENT;
+import static org.craftercms.studio.permissions.StudioPermissionsConstants.PERMISSION_CONTENT_DELETE;
 
 public class DependencyServiceImpl implements DependencyService {
 
     private DependencyServiceInternal dependencyServiceInternal;
 
     @Override
-    public List<String> getSoftDependencies(@ProtectedResourceId(SITE_ID_RESOURCE_ID) String siteId, String path)
+    public List<String> getSoftDependencies(@ProtectedResourceId(SITE_ID_RESOURCE_ID) String siteId,
+                                            @ProtectedResourceId(PATH_RESOURCE_ID) String path)
             throws ServiceLayerException {
         List<String> toRet = dependencyServiceInternal.getSoftDependencies(siteId, path);
         toRet.remove(path);
@@ -44,7 +45,8 @@ public class DependencyServiceImpl implements DependencyService {
     }
 
     @Override
-    public List<String> getSoftDependencies(@ProtectedResourceId(SITE_ID_RESOURCE_ID) String siteId, List<String> paths)
+    public List<String> getSoftDependencies(@ProtectedResourceId(SITE_ID_RESOURCE_ID) String siteId,
+                                            @ProtectedResourceId(PATH_LIST_RESOURCE_ID) List<String> paths)
             throws ServiceLayerException {
         List<String> toRet = dependencyServiceInternal.getSoftDependencies(siteId, paths);
         toRet.removeAll(paths);
@@ -62,14 +64,14 @@ public class DependencyServiceImpl implements DependencyService {
     }
 
     @Override
-    @HasPermission(type = DefaultPermission.class, action = ACTION_DELETE_CONTENT)
+    @HasPermission(type = DefaultPermission.class, action = PERMISSION_CONTENT_DELETE)
     public List<String> getDependentItems(@ProtectedResourceId(SITE_ID_RESOURCE_ID) String siteId,
                                           @ProtectedResourceId(PATH_RESOURCE_ID) String path) {
         return dependencyServiceInternal.getDependentItems(siteId, path);
     }
 
     @Override
-    @HasPermission(type = CompositePermission.class, action = ACTION_DELETE_CONTENT)
+    @HasPermission(type = CompositePermission.class, action = PERMISSION_CONTENT_DELETE)
     public List<String> getDependentItems(@ProtectedResourceId(SITE_ID_RESOURCE_ID) String siteId,
                                           @ProtectedResourceId(PATH_LIST_RESOURCE_ID) List<String> paths) {
         return dependencyServiceInternal.getDependentItems(siteId, paths);

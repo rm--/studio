@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -16,11 +16,12 @@
 
 package org.craftercms.studio.impl.v2.upgrade.operations.plugin;
 
+import java.beans.ConstructorProperties;
 import java.util.Arrays;
 
+import org.craftercms.commons.plugin.PluginDescriptorReader;
 import org.craftercms.commons.plugin.model.Asset;
 import org.craftercms.commons.plugin.model.BlueprintDescriptor;
-import org.craftercms.commons.plugin.model.Build;
 import org.craftercms.commons.plugin.model.Contact;
 import org.craftercms.commons.plugin.model.CrafterCmsEditions;
 import org.craftercms.commons.plugin.model.Developer;
@@ -29,6 +30,7 @@ import org.craftercms.commons.plugin.model.Media;
 import org.craftercms.commons.plugin.model.Plugin;
 import org.craftercms.commons.plugin.model.PluginDescriptor;
 import org.craftercms.commons.plugin.model.Version;
+import org.craftercms.studio.api.v2.utils.StudioConfiguration;
 
 import static java.util.Collections.singletonList;
 import static java.util.Objects.nonNull;
@@ -40,6 +42,12 @@ import static org.craftercms.commons.plugin.model.PluginTypes.BLUEPRINT;
  * @author joseross
  */
 public class DescriptorV2UpgradeOperation extends AbstractPluginDescriptorUpgradeOperation {
+
+    @ConstructorProperties({"studioConfiguration", "descriptorReader"})
+    public DescriptorV2UpgradeOperation(StudioConfiguration studioConfiguration,
+                                        PluginDescriptorReader descriptorReader) {
+        super(studioConfiguration, descriptorReader);
+    }
 
     @Override
     @SuppressWarnings("deprecation")
@@ -59,11 +67,6 @@ public class DescriptorV2UpgradeOperation extends AbstractPluginDescriptorUpgrad
         pluginVersion.setMinor(blueprint.getVersion().getMinor());
         pluginVersion.setPatch(blueprint.getVersion().getPatch());
         plugin.setVersion(pluginVersion);
-
-        Build build = new Build();
-        build.setId(blueprint.getBuild().getId());
-        build.setDate(blueprint.getBuild().getDate());
-        plugin.setBuild(build);
 
         Link license = new Link();
         license.setName(blueprint.getLicense().getName());

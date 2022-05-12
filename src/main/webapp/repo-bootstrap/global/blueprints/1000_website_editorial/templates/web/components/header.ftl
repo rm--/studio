@@ -1,17 +1,20 @@
-<#import "/templates/system/common/cstudio-support.ftl" as studio />
-<header id="header" <@studio.componentAttr component=contentModel ice=true iceGroup="header"/>>
-    <a href="/" class="logo"><img border="0" alt="${contentModel.logo_text_t!""}" src="${contentModel.logo_s!""}">
-        <#if (authToken.principal)??>
-            <#assign name = authToken.principal.attributes.name!"stranger" />            
-        <#else>
-            <#assign name = "stranger" />
-        </#if>
-        Howdy, ${name}
-    </a>
+<#import "/templates/system/common/crafter.ftl" as crafter />
 
-    <ul class="icons">
-    <#list contentModel.social_media_links_o.item as item>
-        <li><a href="${item.url_s}" class="icon ${item.social_media_s}"></a></li>
-    </#list>
-    </ul>
-</header>
+<@crafter.header id="header">
+  <a href="/" class="logo">
+    <#--
+    TODO/FYI For docs...
+    While using the macro, for whatever reason, doing src=(contentModel.logo_s!"") works
+    but doing src="${contentModel.logo_text_t!""}" doesn't. Inversely on loops, $index="${item?index}"
+    works whilst  $index=(item?index) doesn't.
+    -->
+    <@crafter.img $field="logo_s,logo_text_t" src=(contentModel.logo_s!"") alt=(contentModel.logo_text_t!"") border=0 />
+    <#if profile??>
+      <#assign name = profile.attributes.name!"stranger" />
+    <#else>
+      <#assign name = "stranger" />
+    </#if>
+    Howdy, ${name}
+  </a>
+  <@crafter.renderComponentCollection $field="socialMediaWidget_o" />
+</@crafter.header>

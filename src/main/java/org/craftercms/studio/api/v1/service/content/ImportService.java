@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2020 Crafter Software Corporation. All Rights Reserved.
+ * Copyright (C) 2007-2022 Crafter Software Corporation. All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3 as published by
@@ -16,9 +16,11 @@
 
 package org.craftercms.studio.api.v1.service.content;
 
-import org.craftercms.studio.api.v1.exception.SiteNotFoundException;
+import org.craftercms.commons.validation.ValidationException;
+import org.craftercms.studio.api.v1.exception.ServiceLayerException;
+import org.craftercms.studio.api.v1.exception.security.UserNotFoundException;
 
 public interface ImportService {
 
-    void importSite(String configLocation) throws SiteNotFoundException;
+    void importSite(String configLocation) throws ServiceLayerException, ValidationException, UserNotFoundException;
 }
