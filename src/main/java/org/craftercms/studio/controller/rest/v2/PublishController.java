@@ -41,6 +41,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.validation.Valid;
+import javax.validation.constraints.NotEmpty;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -79,7 +81,7 @@ public class PublishController {
     private SitesService sitesService;
 
     @GetMapping(PACKAGES)
-    public ResponseBody getPublishingPackages(@RequestParam(name = REQUEST_PARAM_SITEID, required = true) String siteId,
+    public ResponseBody getPublishingPackages(@RequestParam(name = REQUEST_PARAM_SITEID) String siteId,
                                               @RequestParam(name = REQUEST_PARAM_ENVIRONMENT, required = false)
                                                       String environment,
                                               @RequestParam(name = REQUEST_PARAM_PATH, required = false) String path,
@@ -93,13 +95,13 @@ public class PublishController {
             throw new SiteNotFoundException(siteId);
         }
         int total = publishService.getPublishingPackagesTotal(siteId, environment, path, states);
-        List<PublishingPackage> packages = new ArrayList<PublishingPackage>();
+        List<PublishingPackage> packages = new ArrayList<>();
         if (total > 0) {
             packages = publishService.getPublishingPackages(siteId, environment, path, states, offset, limit);
         }
 
         ResponseBody responseBody = new ResponseBody();
-        PaginatedResultList<PublishingPackage> result = new PaginatedResultList<PublishingPackage>();
+        PaginatedResultList<PublishingPackage> result = new PaginatedResultList<>();
         result.setTotal(total);
         result.setOffset(offset);
         result.setLimit(CollectionUtils.isEmpty(packages) ? 0 : packages.size());
@@ -119,7 +121,7 @@ public class PublishController {
         PublishingPackageDetails publishingPackageDetails =
                 publishService.getPublishingPackageDetails(siteId, packageId);
         ResponseBody responseBody = new ResponseBody();
-        ResultOne<PublishingPackageDetails> result = new ResultOne<PublishingPackageDetails>();
+        ResultOne<PublishingPackageDetails> result = new ResultOne<>();
         result.setEntity(RESULT_KEY_PACKAGE, publishingPackageDetails);
         result.setResponse(OK);
         responseBody.setResult(result);
@@ -150,7 +152,7 @@ public class PublishController {
         }
         PublishStatus status = sitesService.getPublishingStatus(siteId);
         ResponseBody responseBody = new ResponseBody();
-        ResultOne<PublishStatus> result = new ResultOne<PublishStatus>();
+        ResultOne<PublishStatus> result = new ResultOne<>();
         result.setEntity(RESULT_KEY_PUBLISH_STATUS, status);
         result.setResponse(OK);
         responseBody.setResult(result);
@@ -213,27 +215,60 @@ public class PublishController {
         return responseBody;
     }
 
-    public PublishService getPublishService() {
-        return publishService;
+    @PostMapping("/all")
+    public ResponseBody publishAll(@Valid @RequestBody PublishAllRequest request)
+            throws ServiceLayerException, UserNotFoundException {
+        publishService.publishAll(request.getSiteId(), request.getPublishingTarget(), request.getSubmissionComment());
+
+        Result result = new Result();
+        result.setResponse(OK);
+        ResponseBody body = new ResponseBody();
+        body.setResult(result);
+        return body;
     }
 
     public void setPublishService(PublishService publishService) {
         this.publishService = publishService;
     }
 
-    public SiteService getSiteService() {
-        return siteService;
-    }
-
     public void setSiteService(SiteService siteService) {
         this.siteService = siteService;
-    }
-
-    public SitesService getSitesService() {
-        return sitesService;
     }
 
     public void setSitesService(SitesService sitesService) {
         this.sitesService = sitesService;
     }
+
+    public static class PublishAllRequest {
+        @NotEmpty
+        protected String siteId;
+        @NotEmpty
+        protected String publishingTarget;
+        protected String submissionComment;
+
+        public String getSiteId() {
+            return siteId;
+        }
+
+        public void setSiteId(String siteId) {
+            this.siteId = siteId;
+        }
+
+        public String getPublishingTarget() {
+            return publishingTarget;
+        }
+
+        public void setPublishingTarget(String publishingTarget) {
+            this.publishingTarget = publishingTarget;
+        }
+
+        public String getSubmissionComment() {
+            return submissionComment;
+        }
+
+        public void setSubmissionComment(String submissionComment) {
+            this.submissionComment = submissionComment;
+        }
+    }
+
 }

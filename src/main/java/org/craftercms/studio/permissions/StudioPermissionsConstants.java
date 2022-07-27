@@ -77,6 +77,10 @@ public final class StudioPermissionsConstants {
     public static final String PERMISSION_REMOVE_PLUGINS = "remove_plugins";
     public static final String PERMISSION_ITEM_UNLOCK = "item_unlock";
 
+    public static final String PERMISSION_CONTENT_SEARCH = "content_search";
+
+    public static final String PERMISSION_VIEW_LOGS = "view_logs";
+
     private StudioPermissionsConstants() {
     }
 }

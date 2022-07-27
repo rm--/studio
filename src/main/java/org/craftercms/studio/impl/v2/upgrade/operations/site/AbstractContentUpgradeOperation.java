@@ -16,14 +16,12 @@
 
 package org.craftercms.studio.impl.v2.upgrade.operations.site;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.LinkedList;
 import java.util.List;
@@ -31,6 +29,7 @@ import java.util.List;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.configuration2.HierarchicalConfiguration;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.craftercms.commons.lang.RegexUtils;
 import org.craftercms.commons.upgrade.exception.UpgradeException;
 import org.craftercms.studio.api.v1.log.Logger;
@@ -38,6 +37,10 @@ import org.craftercms.studio.api.v1.log.LoggerFactory;
 import org.craftercms.studio.api.v2.utils.StudioConfiguration;
 import org.craftercms.studio.impl.v2.upgrade.StudioUpgradeContext;
 import org.craftercms.studio.impl.v2.upgrade.operations.AbstractUpgradeOperation;
+
+import static java.util.Collections.singletonList;
+import static org.apache.commons.collections4.CollectionUtils.isEmpty;
+import static org.apache.commons.lang3.StringUtils.removeStart;
 
 /**
  * Base implementation of {@link org.craftercms.commons.upgrade.UpgradeOperation} for all site content upgrades
@@ -74,6 +77,12 @@ public abstract class AbstractContentUpgradeOperation extends AbstractUpgradeOpe
         var site = context.getTarget();
         try {
             List<Path> includedPaths = findIncludedPaths(context);
+            // This is required to support upgrades in config pipelines
+            if (isEmpty(includedPaths) && StringUtils.isNotEmpty(context.getCurrentConfigPath())) {
+                Path repo = context.getRepositoryPath(); //TODO: Check if parent is needed
+                includedPaths = singletonList(repo.resolve(removeStart(context.getCurrentConfigPath(), //TODO: Check if path is ok
+                        File.separator)));
+            }
             List<Path> filteredPaths = filterPaths(context, includedPaths);
             if (CollectionUtils.isNotEmpty(filteredPaths)) {
                 for (Path file : filteredPaths) {

@@ -13,27 +13,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 package org.craftercms.studio.model.rest.content;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 import javax.validation.constraints.NotEmpty;
-import java.util.List;
 
-/**
- * Holds data for the getSandboxItemsById request
- *
- * @author joseross
- * @since 4.0
- */
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class GetSandboxItemsByIdRequestBody {
+public class RenameRequestBody {
 
     @NotEmpty
     private String siteId;
     @NotEmpty
-    private List<Long> ids;
-    private boolean preferContent;
+    private String path;
+    @NotEmpty
+    private String name;
 
     public String getSiteId() {
         return siteId;
@@ -43,19 +35,19 @@ public class GetSandboxItemsByIdRequestBody {
         this.siteId = siteId;
     }
 
-    public List<Long> getIds() {
-        return ids;
+    public String getPath() {
+        return path;
     }
 
-    public void setIds(List<Long> ids) {
-        this.ids = ids;
+    public void setPath(String path) {
+        this.path = path;
     }
 
-    public boolean isPreferContent() {
-        return preferContent;
+    public String getName() {
+        return name;
     }
 
-    public void setPreferContent(boolean preferContent) {
-        this.preferContent = preferContent;
+    public void setName(String name) {
+        this.name = name;
     }
 }

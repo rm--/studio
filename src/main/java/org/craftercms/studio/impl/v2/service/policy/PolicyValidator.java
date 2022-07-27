@@ -16,8 +16,8 @@
 package org.craftercms.studio.impl.v2.service.policy;
 
 import org.apache.commons.configuration2.HierarchicalConfiguration;
-import org.craftercms.studio.api.v2.exception.validation.ValidationException;
 import org.craftercms.studio.model.policy.Action;
+import org.craftercms.studio.model.policy.ValidationResult;
 
 /**
  * Validates actions against the given configuration
@@ -30,10 +30,10 @@ public interface PolicyValidator {
     /**
      * Performs the validation of an action
      *
-     * @param config the policy configuration
+     * @param permittedConfig the permitted policy configuration
+     * @param deniedConfig the denied policy configuration
      * @param action the action to validate
-     * @throws ValidationException if the validation fails
+     * @param result result of the validation. Implementing methods should update status accordingly
      */
-    void validate(HierarchicalConfiguration<?> config, Action action) throws ValidationException;
-
+    void validate(HierarchicalConfiguration<?> permittedConfig, HierarchicalConfiguration<?> deniedConfig, Action action, ValidationResult result);
 }

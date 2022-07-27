@@ -149,4 +149,15 @@ public interface PublishService {
      * @return true if site has been published at least once, otherwise false
      */
     boolean isSitePublished(String siteId);
+
+    /**
+     * Publishes all changes for the given site & target
+     *
+     * @param siteId the id of the site
+     * @param publishingTarget the publishing target
+     * @param comment submission comment
+     * @throws ServiceLayerException if there is any error during publishing
+     */
+    void publishAll(String siteId, String publishingTarget, String comment) throws ServiceLayerException, UserNotFoundException;
+
 }

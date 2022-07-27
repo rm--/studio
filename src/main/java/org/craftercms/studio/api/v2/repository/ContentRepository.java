@@ -31,8 +31,10 @@ import org.craftercms.studio.api.v2.dal.GitLog;
 import org.craftercms.studio.api.v2.dal.PublishingHistoryItem;
 import org.craftercms.studio.api.v2.dal.RepoOperation;
 import org.craftercms.studio.model.rest.content.DetailedItem;
+import org.eclipse.jgit.api.errors.GitAPIException;
 import org.springframework.core.io.Resource;
 
+import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
@@ -144,10 +146,11 @@ public interface ContentRepository {
      * @param siteId site identifier
      * @param sandboxBranch sandbox branch name
      * @param params site parameters
+     * @param creator site creator
      * @return true if successful, false otherwise
      */
     boolean createSiteFromBlueprint(String blueprintLocation, String siteId, String sandboxBranch,
-                                    Map<String, String> params);
+                                    Map<String, String> params, String creator);
 
     /**
      * Publish content to specified environment.
@@ -206,7 +209,7 @@ public interface ContentRepository {
      * @param remotePrivateKey remote private key
      * @param params         site parameters
      * @param createAsOrphan create as orphan
-     *
+     * @param creator        site creator
      * @return true if success
      *
      * @throws InvalidRemoteRepositoryException invalid remote repository
@@ -218,7 +221,8 @@ public interface ContentRepository {
     boolean createSiteCloneRemote(String siteId, String sandboxBranch, String remoteName, String remoteUrl,
                                   String remoteBranch, boolean singleBranch, String authenticationType,
                                   String remoteUsername, String remotePassword, String remoteToken,
-                                  String remotePrivateKey, Map<String, String> params, boolean createAsOrphan)
+                                  String remotePrivateKey, Map<String, String> params, boolean createAsOrphan,
+                                  String creator)
             throws InvalidRemoteRepositoryException, InvalidRemoteRepositoryCredentialsException,
             RemoteRepositoryNotFoundException, InvalidRemoteUrlException, ServiceLayerException;
 
@@ -392,4 +396,54 @@ public interface ContentRepository {
      * @param siteId site identifier
      */
     void initialPublish(String siteId) throws SiteNotFoundException;
+
+    /**
+     * Publishes all changes for the given site & target
+     *
+     * @param siteId the id of the site
+     * @param publishingTarget the publishing target
+     * @param comment submission comment
+     */
+    RepositoryChanges publishAll(String siteId, String publishingTarget, String comment) throws ServiceLayerException;
+
+    /**
+     * Prepares the repository to publish all changes for the given site & target
+     *
+     * @param siteId the id of the site
+     * @param publishingTarget the publishing target
+     * @return the set of changed files
+     * @throws ServiceLayerException if there is any error during the preparation
+     */
+    RepositoryChanges preparePublishAll(String siteId, String publishingTarget) throws ServiceLayerException;
+
+    /**
+     * Performs the actual publish of all changes for the given site & target
+     *
+     * @param siteId the id of the site
+     * @param publishingTarget the publishing target
+     * @param changes the set of changed files
+     * @param comment submission comment
+     * @throws ServiceLayerException if there is any error during publishing
+     */
+    void completePublishAll(String siteId, String publishingTarget, RepositoryChanges changes, String comment)
+            throws ServiceLayerException;
+
+    /**
+     * Performs the cleanup after a failed publish all operation for the given site & target
+     *
+     * @param siteId the id of the site
+     * @param publishingTarget the publishing target
+     * @throws ServiceLayerException if there is any error during cleanup
+     */
+    void cancelPublishAll(String siteId, String publishingTarget) throws ServiceLayerException;
+
+    /**
+     * Populates the full git log of the sandbox repository into the database
+     *
+     * @param siteId the id of the site
+     * @throws GitAPIException if there is any error reading the git log
+     * @throws IOException if there is any error executing the db script
+     */
+    void populateGitLog(String siteId) throws GitAPIException, IOException;
+
 }

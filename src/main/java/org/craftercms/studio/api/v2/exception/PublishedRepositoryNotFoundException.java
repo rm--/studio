@@ -14,31 +14,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package org.craftercms.studio.model.rest.content;
 
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.Positive;
+package org.craftercms.studio.api.v2.exception;
 
-public class LockItemByIdRequest {
+import org.craftercms.studio.api.v1.exception.ServiceLayerException;
 
-    @NotEmpty
-    private String siteId;
-    @Positive
-    private Long itemId;
+/**
+ * Extension of {@link ServiceLayerException} thrown when a site doesn't have a published repository
+ *
+ * @author joseross
+ * @since 3.1.24
+ */
+public class PublishedRepositoryNotFoundException extends ServiceLayerException {
 
-    public String getSiteId() {
-        return siteId;
+    public PublishedRepositoryNotFoundException(String message) {
+        super(message);
     }
 
-    public void setSiteId(String siteId) {
-        this.siteId = siteId;
+    public PublishedRepositoryNotFoundException(String message, Exception e) {
+        super(message, e);
     }
 
-    public Long getItemId() {
-        return itemId;
-    }
-
-    public void setItemId(Long itemId) {
-        this.itemId = itemId;
-    }
 }
